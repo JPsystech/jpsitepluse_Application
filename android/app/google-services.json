@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "308171284598",
+    "project_id": "jp-siteplus",
+    "storage_bucket": "jp-siteplus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:308171284598:android:4e961f0852555241993f57",
+        "android_client_info": {
+          "package_name": "com.example.sitepulse_engineer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnZsv2EV3GS5rTVbse5OKwt9jjBMwjNAs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

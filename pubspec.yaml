@@ -1,0 +1,35 @@
+name: sitepulse_engineer
+description: JP SitePulse Engineer App
+publish_to: none
+version: 1.0.0+3
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_picker: ^8.1.7
+  geolocator: ^13.0.1
+  http: ^1.2.2
+  http_parser: ^4.1.2
+  image_picker: ^1.1.2
+  open_filex: ^4.6.0
+  path_provider: ^2.1.4
+  share_plus: ^10.1.4
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/JP_SitePlus.png"
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
