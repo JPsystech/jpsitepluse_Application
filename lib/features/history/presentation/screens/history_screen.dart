@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:sitepulse_engineer/core/theme/app_theme.dart';
+import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/core/utils/formatters.dart';
 import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
@@ -24,9 +24,11 @@ class HistoryScreen extends StatelessWidget {
     return BlocProvider(
       create: (_) {
         final now = IstTime.now();
-        final month = "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
+        final month =
+            "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
         return HistoryBloc()
-          ..add(LoadHistoryFiltersRequested(sessionToken: sessionToken, month: month))
+          ..add(LoadHistoryFiltersRequested(
+              sessionToken: sessionToken, month: month))
           ..add(LoadHistoryRequested(sessionToken: sessionToken, month: month));
       },
       child: _HistoryView(sessionToken: sessionToken),
@@ -55,7 +57,8 @@ class _HistoryViewState extends State<_HistoryView> {
   void initState() {
     super.initState();
     final now = IstTime.now();
-    month = "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
+    month =
+        "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
     startDateCtrl = TextEditingController(text: "");
     endDateCtrl = TextEditingController(text: "");
   }
@@ -116,7 +119,11 @@ class _HistoryViewState extends State<_HistoryView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text("Download Timesheet PDF", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                const Text("Download Timesheet PDF",
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2)),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -124,7 +131,9 @@ class _HistoryViewState extends State<_HistoryView> {
                   child: OutlinedButton.icon(
                     onPressed: () => Navigator.of(ctx).pop(false),
                     icon: const Icon(Icons.download_outlined, size: 18),
-                    label: const Text("Export All", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    label: const Text("Export All",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -134,7 +143,9 @@ class _HistoryViewState extends State<_HistoryView> {
                   child: ElevatedButton.icon(
                     onPressed: () => Navigator.of(ctx).pop(true),
                     icon: const Icon(Icons.filter_alt_outlined, size: 18),
-                    label: const Text("Export Filtered", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    label: const Text("Export Filtered",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800)),
                   ),
                 ),
               ],
@@ -159,9 +170,16 @@ class _HistoryViewState extends State<_HistoryView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text("Timesheet PDF saved", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                const Text("Timesheet PDF saved",
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2)),
                 const SizedBox(height: 6),
-                Text(fileName, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700)),
+                Text(fileName,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 14),
                 PrimaryButton(
                   label: "Open PDF",
@@ -177,11 +195,14 @@ class _HistoryViewState extends State<_HistoryView> {
                   icon: Icons.share_outlined,
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    await Share.shareXFiles([XFile(filePath)], text: "My Timesheet PDF");
+                    await Share.shareXFiles([XFile(filePath)],
+                        text: "My Timesheet PDF");
                   },
                 ),
                 const SizedBox(height: 8),
-                TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text("Close")),
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text("Close")),
               ],
             ),
           ),
@@ -199,7 +220,8 @@ class _HistoryViewState extends State<_HistoryView> {
       lastDate: DateTime(now.year + 1, 12, 31),
     );
     if (picked == null) return;
-    final v = "${picked.year.toString().padLeft(4, "0")}-${picked.month.toString().padLeft(2, "0")}-${picked.day.toString().padLeft(2, "0")}";
+    final v =
+        "${picked.year.toString().padLeft(4, "0")}-${picked.month.toString().padLeft(2, "0")}-${picked.day.toString().padLeft(2, "0")}";
     setState(() {
       if (isStart) {
         startDateCtrl.text = v;
@@ -216,7 +238,8 @@ class _HistoryViewState extends State<_HistoryView> {
     final out = <String>[];
     for (var i = 0; i < 12; i++) {
       final d = DateTime(now.year, now.month - i, 1);
-      out.add("${d.year.toString().padLeft(4, "0")}-${d.month.toString().padLeft(2, "0")}");
+      out.add(
+          "${d.year.toString().padLeft(4, "0")}-${d.month.toString().padLeft(2, "0")}");
     }
     return out;
   }
@@ -228,38 +251,49 @@ class _HistoryViewState extends State<_HistoryView> {
     return BlocConsumer<HistoryBloc, HistoryState>(
       listener: (context, state) {
         if (state.status == HistoryStatus.downloadSuccess) {
-          if (state.downloadedFileName != null && state.downloadedFilePath != null) {
-            _showPdfBottomSheet(state.downloadedFileName!, state.downloadedFilePath!);
+          if (state.downloadedFileName != null &&
+              state.downloadedFilePath != null) {
+            _showPdfBottomSheet(
+                state.downloadedFileName!, state.downloadedFilePath!);
           }
         } else if (state.status == HistoryStatus.downloadError) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.errorMessage)));
         } else if (state.status == HistoryStatus.filtersError) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to load filters: ${state.errorMessage}")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text("Failed to load filters: ${state.errorMessage}")));
         }
       },
       builder: (context, state) {
-        final isLoading = state.status == HistoryStatus.loading || state.status == HistoryStatus.initial;
+        final isLoading = state.status == HistoryStatus.loading ||
+            state.status == HistoryStatus.initial;
         final isOptionsLoading = state.status == HistoryStatus.filtersLoading;
         final isExporting = state.status == HistoryStatus.downloading;
         final data = state.data;
         final items = data?.items ?? const <EngineerTimesheetRow>[];
-        final error = state.status == HistoryStatus.error ? state.errorMessage : null;
-        
+        final error =
+            state.status == HistoryStatus.error ? state.errorMessage : null;
+
         final clientOptions = state.clientOptions;
         final projectOptions = state.projectOptions;
         final siteOptions = state.siteOptions;
-        
+
         if (!clientOptions.contains(selectedClient)) selectedClient = null;
-        if (selectedClient == null && clientOptions.length == 1) selectedClient = clientOptions.first;
+        if (selectedClient == null && clientOptions.length == 1)
+          selectedClient = clientOptions.first;
 
         if (!projectOptions.contains(selectedProject)) selectedProject = null;
-        if (selectedProject == null && projectOptions.length == 1) selectedProject = projectOptions.first;
+        if (selectedProject == null && projectOptions.length == 1)
+          selectedProject = projectOptions.first;
 
         if (!siteOptions.contains(selectedSite)) selectedSite = null;
-        if (selectedSite == null && siteOptions.length == 1) selectedSite = siteOptions.first;
+        if (selectedSite == null && siteOptions.length == 1)
+          selectedSite = siteOptions.first;
 
         return Scaffold(
-          appBar: AppBar(automaticallyImplyLeading: false, title: const Text("My Timesheet")),
+          appBar: AppBar(
+              automaticallyImplyLeading: false,
+              title: const Text("My Timesheet")),
           body: SafeArea(
             child: ListView(
               padding: const EdgeInsets.all(18),
@@ -267,7 +301,9 @@ class _HistoryViewState extends State<_HistoryView> {
                 Row(
                   children: [
                     const Expanded(child: SectionHeader(title: "My Timesheet")),
-                    IconButton(onPressed: isLoading ? null : _load, icon: const Icon(Icons.refresh)),
+                    IconButton(
+                        onPressed: isLoading ? null : _load,
+                        icon: const Icon(Icons.refresh)),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -277,15 +313,24 @@ class _HistoryViewState extends State<_HistoryView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Filters", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                        const Text("Filters",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.2)),
                         const SizedBox(height: 10),
                         Row(
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<String>(
                                 value: month.trim().isEmpty ? null : month,
-                                decoration: const InputDecoration(isDense: true, labelText: "Month", border: OutlineInputBorder()),
-                                items: _monthOptions().map((m) => DropdownMenuItem<String>(value: m, child: Text(m))).toList(growable: false),
+                                decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: "Month",
+                                    border: OutlineInputBorder()),
+                                items: _monthOptions()
+                                    .map((m) => DropdownMenuItem<String>(
+                                        value: m, child: Text(m)))
+                                    .toList(growable: false),
                                 onChanged: isOptionsLoading
                                     ? null
                                     : (v) {
@@ -304,7 +349,10 @@ class _HistoryViewState extends State<_HistoryView> {
                             Expanded(
                               child: TextFormField(
                                 readOnly: true,
-                                decoration: const InputDecoration(isDense: true, labelText: "Start date", border: OutlineInputBorder()),
+                                decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: "Start date",
+                                    border: OutlineInputBorder()),
                                 controller: startDateCtrl,
                                 onTap: () => _pickDate(isStart: true),
                               ),
@@ -317,7 +365,10 @@ class _HistoryViewState extends State<_HistoryView> {
                             Expanded(
                               child: TextFormField(
                                 readOnly: true,
-                                decoration: const InputDecoration(isDense: true, labelText: "End date", border: OutlineInputBorder()),
+                                decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: "End date",
+                                    border: OutlineInputBorder()),
                                 controller: endDateCtrl,
                                 onTap: () => _pickDate(isStart: false),
                               ),
@@ -327,22 +378,37 @@ class _HistoryViewState extends State<_HistoryView> {
                               child: DropdownButtonFormField<String>(
                                 value: selectedClient,
                                 isExpanded: true,
-                                decoration: const InputDecoration(isDense: true, labelText: "Client", border: OutlineInputBorder()),
+                                decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: "Client",
+                                    border: OutlineInputBorder()),
                                 items: [
                                   const DropdownMenuItem<String>(
                                     value: null,
-                                    child: SizedBox(width: double.infinity, child: Text("All", maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                    child: SizedBox(
+                                        width: double.infinity,
+                                        child: Text("All",
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
                                   ),
                                   ...clientOptions.map(
                                     (c) => DropdownMenuItem<String>(
                                       value: c,
-                                      child: SizedBox(width: double.infinity, child: Text(c, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                      child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(c,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis)),
                                     ),
                                   ),
                                 ],
                                 selectedItemBuilder: (context) => [
-                                  const Text("All", maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ...clientOptions.map((c) => Text(c, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                  const Text("All",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  ...clientOptions.map((c) => Text(c,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis)),
                                 ],
                                 onChanged: isOptionsLoading
                                     ? null
@@ -365,22 +431,37 @@ class _HistoryViewState extends State<_HistoryView> {
                               child: DropdownButtonFormField<String>(
                                 value: selectedProject,
                                 isExpanded: true,
-                                decoration: const InputDecoration(isDense: true, labelText: "Project", border: OutlineInputBorder()),
+                                decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: "Project",
+                                    border: OutlineInputBorder()),
                                 items: [
                                   const DropdownMenuItem<String>(
                                     value: null,
-                                    child: SizedBox(width: double.infinity, child: Text("All", maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                    child: SizedBox(
+                                        width: double.infinity,
+                                        child: Text("All",
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
                                   ),
                                   ...projectOptions.map(
                                     (p) => DropdownMenuItem<String>(
                                       value: p,
-                                      child: SizedBox(width: double.infinity, child: Text(p, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                      child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(p,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis)),
                                     ),
                                   ),
                                 ],
                                 selectedItemBuilder: (context) => [
-                                  const Text("All", maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ...projectOptions.map((p) => Text(p, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                  const Text("All",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  ...projectOptions.map((p) => Text(p,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis)),
                                 ],
                                 onChanged: isOptionsLoading
                                     ? null
@@ -398,24 +479,41 @@ class _HistoryViewState extends State<_HistoryView> {
                               child: DropdownButtonFormField<String>(
                                 value: selectedSite,
                                 isExpanded: true,
-                                decoration: const InputDecoration(isDense: true, labelText: "Site", border: OutlineInputBorder()),
+                                decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: "Site",
+                                    border: OutlineInputBorder()),
                                 items: [
                                   const DropdownMenuItem<String>(
                                     value: null,
-                                    child: SizedBox(width: double.infinity, child: Text("All", maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                    child: SizedBox(
+                                        width: double.infinity,
+                                        child: Text("All",
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
                                   ),
                                   ...siteOptions.map(
                                     (s) => DropdownMenuItem<String>(
                                       value: s,
-                                      child: SizedBox(width: double.infinity, child: Text(s, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                      child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(s,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis)),
                                     ),
                                   ),
                                 ],
                                 selectedItemBuilder: (context) => [
-                                  const Text("All", maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ...siteOptions.map((s) => Text(s, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                  const Text("All",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  ...siteOptions.map((s) => Text(s,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis)),
                                 ],
-                                onChanged: isOptionsLoading ? null : (v) => setState(() => selectedSite = v),
+                                onChanged: isOptionsLoading
+                                    ? null
+                                    : (v) => setState(() => selectedSite = v),
                               ),
                             ),
                           ],
@@ -426,7 +524,9 @@ class _HistoryViewState extends State<_HistoryView> {
                             Expanded(
                               child: PrimaryButton(
                                 label: "Apply",
-                                onPressed: isLoading || isOptionsLoading ? null : _load,
+                                onPressed: isLoading || isOptionsLoading
+                                    ? null
+                                    : _load,
                                 icon: Icons.filter_alt_outlined,
                               ),
                             ),
@@ -441,7 +541,8 @@ class _HistoryViewState extends State<_HistoryView> {
                                       : () {
                                           final now = IstTime.now();
                                           setState(() {
-                                            month = "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
+                                            month =
+                                                "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
                                             startDateCtrl.text = "";
                                             endDateCtrl.text = "";
                                             selectedClient = null;
@@ -452,12 +553,21 @@ class _HistoryViewState extends State<_HistoryView> {
                                           _load();
                                         },
                                   style: OutlinedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    side: BorderSide(color: AppTheme.border),
-                                    foregroundColor: AppTheme.navy,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(16)),
+                                    side: BorderSide(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .outline),
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.onSurface,
                                   ),
                                   icon: const Icon(Icons.refresh, size: 18),
-                                  label: const Text("Reset", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                                  label: const Text("Reset",
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700)),
                                 ),
                               ),
                             ),
@@ -474,8 +584,14 @@ class _HistoryViewState extends State<_HistoryView> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: AppTheme.softShadow,
-                      border: Border.all(color: AppTheme.navy.withAlpha(8)),
+                      boxShadow: Theme.of(context)
+                          .extension<AppColorsExtension>()!
+                          .softShadow,
+                      border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withAlpha(8)),
                     ),
                     child: Row(
                       children: [
@@ -483,21 +599,51 @@ class _HistoryViewState extends State<_HistoryView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text("Present Days", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800, fontSize: 13)),
+                              Text("Present Days",
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13)),
                               const SizedBox(height: 4),
-                              Text("${data.totalPresentDays}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.navy)),
+                              Text("${data.totalPresentDays}",
+                                  style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface)),
                             ],
                           ),
                         ),
-                        Container(width: 1, height: 40, color: AppTheme.border.withAlpha(100)),
+                        Container(
+                            width: 1,
+                            height: 40,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withAlpha(100)),
                         const SizedBox(width: 20),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text("Total Hours", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800, fontSize: 13)),
+                              Text("Total Hours",
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13)),
                               const SizedBox(height: 4),
-                              Text(AppFormatters.formatHours(data.totalHours), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.navy)),
+                              Text(AppFormatters.formatHours(data.totalHours),
+                                  style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface)),
                             ],
                           ),
                         ),
@@ -506,7 +652,8 @@ class _HistoryViewState extends State<_HistoryView> {
                   ),
                   const SizedBox(height: 12),
                   PrimaryButton(
-                    label: isExporting ? "Generating PDF..." : "Download Report",
+                    label:
+                        isExporting ? "Generating PDF..." : "Download Report",
                     onPressed: isLoading || isExporting ? null : _exportPdf,
                     icon: Icons.file_download_outlined,
                     isLoading: isExporting,
@@ -514,11 +661,14 @@ class _HistoryViewState extends State<_HistoryView> {
                 ],
                 if (isLoading) ...[
                   const SizedBox(height: 16),
-                  const ShimmerBox(width: double.infinity, height: 100, borderRadius: 24),
+                  const ShimmerBox(
+                      width: double.infinity, height: 100, borderRadius: 24),
                   const SizedBox(height: 16),
-                  const ShimmerBox(width: double.infinity, height: 120, borderRadius: 24),
+                  const ShimmerBox(
+                      width: double.infinity, height: 120, borderRadius: 24),
                   const SizedBox(height: 16),
-                  const ShimmerBox(width: double.infinity, height: 120, borderRadius: 24),
+                  const ShimmerBox(
+                      width: double.infinity, height: 120, borderRadius: 24),
                 ],
                 if (error != null) ...[
                   const SizedBox(height: 14),
@@ -527,17 +677,31 @@ class _HistoryViewState extends State<_HistoryView> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: AppTheme.softShadow,
-                      border: Border.all(color: AppTheme.navy.withAlpha(8)),
+                      boxShadow: Theme.of(context)
+                          .extension<AppColorsExtension>()!
+                          .softShadow,
+                      border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withAlpha(8)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Failed to load records", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                        const Text("Failed to load records",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 18)),
                         const SizedBox(height: 10),
-                        Text(error, style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600)),
+                        Text(error,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontWeight: FontWeight.w600)),
                         const SizedBox(height: 16),
-                        PrimaryButton(label: "Retry", onPressed: _load, icon: Icons.refresh),
+                        PrimaryButton(
+                            label: "Retry",
+                            onPressed: _load,
+                            icon: Icons.refresh),
                       ],
                     ),
                   ),
@@ -548,17 +712,34 @@ class _HistoryViewState extends State<_HistoryView> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: AppTheme.softShadow,
-                      border: Border.all(color: AppTheme.navy.withAlpha(8)),
+                      boxShadow: Theme.of(context)
+                          .extension<AppColorsExtension>()!
+                          .softShadow,
+                      border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withAlpha(8)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Icon(Icons.history_rounded, color: AppTheme.muted, size: 32),
+                      children: [
+                        Icon(Icons.history_rounded,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            size: 32),
                         SizedBox(height: 16),
-                        Text("No records found", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                        Text("No records found",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w900)),
                         SizedBox(height: 8),
-                        Text("Your timesheet records will appear here once you punch in/out.", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600)),
+                        Text(
+                            "Your timesheet records will appear here once you punch in/out.",
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -571,9 +752,16 @@ class _HistoryViewState extends State<_HistoryView> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (ctx, idx) {
                       final row = items[idx];
-                      final mark = (row.mark ?? "").trim().isEmpty ? "-" : row.mark!.trim();
-                      final markColor = mark == "P" ? AppTheme.successBg : cs.primaryContainer;
-                      final isAutoClosed = (row.remarks ?? "").startsWith("SYSTEM_AUTO_CLOSED");
+                      final mark = (row.mark ?? "").trim().isEmpty
+                          ? "-"
+                          : row.mark!.trim();
+                      final markColor = mark == "P"
+                          ? Theme.of(context)
+                              .extension<AppColorsExtension>()!
+                              .successBg
+                          : cs.primaryContainer;
+                      final isAutoClosed =
+                          (row.remarks ?? "").startsWith("SYSTEM_AUTO_CLOSED");
                       return Card(
                         child: InkWell(
                           onTap: () {
@@ -595,55 +783,105 @@ class _HistoryViewState extends State<_HistoryView> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        AppFormatters.formatDateString(row.workDate),
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2),
+                                        AppFormatters.formatDateString(
+                                            row.workDate),
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: -0.2),
                                       ),
                                     ),
                                     StatusChip(label: mark, color: markColor),
                                     if (isAutoClosed) ...[
                                       const SizedBox(width: 8),
-                                      const StatusChip(label: "AUTO CLOSED", color: AppTheme.warningBg),
+                                      StatusChip(
+                                          label: "AUTO CLOSED",
+                                          color: Theme.of(context)
+                                              .extension<AppColorsExtension>()!
+                                              .warningBg),
                                     ],
                                   ],
                                 ),
                                 const SizedBox(height: 10),
-                                if ((row.clientName ?? "").trim().isNotEmpty) ...[
-                                  Text(row.clientName!.trim(), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                if ((row.clientName ?? "")
+                                    .trim()
+                                    .isNotEmpty) ...[
+                                  Text(row.clientName!.trim(),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 4),
                                 ],
-                                Text(row.projectName, style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                                Text(row.projectName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.2)),
                                 const SizedBox(height: 4),
-                                Text(row.siteName, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600)),
+                                Text(row.siteName,
+                                    style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                        fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const Text("Punch In", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800)),
+                                          Text("Punch In",
+                                              style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontWeight: FontWeight.w800)),
                                           const SizedBox(height: 4),
-                                          Text(AppFormatters.formatTime(row.punchInTime), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                          Text(
+                                              AppFormatters.formatTime(
+                                                  row.punchInTime),
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w900)),
                                         ],
                                       ),
                                     ),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const Text("Punch Out", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800)),
+                                          Text("Punch Out",
+                                              style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontWeight: FontWeight.w800)),
                                           const SizedBox(height: 4),
-                                          Text(AppFormatters.formatTime(row.punchOutTime), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                          Text(
+                                              AppFormatters.formatTime(
+                                                  row.punchOutTime),
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w900)),
                                         ],
                                       ),
                                     ),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const Text("Hours", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800)),
+                                          Text("Hours",
+                                              style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontWeight: FontWeight.w800)),
                                           const SizedBox(height: 4),
-                                          Text(AppFormatters.formatHours(row.totalHours), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                          Text(
+                                              AppFormatters.formatHours(
+                                                  row.totalHours),
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w900)),
                                         ],
                                       ),
                                     ),
@@ -651,15 +889,28 @@ class _HistoryViewState extends State<_HistoryView> {
                                 ),
                                 if ((row.remarks ?? "").trim().isNotEmpty) ...[
                                   const SizedBox(height: 12),
-                                  const Text("Remark", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800)),
+                                  Text("Remark",
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 4),
                                   Text(
-                                    isAutoClosed ? "Closed by system" : row.remarks!.trim(),
-                                    style: const TextStyle(fontWeight: FontWeight.w700),
+                                    isAutoClosed
+                                        ? "Closed by system"
+                                        : row.remarks!.trim(),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700),
                                   ),
                                 ],
                                 const SizedBox(height: 6),
-                                const Text("Tap to view details", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700)),
+                                Text("Tap to view details",
+                                    style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                        fontWeight: FontWeight.w700)),
                               ],
                             ),
                           ),

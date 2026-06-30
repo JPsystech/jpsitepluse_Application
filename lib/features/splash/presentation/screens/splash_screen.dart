@@ -1,7 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
 import "package:sitepulse_engineer/features/splash/presentation/bloc/splash_bloc.dart";
 
 class SplashScreen extends StatelessWidget {
@@ -18,7 +17,7 @@ class SplashScreen extends StatelessWidget {
           } else if (state is SplashError) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text("Error: ${state.errorMessage}"),
-              backgroundColor: AppTheme.danger,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ));
           }
         },
@@ -44,12 +43,15 @@ class _SplashView extends StatelessWidget {
                 width: 74,
                 height: 74,
                 decoration: BoxDecoration(
-                  color: AppTheme.sky.withValues(alpha: 0.14),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 alignment: Alignment.center,
                 child: Icon(Icons.location_on_outlined,
-                    color: AppTheme.navy, size: 34),
+                    color: Theme.of(context).colorScheme.onSurface, size: 34),
               ),
               const SizedBox(height: 18),
               const Text(

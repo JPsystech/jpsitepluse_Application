@@ -17,7 +17,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     on<PunchOutRequested>(_onPunchOutRequested);
   }
 
-  Future<({double lat, double lng, double accuracyM})> _resolveLocation() async {
+  Future<({double lat, double lng, double accuracyM})>
+      _resolveLocation() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) throw "Location services are disabled";
 
@@ -25,7 +26,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    if (perm == LocationPermission.denied) throw "Location permission is required";
+    if (perm == LocationPermission.denied)
+      throw "Location permission is required";
     if (perm == LocationPermission.deniedForever) {
       throw "Location permission is denied permanently.";
     }
@@ -36,7 +38,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     return (lat: pos.latitude, lng: pos.longitude, accuracyM: pos.accuracy);
   }
 
-  Future<void> _onPunchInRequested(PunchInRequested event, Emitter<AttendanceState> emit) async {
+  Future<void> _onPunchInRequested(
+      PunchInRequested event, Emitter<AttendanceState> emit) async {
     emit(AttendanceLoading());
     try {
       double lat = event.lat ?? 0;
@@ -66,7 +69,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     }
   }
 
-  Future<void> _onPunchOutRequested(PunchOutRequested event, Emitter<AttendanceState> emit) async {
+  Future<void> _onPunchOutRequested(
+      PunchOutRequested event, Emitter<AttendanceState> emit) async {
     emit(AttendanceLoading());
     try {
       double lat = event.lat ?? 0;

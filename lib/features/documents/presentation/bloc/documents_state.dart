@@ -42,9 +42,12 @@ class DocumentsState extends Equatable {
       busyKeys: busyKeys ?? this.busyKeys,
       ndtExpiryDate: ndtExpiryDate ?? this.ndtExpiryDate,
       errorMessage: errorMessage ?? this.errorMessage,
-      downloadedFilePath: clearOneOffs ? null : (downloadedFilePath ?? this.downloadedFilePath),
-      snackbarMessage: clearOneOffs ? null : (snackbarMessage ?? this.snackbarMessage),
-      isErrorSnackbar: clearOneOffs ? false : (isErrorSnackbar ?? this.isErrorSnackbar),
+      downloadedFilePath:
+          clearOneOffs ? null : (downloadedFilePath ?? this.downloadedFilePath),
+      snackbarMessage:
+          clearOneOffs ? null : (snackbarMessage ?? this.snackbarMessage),
+      isErrorSnackbar:
+          clearOneOffs ? false : (isErrorSnackbar ?? this.isErrorSnackbar),
     );
   }
 

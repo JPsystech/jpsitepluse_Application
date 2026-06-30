@@ -1,6 +1,13 @@
 part of 'timeline_bloc.dart';
 
-enum TimelineStatus { initial, loading, loaded, downloading, downloadSuccess, error }
+enum TimelineStatus {
+  initial,
+  loading,
+  loaded,
+  downloading,
+  downloadSuccess,
+  error
+}
 
 class TimelineState extends Equatable {
   final TimelineStatus status;

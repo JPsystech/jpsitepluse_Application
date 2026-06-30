@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/shared/widgets/primary_button.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
-import 'package:sitepulse_engineer/core/theme/app_theme.dart';
+import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
@@ -165,27 +165,28 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       children: [
         CircleAvatar(
           radius: 28,
-          backgroundColor: AppTheme.sky.withAlpha(40),
-          child: const Icon(Icons.person, color: AppTheme.sky, size: 32),
+          backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(40),
+          child: Icon(Icons.person,
+              color: Theme.of(context).colorScheme.primary, size: 32),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Welcome Back",
+              Text("Welcome Back",
                   style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.muted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(
                 widget.engineerName,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
-                    color: AppTheme.navy),
+                    color: Theme.of(context).colorScheme.onSurface),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -202,31 +203,39 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.softShadow,
+        boxShadow:
+            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.success.withAlpha(20),
+              color: Theme.of(context)
+                  .extension<AppColorsExtension>()!
+                  .success
+                  .withAlpha(20),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_circle_outline,
-                color: AppTheme.success, size: 48),
+            child: Icon(Icons.check_circle_outline,
+                color:
+                    Theme.of(context).extension<AppColorsExtension>()!.success,
+                size: 48),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             "You're all caught up!",
             style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.navy),
+                color: Theme.of(context).colorScheme.onSurface),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             "No assignments scheduled for today.",
-            style: TextStyle(fontSize: 15, color: AppTheme.muted),
+            style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -240,8 +249,10 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.softShadow,
-        border: Border.all(color: AppTheme.navy.withAlpha(10)),
+        boxShadow:
+            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+        border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -249,7 +260,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.sky.withAlpha(15),
+              color: Theme.of(context).colorScheme.primary.withAlpha(15),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(24)),
             ),
@@ -263,24 +274,27 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                          color: AppTheme.navy.withAlpha(10),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withAlpha(10),
                           blurRadius: 10,
                           offset: const Offset(0, 4)),
                     ],
                   ),
-                  child: const Icon(Icons.business_center,
-                      color: AppTheme.sky, size: 28),
+                  child: Icon(Icons.business_center,
+                      color: Theme.of(context).colorScheme.primary, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("TODAY's ASSIGNMENT",
+                      Text("TODAY's ASSIGNMENT",
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.sky,
+                              color: Theme.of(context).colorScheme.primary,
                               letterSpacing: 0.5)),
                       const SizedBox(height: 4),
                       Row(
@@ -292,24 +306,31 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                               children: [
                                 Text(
                                   assignment.projectName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 19,
                                       fontWeight: FontWeight.w800,
-                                      color: AppTheme.navy,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
                                       letterSpacing: -0.2),
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    const Icon(Icons.location_on,
-                                        size: 14, color: AppTheme.muted),
+                                    Icon(Icons.location_on,
+                                        size: 14,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
                                         assignment.siteName,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 14,
-                                            color: AppTheme.muted,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                             fontWeight: FontWeight.w500),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -325,18 +346,26 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppTheme.success.withAlpha(20),
+                                color: Theme.of(context)
+                                    .extension<AppColorsExtension>()!
+                                    .success
+                                    .withAlpha(20),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.check_circle,
-                                      size: 14, color: AppTheme.success),
-                                  SizedBox(width: 4),
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .extension<AppColorsExtension>()!
+                                          .success),
+                                  const SizedBox(width: 4),
                                   Text("COMPLETED",
                                       style: TextStyle(
-                                          color: AppTheme.success,
+                                          color: Theme.of(context)
+                                              .extension<AppColorsExtension>()!
+                                              .success,
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold)),
                                 ],
@@ -347,18 +376,26 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppTheme.sky.withAlpha(20),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withAlpha(20),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.timelapse,
-                                      size: 14, color: AppTheme.sky),
-                                  SizedBox(width: 4),
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary),
+                                  const SizedBox(width: 4),
                                   Text("ACTIVE",
                                       style: TextStyle(
-                                          color: AppTheme.sky,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold)),
                                 ],
@@ -418,10 +455,12 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Quick Actions",
           style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.navy),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurface),
         ),
         const SizedBox(height: 16),
         Row(
@@ -510,15 +549,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(_dayDateTitle(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.navy,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16)),
           actions: [
             IconButton(
               onPressed: () =>
                   context.read<HomeBloc>().add(LoadAssignmentsRequested()),
-              icon: const Icon(Icons.refresh, color: AppTheme.navy),
+              icon: Icon(Icons.refresh,
+                  color: Theme.of(context).colorScheme.onSurface),
             ),
           ],
         ),
@@ -528,8 +568,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppTheme.sky.withAlpha(30),
-                AppTheme.bg,
+                Theme.of(context).colorScheme.primary.withAlpha(30),
+                Theme.of(context).scaffoldBackgroundColor,
               ],
               stops: const [0.0, 0.4],
             ),
@@ -658,8 +698,10 @@ class _QuickActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: AppTheme.softShadow,
-          border: Border.all(color: AppTheme.navy.withAlpha(5)),
+          boxShadow:
+              Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+          border: Border.all(
+              color: Theme.of(context).colorScheme.onSurface.withAlpha(5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,10 +717,10 @@ class _QuickActionCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: AppTheme.navy),
+                  color: Theme.of(context).colorScheme.onSurface),
             ),
           ],
         ),

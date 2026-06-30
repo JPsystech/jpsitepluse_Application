@@ -1,10 +1,9 @@
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 import "package:sitepulse_engineer/core/config/api_config.dart";
-import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/storage/terms_store.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
@@ -103,10 +102,10 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     }
 
     context.read<AuthBloc>().add(LoginRequested(
-      companyCode: company,
-      empCode: normalizedEmp,
-      password: pass,
-    ));
+          companyCode: company,
+          empCode: normalizedEmp,
+          password: pass,
+        ));
   }
 
   @override
@@ -121,12 +120,16 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           final session = state.session;
           if (session.mustChangePassword) {
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => ChangePasswordScreen(session: session, currentPassword: passwordCtrl.text.trim())),
+              MaterialPageRoute(
+                  builder: (_) => ChangePasswordScreen(
+                      session: session,
+                      currentPassword: passwordCtrl.text.trim())),
             );
           } else {
             final accepted = await TermsStore.isAccepted();
             if (!mounted) return;
-            Navigator.of(context).pushReplacementNamed(accepted ? AppRoutes.app : AppRoutes.terms);
+            Navigator.of(context).pushReplacementNamed(
+                accepted ? AppRoutes.app : AppRoutes.terms);
           }
         }
       },
@@ -141,8 +144,8 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppTheme.sky.withAlpha(20),
-                    AppTheme.bg,
+                    Theme.of(context).colorScheme.primary.withAlpha(20),
+                    Theme.of(context).scaffoldBackgroundColor,
                   ],
                 ),
               ),
@@ -156,7 +159,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                 height: 260,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.sky.withAlpha(12),
+                  color: Theme.of(context).colorScheme.primary.withAlpha(12),
                 ),
               ),
             ),
@@ -168,14 +171,15 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                 height: 180,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.sky.withAlpha(10),
+                  color: Theme.of(context).colorScheme.primary.withAlpha(10),
                 ),
               ),
             ),
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 440),
                     child: Column(
@@ -189,12 +193,18 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                               padding: const EdgeInsets.all(2),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [AppTheme.sky, Color(0xFF0EA5E9)],
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Theme.of(context).colorScheme.primary,
+                                    const Color(0xFF0EA5E9)
+                                  ],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.sky.withAlpha(40),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withAlpha(40),
                                     blurRadius: 25,
                                     offset: const Offset(0, 10),
                                   ),
@@ -202,26 +212,37 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                               ),
                               child: Container(
                                 padding: const EdgeInsets.all(16),
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: AppTheme.navy,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
-                                child: const Icon(Icons.engineering_rounded, color: Colors.white, size: 40),
+                                child: const Icon(Icons.engineering_rounded,
+                                    color: Colors.white, size: 40),
                               ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 32),
-                        const Text(
+                        Text(
                           "Welcome Back",
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2, color: AppTheme.navy),
+                          style: TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1.2,
+                              color: Theme.of(context).colorScheme.onSurface),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           "Log in to your engineer account",
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600, fontSize: 16),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16),
                         ),
                         const SizedBox(height: 48),
                         Container(
@@ -229,24 +250,32 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(28),
-                            boxShadow: AppTheme.softShadow,
-                            border: Border.all(color: AppTheme.navy.withAlpha(8)),
+                            boxShadow: Theme.of(context)
+                                .extension<AppColorsExtension>()!
+                                .softShadow,
+                            border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withAlpha(8)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-
                               AppTextField(
                                 label: "Employee Code",
                                 controller: empCodeCtrl,
                                 prefixIcon: Icons.badge_outlined,
                                 hint: "Enter your code",
-                                textCapitalization: TextCapitalization.characters,
+                                textCapitalization:
+                                    TextCapitalization.characters,
                                 inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z0-9\-_/]")),
+                                  FilteringTextInputFormatter.allow(
+                                      RegExp(r"[A-Za-z0-9\-_/]")),
                                   UpperCaseTextFormatter(),
                                 ],
-                                helperText: "Employee code is entered in uppercase.",
+                                helperText:
+                                    "Employee code is entered in uppercase.",
                               ),
                               const SizedBox(height: 20),
                               AppTextField(
@@ -256,8 +285,11 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                 prefixIcon: Icons.lock_outline,
                                 hint: "••••••••",
                                 suffixIcon: IconButton(
-                                  onPressed: () => setState(() => obscurePassword = !obscurePassword),
-                                  icon: Icon(obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                                  onPressed: () => setState(
+                                      () => obscurePassword = !obscurePassword),
+                                  icon: Icon(obscurePassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined),
                                 ),
                                 onSubmitted: (_) => submit(),
                               ),
@@ -267,13 +299,19 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                   final isSubmitting = state is AuthLoading;
                                   return CheckboxListTile(
                                     value: rememberMe,
-                                    onChanged: isSubmitting ? null : (v) => setState(() => rememberMe = v ?? false),
+                                    onChanged: isSubmitting
+                                        ? null
+                                        : (v) => setState(
+                                            () => rememberMe = v ?? false),
                                     dense: true,
                                     contentPadding: EdgeInsets.zero,
-                                    controlAffinity: ListTileControlAffinity.leading,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
                                     title: const Text(
                                       "Remember me",
-                                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14),
                                     ),
                                   );
                                 },
@@ -283,18 +321,32 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                 Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.dangerBg,
+                                    color: Theme.of(context)
+                                        .extension<AppColorsExtension>()!
+                                        .errorBg,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: AppTheme.danger.withAlpha(30)),
+                                    border: Border.all(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .error
+                                            .withAlpha(30)),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.error_outline, color: AppTheme.danger, size: 20),
+                                      Icon(Icons.error_outline,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                          size: 20),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Text(
                                           error!,
-                                          style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700),
+                                          style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                              fontWeight: FontWeight.w700),
                                         ),
                                       ),
                                     ],
@@ -328,7 +380,8 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                     final isSubmitting = state is AuthLoading;
                                     return PrimaryButton(
                                       label: "Save Server",
-                                      onPressed: isSubmitting ? null : saveServer,
+                                      onPressed:
+                                          isSubmitting ? null : saveServer,
                                       isLoading: false,
                                     );
                                   },
@@ -338,10 +391,16 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                           ),
                         ),
                         const SizedBox(height: 32),
-                        const Text(
+                        Text(
                           "Forgot password?\nContact your administrator to reset it.",
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.muted, fontSize: 13, fontWeight: FontWeight.w700, height: 1.5),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5),
                         ),
                       ],
                     ),
@@ -360,13 +419,15 @@ class ChangePasswordScreen extends StatelessWidget {
   final AuthSessionModel session;
   final String currentPassword;
 
-  const ChangePasswordScreen({super.key, required this.session, required this.currentPassword});
+  const ChangePasswordScreen(
+      {super.key, required this.session, required this.currentPassword});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => AuthBloc(),
-      child: ChangePasswordScreenView(session: session, currentPassword: currentPassword),
+      child: ChangePasswordScreenView(
+          session: session, currentPassword: currentPassword),
     );
   }
 }
@@ -375,10 +436,12 @@ class ChangePasswordScreenView extends StatefulWidget {
   final AuthSessionModel session;
   final String currentPassword;
 
-  const ChangePasswordScreenView({super.key, required this.session, required this.currentPassword});
+  const ChangePasswordScreenView(
+      {super.key, required this.session, required this.currentPassword});
 
   @override
-  State<ChangePasswordScreenView> createState() => _ChangePasswordScreenViewState();
+  State<ChangePasswordScreenView> createState() =>
+      _ChangePasswordScreenViewState();
 }
 
 class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
@@ -443,10 +506,10 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
     }
 
     context.read<AuthBloc>().add(ChangePasswordRequested(
-      token: widget.session.token,
-      currentPassword: widget.currentPassword,
-      newPassword: newPw,
-    ));
+          token: widget.session.token,
+          currentPassword: widget.currentPassword,
+          newPassword: newPw,
+        ));
   }
 
   @override
@@ -464,14 +527,16 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
           // Success case for ChangePassword
           final accepted = await TermsStore.isAccepted();
           if (!mounted) return;
-          Navigator.of(context).pushReplacementNamed(accepted ? AppRoutes.app : AppRoutes.terms);
+          Navigator.of(context)
+              .pushReplacementNamed(accepted ? AppRoutes.app : AppRoutes.terms);
         }
       },
       child: Scaffold(
         appBar: AppBar(title: const Text("Change Password")),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.fromLTRB(
+                20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -488,12 +553,17 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                 const SizedBox(height: 16),
                 const Text(
                   "Update your password",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   "Hi ${engineer.fullName}. For security, you must set a new password before continuing.",
-                  style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 18),
                 if (error != null) ...[
@@ -501,11 +571,20 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.dangerBg,
+                      color: Theme.of(context)
+                          .extension<AppColorsExtension>()!
+                          .errorBg,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.danger.withAlpha(40)),
+                      border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .error
+                              .withAlpha(40)),
                     ),
-                    child: Text(error!, style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700)),
+                    child: Text(error!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700)),
                   ),
                   const SizedBox(height: 14),
                 ],
@@ -515,7 +594,8 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                   hint: "Enter new password",
                   obscureText: true,
                   textInputAction: TextInputAction.next,
-                  helperText: "8-128 characters, at least 1 letter and 1 number.",
+                  helperText:
+                      "8-128 characters, at least 1 letter and 1 number.",
                 ),
                 const SizedBox(height: 14),
                 AppTextField(
@@ -534,20 +614,51 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: cs.outlineVariant.withAlpha(160)),
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         "Password Requirements",
-                        style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900, letterSpacing: -0.2),
                       ),
                       SizedBox(height: 8),
-                      Text("Minimum 8 characters", style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.muted)),
-                      Text("Maximum 128 characters", style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.muted)),
-                      Text("Must include at least 1 letter", style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.muted)),
-                      Text("Must include at least 1 number", style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.muted)),
-                      Text("Cannot be the same as your Employee Code", style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.muted)),
-                      Text("Cannot be the same as your Mobile Number", style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.muted)),
+                      Text("Minimum 8 characters",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                      Text("Maximum 128 characters",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                      Text("Must include at least 1 letter",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                      Text("Must include at least 1 number",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                      Text("Cannot be the same as your Employee Code",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                      Text("Cannot be the same as your Mobile Number",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -564,9 +675,12 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                   },
                 ),
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   "Tip: Use a password you don’t use elsewhere.",
-                  style: TextStyle(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -579,7 +693,8 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
 
 class UpperCaseTextFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     final upper = newValue.text.toUpperCase();
     return TextEditingValue(
       text: upper,

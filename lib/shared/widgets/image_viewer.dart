@@ -3,7 +3,6 @@ import "package:flutter/material.dart";
 import "package:http/http.dart" as http;
 import "package:path_provider/path_provider.dart";
 import "package:share_plus/share_plus.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
 
 class ImageViewer extends StatefulWidget {
   const ImageViewer({super.key, required this.url});
@@ -30,7 +29,8 @@ class _ImageViewerState extends State<ImageViewer> {
         await file.writeAsBytes(response.bodyBytes);
 
         if (mounted) {
-          await Share.shareXFiles([XFile(file.path)], text: "Save or share image");
+          await Share.shareXFiles([XFile(file.path)],
+              text: "Save or share image");
         }
       } else {
         throw Exception("Failed to download image");
@@ -38,7 +38,9 @@ class _ImageViewerState extends State<ImageViewer> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.danger),
+          SnackBar(
+              content: Text("Error: $e"),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     } finally {
@@ -59,7 +61,11 @@ class _ImageViewerState extends State<ImageViewer> {
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white)),
               ),
             )
           else
@@ -81,21 +87,22 @@ class _ImageViewerState extends State<ImageViewer> {
               fit: BoxFit.contain,
               loadingBuilder: (context, child, progress) {
                 if (progress == null) return child;
-                return const Center(child: CircularProgressIndicator(color: Colors.white));
+                return const Center(
+                    child: CircularProgressIndicator(color: Colors.white));
               },
               errorBuilder: (_, __, ___) => const Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.broken_image, color: Colors.white, size: 64),
                   SizedBox(height: 16),
-                  Text("Failed to load image", style: TextStyle(color: Colors.white)),
+                  Text("Failed to load image",
+                      style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
           ),
         ),
       ),
-
     );
   }
 }

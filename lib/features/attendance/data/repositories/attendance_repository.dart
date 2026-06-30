@@ -4,7 +4,8 @@ import 'package:sitepulse_engineer/features/attendance/data/services/attendance_
 class AttendanceRepository {
   final AttendanceService _attendanceService;
 
-  AttendanceRepository({AttendanceService? attendanceService}) : _attendanceService = attendanceService ?? AttendanceService();
+  AttendanceRepository({AttendanceService? attendanceService})
+      : _attendanceService = attendanceService ?? AttendanceService();
 
   Future<PunchInResponseModel> punchIn({
     required double lat,

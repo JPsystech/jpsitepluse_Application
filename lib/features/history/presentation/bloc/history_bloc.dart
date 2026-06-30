@@ -4,7 +4,6 @@ import 'package:equatable/equatable.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
-import 'package:sitepulse_engineer/features/history/data/services/history_service.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart';
 
 part 'history_event.dart';
@@ -38,7 +37,8 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
       );
 
       emit(state.copyWith(
-        status: HistoryStatus.success, // Assuming we revert to success after fetching filters
+        status: HistoryStatus
+            .success, // Assuming we revert to success after fetching filters
         clientOptions: resp.clients,
         projectOptions: resp.projects,
         siteOptions: resp.sites,
@@ -71,7 +71,8 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
       );
       emit(state.copyWith(status: HistoryStatus.success, data: resp));
     } catch (e) {
-      emit(state.copyWith(status: HistoryStatus.error, errorMessage: e.toString(), data: null));
+      emit(state.copyWith(
+          status: HistoryStatus.error, errorMessage: e.toString(), data: null));
     }
   }
 
@@ -100,11 +101,12 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
         downloadedFileName: safeName,
         downloadedFilePath: file.path,
       ));
-      
+
       // Reset back to success state so it can be triggered again
       emit(state.copyWith(status: HistoryStatus.success));
     } catch (e) {
-      emit(state.copyWith(status: HistoryStatus.downloadError, errorMessage: e.toString()));
+      emit(state.copyWith(
+          status: HistoryStatus.downloadError, errorMessage: e.toString()));
       emit(state.copyWith(status: HistoryStatus.success));
     }
   }
@@ -117,9 +119,11 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
         token: event.sessionToken,
         attendanceLogId: event.attendanceLogId,
       );
-      emit(state.copyWith(status: HistoryStatus.detailSuccess, detailData: resp));
+      emit(state.copyWith(
+          status: HistoryStatus.detailSuccess, detailData: resp));
     } catch (e) {
-      emit(state.copyWith(status: HistoryStatus.detailError, errorMessage: e.toString()));
+      emit(state.copyWith(
+          status: HistoryStatus.detailError, errorMessage: e.toString()));
     }
   }
 }

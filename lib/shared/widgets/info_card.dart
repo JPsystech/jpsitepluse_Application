@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 class InfoCard extends StatelessWidget {
   const InfoCard({super.key, required this.title, required this.rows});
@@ -14,19 +14,25 @@ class InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.softShadow,
-        border: Border.all(color:AppTheme.navy.withAlpha(8)),
+        boxShadow:
+            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+        border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.info_outline, size: 20, color: AppTheme.sky),
+              Icon(Icons.info_outline,
+                  size: 20, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 10),
               Text(
                 title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5),
               ),
             ],
           ),
@@ -56,7 +62,9 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.muted, fontWeight: FontWeight.w700);
+    final muted = Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -75,4 +83,3 @@ class _Row extends StatelessWidget {
     );
   }
 }
-
