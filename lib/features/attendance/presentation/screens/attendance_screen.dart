@@ -42,7 +42,8 @@ class _AttendanceView extends StatelessWidget {
                         SizedBox(height: 16),
                         Text(
                           "Attendance UI Placeholder",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 8),
                         Text(

@@ -19,14 +19,14 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
     try {
       // Simulate min splash time for branding
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       await SessionStore.load();
       final accepted = await TermsStore.isAccepted();
-      
+
       final nextRoute = SessionStore.current == null
           ? AppRoutes.login
           : (accepted ? AppRoutes.app : AppRoutes.terms);
-          
+
       emit(SplashSuccess(nextRoute));
     } catch (e) {
       emit(SplashError(e.toString()));

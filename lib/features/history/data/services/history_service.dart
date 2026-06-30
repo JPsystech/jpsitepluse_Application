@@ -7,10 +7,14 @@ class HistoryService {
 
   HistoryService({ApiClient? api}) : api = api ?? ApiClient();
 
-  Future<EngineerHistoryResponse> history({required String token, String? month}) async {
-    final qs = (month != null && month.trim().isNotEmpty) ? "?month=${Uri.encodeComponent(month.trim())}" : "";
+  Future<EngineerHistoryResponse> history(
+      {required String token, String? month}) async {
+    final qs = (month != null && month.trim().isNotEmpty)
+        ? "?month=${Uri.encodeComponent(month.trim())}"
+        : "";
     final uri = await api.url("/api/v1/engineer/history$qs");
-    final json = await api.getJson(uri, headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+    final json = await api.getJson(uri,
+        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
     if (json == null) {
       throw ApiException("Invalid response from server");
     }

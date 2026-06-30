@@ -1,6 +1,13 @@
 part of 'timesheet_bloc.dart';
 
-enum TimesheetStatus { initial, loading, loaded, submitting, submitSuccess, error }
+enum TimesheetStatus {
+  initial,
+  loading,
+  loaded,
+  submitting,
+  submitSuccess,
+  error
+}
 
 class TimesheetState extends Equatable {
   final TimesheetStatus status;
@@ -34,5 +41,6 @@ class TimesheetState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [status, projectName, siteName, uploadedPhotoUrl, errorMessage];
+  List<Object?> get props =>
+      [status, projectName, siteName, uploadedPhotoUrl, errorMessage];
 }

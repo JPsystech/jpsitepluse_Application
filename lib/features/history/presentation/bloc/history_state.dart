@@ -1,6 +1,19 @@
 part of 'history_bloc.dart';
 
-enum HistoryStatus { initial, loading, success, error, filtersLoading, filtersError, downloading, downloadSuccess, downloadError, detailLoading, detailSuccess, detailError }
+enum HistoryStatus {
+  initial,
+  loading,
+  success,
+  error,
+  filtersLoading,
+  filtersError,
+  downloading,
+  downloadSuccess,
+  downloadError,
+  detailLoading,
+  detailSuccess,
+  detailError
+}
 
 class HistoryState extends Equatable {
   final HistoryStatus status;

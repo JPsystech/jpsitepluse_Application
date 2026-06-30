@@ -27,7 +27,9 @@ class PunchInResponseModel {
     return PunchInResponseModel(
       attendanceLogId: (json["attendance_log_id"] as String?) ?? "",
       workDate: (json["work_date"] as String?) ?? "",
-      punchInTime: DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0),
+      punchInTime:
+          DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ??
+              DateTime.fromMillisecondsSinceEpoch(0),
       punchInLat: (json["punch_in_lat"] as num?)?.toDouble() ?? 0,
       punchInLng: (json["punch_in_lng"] as num?)?.toDouble() ?? 0,
       punchInDistanceM: (json["punch_in_distance_m"] as num?)?.toDouble() ?? 0,
@@ -70,10 +72,13 @@ class PunchOutResponseModel {
     return PunchOutResponseModel(
       attendanceLogId: (json["attendance_log_id"] as String?) ?? "",
       workDate: (json["work_date"] as String?) ?? "",
-      punchOutTime: DateTime.tryParse((json["punch_out_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0),
+      punchOutTime:
+          DateTime.tryParse((json["punch_out_time"] as String?) ?? "") ??
+              DateTime.fromMillisecondsSinceEpoch(0),
       punchOutLat: (json["punch_out_lat"] as num?)?.toDouble() ?? 0,
       punchOutLng: (json["punch_out_lng"] as num?)?.toDouble() ?? 0,
-      punchOutDistanceM: (json["punch_out_distance_m"] as num?)?.toDouble() ?? 0,
+      punchOutDistanceM:
+          (json["punch_out_distance_m"] as num?)?.toDouble() ?? 0,
       isInsideRadius: json["is_inside_radius"] as bool?,
       isExceptionPunch: json["is_exception_punch"] as bool?,
       exceptionStatus: json["exception_status"] as String?,

@@ -5,7 +5,8 @@ import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart
 part 'change_password_event.dart';
 part 'change_password_state.dart';
 
-class ChangePasswordBloc extends Bloc<ChangePasswordEvent, ChangePasswordState> {
+class ChangePasswordBloc
+    extends Bloc<ChangePasswordEvent, ChangePasswordState> {
   ChangePasswordBloc() : super(ChangePasswordInitial()) {
     on<ChangePasswordSubmitted>(_onChangePasswordSubmitted);
   }
@@ -21,7 +22,9 @@ class ChangePasswordBloc extends Bloc<ChangePasswordEvent, ChangePasswordState> 
       ChangePasswordSubmitted event, Emitter<ChangePasswordState> emit) async {
     emit(ChangePasswordSubmitting());
     try {
-      if (event.currentPassword.isEmpty || event.newPassword.isEmpty || event.confirmPassword.isEmpty) {
+      if (event.currentPassword.isEmpty ||
+          event.newPassword.isEmpty ||
+          event.confirmPassword.isEmpty) {
         throw "All fields are required";
       }
       if (event.newPassword != event.confirmPassword) {
@@ -32,11 +35,10 @@ class ChangePasswordBloc extends Bloc<ChangePasswordEvent, ChangePasswordState> 
       }
 
       await AuthService().changePassword(
-        token: event.sessionToken, 
-        currentPassword: event.currentPassword, 
-        newPassword: event.newPassword
-      );
-      
+          token: event.sessionToken,
+          currentPassword: event.currentPassword,
+          newPassword: event.newPassword);
+
       emit(ChangePasswordSuccess());
     } catch (e) {
       emit(ChangePasswordError(e.toString()));

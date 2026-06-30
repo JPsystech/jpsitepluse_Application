@@ -56,12 +56,20 @@ class TodayAssignmentResponseModel {
   factory TodayAssignmentResponseModel.fromJson(Map<String, dynamic> json) {
     final a = json["assignment"];
     final rawList = json["assignments"];
-    final list = rawList is List ? rawList.whereType<Map<String, dynamic>>().map(TodayAssignmentModel.fromJson).toList() : <TodayAssignmentModel>[];
-    final single = a is Map<String, dynamic> ? TodayAssignmentModel.fromJson(a) : null;
+    final list = rawList is List
+        ? rawList
+            .whereType<Map<String, dynamic>>()
+            .map(TodayAssignmentModel.fromJson)
+            .toList()
+        : <TodayAssignmentModel>[];
+    final single =
+        a is Map<String, dynamic> ? TodayAssignmentModel.fromJson(a) : null;
     return TodayAssignmentResponseModel(
       hasAssignment: (json["has_assignment"] as bool?) ?? false,
       assignment: single,
-      assignments: list.isNotEmpty ? list : (single != null ? [single] : <TodayAssignmentModel>[]),
+      assignments: list.isNotEmpty
+          ? list
+          : (single != null ? [single] : <TodayAssignmentModel>[]),
       message: json["message"] as String?,
       activeAttendanceLogId: json["active_attendance_log_id"] as String?,
       activeProjectId: json["active_project_id"] as String?,

@@ -13,7 +13,8 @@ class SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
           ),
         ),
         if (trailing != null) trailing!,
@@ -21,4 +22,3 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
-

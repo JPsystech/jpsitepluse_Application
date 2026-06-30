@@ -21,14 +21,18 @@ class SettingsScreen extends StatelessWidget {
                   children: const [
                     ListTile(
                       leading: Icon(Icons.info_outline),
-                      title: Text("App info", style: TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Text("JP SitePulse Engineer • v0.1.0", style: TextStyle(fontWeight: FontWeight.w700)),
+                      title: Text("App info",
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      subtitle: Text("JP SitePulse Engineer • v0.1.0",
+                          style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                     Divider(height: 1),
                     ListTile(
                       leading: Icon(Icons.tune),
-                      title: Text("More settings", style: TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Text("Coming soon", style: TextStyle(fontWeight: FontWeight.w700)),
+                      title: Text("More settings",
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      subtitle: Text("Coming soon",
+                          style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
@@ -40,4 +44,3 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
-

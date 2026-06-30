@@ -39,7 +39,8 @@ class SitePhotoService {
       (text: line1, size: fontSize),
       (text: line2, size: fontSmall),
       (text: line3, size: fontSmall),
-      if (line4 != null && line4.trim().isNotEmpty) (text: line4.trim(), size: fontSmall),
+      if (line4 != null && line4.trim().isNotEmpty)
+        (text: line4.trim(), size: fontSmall),
     ];
 
     final recorder = ui.PictureRecorder();
@@ -83,7 +84,8 @@ class SitePhotoService {
     final boxW = min(w * 0.92, widest + pad * 2);
     final x0 = pad;
     final y0 = h - boxH - pad;
-    final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(x0, y0, boxW, boxH), Radius.circular(pad * 0.75));
+    final rrect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x0, y0, boxW, boxH), Radius.circular(pad * 0.75));
     canvas.drawRRect(rrect, Paint()..color = const Color(0xA0000000));
 
     var y = y0 + pad;
@@ -165,7 +167,9 @@ class SitePhotoService {
       throw ApiException("Presign failed: public_url missing");
     }
 
-    final headers = <String, String>{HttpHeaders.contentTypeHeader: contentType};
+    final headers = <String, String>{
+      HttpHeaders.contentTypeHeader: contentType
+    };
     if (requiredHeaders is Map) {
       for (final entry in requiredHeaders.entries) {
         final k = entry.key;
@@ -180,21 +184,28 @@ class SitePhotoService {
       final primary = Uri.parse(uploadUrl.trim());
       http.Response resp;
       try {
-        resp = await api.client.put(primary, headers: headers, body: stampedBytes);
+        resp =
+            await api.client.put(primary, headers: headers, body: stampedBytes);
       } on HandshakeException {
         final alt = (uploadUrlAlt is String) ? uploadUrlAlt.trim() : "";
         if (alt.isEmpty) {
           rethrow;
         }
-        resp = await api.client.put(Uri.parse(alt), headers: headers, body: stampedBytes);
+        resp = await api.client
+            .put(Uri.parse(alt), headers: headers, body: stampedBytes);
       }
 
-      if (resp.statusCode != 200 && resp.statusCode != 201 && resp.statusCode != 204) {
-        throw ApiException("Upload failed (status ${resp.statusCode}): ${resp.body}");
+      if (resp.statusCode != 200 &&
+          resp.statusCode != 201 &&
+          resp.statusCode != 204) {
+        throw ApiException(
+            "Upload failed (status ${resp.statusCode}): ${resp.body}");
       }
     } on HandshakeException catch (e) {
       final primaryHost = Uri.tryParse(uploadUrl.trim())?.host ?? "";
-      final altHost = (uploadUrlAlt is String) ? (Uri.tryParse(uploadUrlAlt.trim())?.host ?? "") : "";
+      final altHost = (uploadUrlAlt is String)
+          ? (Uri.tryParse(uploadUrlAlt.trim())?.host ?? "")
+          : "";
       final targets = <String>[
         if (primaryHost.isNotEmpty) primaryHost,
         if (altHost.isNotEmpty && altHost != primaryHost) altHost,

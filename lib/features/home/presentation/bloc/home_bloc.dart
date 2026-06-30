@@ -15,7 +15,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<LoadAssignmentsRequested>(_onLoadAssignmentsRequested);
   }
 
-  Future<void> _onLoadAssignmentsRequested(LoadAssignmentsRequested event, Emitter<HomeState> emit) async {
+  Future<void> _onLoadAssignmentsRequested(
+      LoadAssignmentsRequested event, Emitter<HomeState> emit) async {
     emit(HomeLoading());
     try {
       final response = await _repository.getTodayAssignments();

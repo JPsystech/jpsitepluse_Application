@@ -17,7 +17,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ChangePasswordRequested>(_onChangePasswordRequested);
   }
 
-  Future<void> _onLoginRequested(LoginRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onLoginRequested(
+      LoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
       final session = await _repository.login(
@@ -32,7 +33,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onChangePasswordRequested(ChangePasswordRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onChangePasswordRequested(
+      ChangePasswordRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
       await _repository.changePassword(
@@ -40,7 +42,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         currentPassword: event.currentPassword,
         newPassword: event.newPassword,
       );
-      emit(AuthInitial()); 
+      emit(AuthInitial());
     } catch (e) {
       emit(AuthError(message: e.toString()));
     }

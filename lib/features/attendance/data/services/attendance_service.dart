@@ -27,7 +27,8 @@ class AttendanceService {
     if (isOffline != null) body["is_offline"] = isOffline;
 
     try {
-      final response = await client.post('/api/v1/engineer/punch-in', data: body);
+      final response =
+          await client.post('/api/v1/engineer/punch-in', data: body);
       return PunchInResponseModel.fromJson(response.data);
     } on DioException catch (e) {
       final data = e.response?.data;
@@ -65,7 +66,8 @@ class AttendanceService {
     if (isOffline != null) body["is_offline"] = isOffline;
 
     try {
-      final response = await client.post('/api/v1/engineer/punch-out', data: body);
+      final response =
+          await client.post('/api/v1/engineer/punch-out', data: body);
       return PunchOutResponseModel.fromJson(response.data);
     } on DioException catch (e) {
       final data = e.response?.data;

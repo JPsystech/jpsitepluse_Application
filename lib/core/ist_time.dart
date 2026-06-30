@@ -34,4 +34,3 @@ class IstTime {
     return "$y-$mon-$d $h:$m";
   }
 }
-
