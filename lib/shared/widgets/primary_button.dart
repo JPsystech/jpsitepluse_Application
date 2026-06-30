@@ -81,7 +81,7 @@ class _PrimaryButtonState extends State<PrimaryButton> with SingleTickerProvider
                 : (widget.isDestructive
                     ? const LinearGradient(colors: [AppTheme.danger, Color(0xFFBE123C)])
                     : AppTheme.primaryGradient),
-            color: isDisabled ? const Color(0xFFCBD5E1) : null,
+            color: isDisabled ?  Color(0xFFCBD5E1) : null,
             borderRadius: BorderRadius.circular(16),
             boxShadow: isDisabled
                 ? null

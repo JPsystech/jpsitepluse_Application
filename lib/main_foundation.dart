@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
 
-import "routes/app_routes.dart";
-import "theme/app_theme.dart";
+import "package:sitepulse_engineer/core/router/app_routes.dart";
+import "package:sitepulse_engineer/core/theme/app_theme.dart";
 
 void main() {
   runApp(const SitePulseAppFoundation());

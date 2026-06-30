@@ -150,7 +150,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
               children: [
                 const Text("Timeline PDF saved", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
                 const SizedBox(height: 6),
-                Text(fileName, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700)),
+                Text(fileName, style: const TextStyle(color:AppTheme.muted, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 14),
                 PrimaryButton(
                   label: "Open PDF",
