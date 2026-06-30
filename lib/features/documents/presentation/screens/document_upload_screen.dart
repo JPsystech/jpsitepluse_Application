@@ -22,7 +22,9 @@ class DocumentUploadScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => DocumentsBloc()..add(LoadDocumentsRequested(sessionToken: (SessionStore.current?.token ?? "").trim())),
+      create: (_) => DocumentsBloc()
+        ..add(LoadDocumentsRequested(
+            sessionToken: (SessionStore.current?.token ?? "").trim())),
       child: const _DocumentUploadView(),
     );
   }
@@ -33,7 +35,8 @@ class _DocumentUploadView extends StatelessWidget {
 
   String get _token => (SessionStore.current?.token ?? "").trim();
 
-  void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
+  void _showSnackBar(BuildContext context, String message,
+      {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -42,7 +45,8 @@ class _DocumentUploadView extends StatelessWidget {
     );
   }
 
-  Future<void> _addCustomDocument(BuildContext context, DocumentsState state) async {
+  Future<void> _addCustomDocument(
+      BuildContext context, DocumentsState state) async {
     final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
@@ -57,7 +61,8 @@ class _DocumentUploadView extends StatelessWidget {
               labelText: "Document Name",
               hintText: "Enter custom document name",
             ),
-            onSubmitted: (_) => Navigator.of(dialogContext).pop(ctrl.text.trim()),
+            onSubmitted: (_) =>
+                Navigator.of(dialogContext).pop(ctrl.text.trim()),
           ),
           actions: [
             TextButton(
@@ -65,7 +70,8 @@ class _DocumentUploadView extends StatelessWidget {
               child: const Text("Cancel"),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(ctrl.text.trim()),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(ctrl.text.trim()),
               child: const Text("Continue"),
             ),
           ],
@@ -112,7 +118,10 @@ class _DocumentUploadView extends StatelessWidget {
     final selected = await _pickFile(context, definition);
     if (selected == null) return;
 
-    final validationError = _validateSelectedFile(definition: definition, selected: selected, customDocumentName: customDocumentName);
+    final validationError = _validateSelectedFile(
+        definition: definition,
+        selected: selected,
+        customDocumentName: customDocumentName);
     if (validationError != null) {
       if (!context.mounted) return;
       _showSnackBar(context, validationError, isError: true);
@@ -122,26 +131,28 @@ class _DocumentUploadView extends StatelessWidget {
     final token = _token;
     if (token.isEmpty) {
       if (!context.mounted) return;
-      _showSnackBar(context, "Session expired. Please login again.", isError: true);
+      _showSnackBar(context, "Session expired. Please login again.",
+          isError: true);
       return;
     }
 
     if (!context.mounted) return;
     context.read<DocumentsBloc>().add(UploadDocumentRequested(
-      sessionToken: token,
-      documentType: definition.type,
-      documentName: customDocumentName ?? definition.displayName,
-      bytes: selected.bytes,
-      originalFileName: selected.fileName,
-      contentType: selected.contentType,
-      sizeBytes: selected.sizeBytes,
-      fileExtension: selected.fileExtension,
-      ndtExpiryDate: ndtExpiryDate,
-      busyKey: busyKey,
-    ));
+          sessionToken: token,
+          documentType: definition.type,
+          documentName: customDocumentName ?? definition.displayName,
+          bytes: selected.bytes,
+          originalFileName: selected.fileName,
+          contentType: selected.contentType,
+          sizeBytes: selected.sizeBytes,
+          fileExtension: selected.fileExtension,
+          ndtExpiryDate: ndtExpiryDate,
+          busyKey: busyKey,
+        ));
   }
 
-  Future<_SelectedUploadFile?> _pickFile(BuildContext context, _DocumentDefinition definition) async {
+  Future<_SelectedUploadFile?> _pickFile(
+      BuildContext context, _DocumentDefinition definition) async {
     if (definition.allowsCameraOrGallery) {
       final source = await showModalBottomSheet<_DocumentPickSource>(
         context: context,
@@ -153,17 +164,20 @@ class _DocumentUploadView extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.camera_alt_outlined),
                 title: const Text("Camera"),
-                onTap: () => Navigator.of(context).pop(_DocumentPickSource.camera),
+                onTap: () =>
+                    Navigator.of(context).pop(_DocumentPickSource.camera),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
                 title: const Text("Gallery"),
-                onTap: () => Navigator.of(context).pop(_DocumentPickSource.gallery),
+                onTap: () =>
+                    Navigator.of(context).pop(_DocumentPickSource.gallery),
               ),
               ListTile(
                 leading: const Icon(Icons.attach_file_rounded),
                 title: const Text("Files"),
-                onTap: () => Navigator.of(context).pop(_DocumentPickSource.files),
+                onTap: () =>
+                    Navigator.of(context).pop(_DocumentPickSource.files),
               ),
             ],
           ),
@@ -177,14 +191,17 @@ class _DocumentUploadView extends StatelessWidget {
         case _DocumentPickSource.gallery:
           return _pickWithImagePicker(context, ImageSource.gallery);
         case _DocumentPickSource.files:
-          return _pickWithFilePicker(context, allowedExtensions: _pickerExtensionsForDefinition(definition));
+          return _pickWithFilePicker(context,
+              allowedExtensions: _pickerExtensionsForDefinition(definition));
       }
     }
 
-    return _pickWithFilePicker(context, allowedExtensions: _pickerExtensionsForDefinition(definition));
+    return _pickWithFilePicker(context,
+        allowedExtensions: _pickerExtensionsForDefinition(definition));
   }
 
-  Future<_SelectedUploadFile?> _pickWithFilePicker(BuildContext context, {required List<String> allowedExtensions}) async {
+  Future<_SelectedUploadFile?> _pickWithFilePicker(BuildContext context,
+      {required List<String> allowedExtensions}) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         withData: true,
@@ -214,7 +231,8 @@ class _DocumentUploadView extends StatelessWidget {
     }
   }
 
-  Future<_SelectedUploadFile?> _pickWithImagePicker(BuildContext context, ImageSource source) async {
+  Future<_SelectedUploadFile?> _pickWithImagePicker(
+      BuildContext context, ImageSource source) async {
     try {
       final imagePicker = ImagePicker();
       final file = await imagePicker.pickImage(
@@ -226,7 +244,9 @@ class _DocumentUploadView extends StatelessWidget {
       if (file == null) return null;
 
       final bytes = await file.readAsBytes();
-      final name = file.name.trim().isEmpty ? file.path.split(Platform.pathSeparator).last : file.name.trim();
+      final name = file.name.trim().isEmpty
+          ? file.path.split(Platform.pathSeparator).last
+          : file.name.trim();
       return _prepareSelectedFile(
         fileName: name,
         bytes: bytes,
@@ -265,9 +285,11 @@ class _DocumentUploadView extends StatelessWidget {
     );
   }
 
-  Future<DateTime?> _pickNdtExpiryDate(BuildContext context, DateTime? currentStateNdtDate) async {
+  Future<DateTime?> _pickNdtExpiryDate(
+      BuildContext context, DateTime? currentStateNdtDate) async {
     final today = DateTime.now();
-    final initial = currentStateNdtDate ?? DateTime(today.year + 1, today.month, today.day);
+    final initial =
+        currentStateNdtDate ?? DateTime(today.year + 1, today.month, today.day);
     final picked = await showDatePicker(
       context: context,
       initialDate: initial.isBefore(today) ? today : initial,
@@ -282,7 +304,8 @@ class _DocumentUploadView extends StatelessWidget {
   String? _validateCustomDocumentName(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return "Document name is required";
-    if (trimmed.length < 3) return "Document name must be at least 3 characters";
+    if (trimmed.length < 3)
+      return "Document name must be at least 3 characters";
     if (!RegExp(r"^[A-Za-z0-9 &()_\-./]+$").hasMatch(trimmed)) {
       return "Document name contains invalid characters";
     }
@@ -308,8 +331,11 @@ class _DocumentUploadView extends StatelessWidget {
   }
 
   List<String> _pickerExtensionsForDefinition(_DocumentDefinition definition) {
-    if (definition.allowedExtensions.isNotEmpty) return definition.allowedExtensions;
-    return definition.allowPdf ? const ["pdf", "jpg", "jpeg", "png"] : const ["jpg", "jpeg", "png"];
+    if (definition.allowedExtensions.isNotEmpty)
+      return definition.allowedExtensions;
+    return definition.allowPdf
+        ? const ["pdf", "jpg", "jpeg", "png"]
+        : const ["jpg", "jpeg", "png"];
   }
 
   String? _ndtReminderText(DateTime? expiry) {
@@ -344,7 +370,8 @@ class _DocumentUploadView extends StatelessWidget {
     return "$d-$m-$y";
   }
 
-  Future<void> _viewDocument(BuildContext context, EngineerDocument document, DocumentsState state) async {
+  Future<void> _viewDocument(BuildContext context, EngineerDocument document,
+      DocumentsState state) async {
     final busyKey = "view::${document.id}";
     if (state.busyKeys.contains(busyKey)) return;
 
@@ -355,11 +382,14 @@ class _DocumentUploadView extends StatelessWidget {
     }
 
     if (_isImageDocument(document)) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ImageViewer(url: url)));
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => ImageViewer(url: url)));
       return;
     }
 
-    context.read<DocumentsBloc>().add(ViewDocumentRequested(document: document, busyKey: busyKey));
+    context
+        .read<DocumentsBloc>()
+        .add(ViewDocumentRequested(document: document, busyKey: busyKey));
   }
 
   bool _isImageDocument(EngineerDocument doc) {
@@ -372,18 +402,22 @@ class _DocumentUploadView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<DocumentsBloc, DocumentsState>(
-      listenWhen: (previous, current) => current.snackbarMessage != previous.snackbarMessage || current.downloadedFilePath != previous.downloadedFilePath,
+      listenWhen: (previous, current) =>
+          current.snackbarMessage != previous.snackbarMessage ||
+          current.downloadedFilePath != previous.downloadedFilePath,
       listener: (context, state) {
         if (state.snackbarMessage != null) {
-          _showSnackBar(context, state.snackbarMessage!, isError: state.isErrorSnackbar);
+          _showSnackBar(context, state.snackbarMessage!,
+              isError: state.isErrorSnackbar);
         }
         if (state.downloadedFilePath != null) {
           OpenFilex.open(state.downloadedFilePath!);
         }
       },
       builder: (context, state) {
-        final isLoading = state.status == DocumentsStatus.loading || state.status == DocumentsStatus.initial;
-        
+        final isLoading = state.status == DocumentsStatus.loading ||
+            state.status == DocumentsStatus.initial;
+
         // Group documents
         final latestByType = <String, EngineerDocument>{};
         final customDocuments = <EngineerDocument>[];
@@ -401,7 +435,11 @@ class _DocumentUploadView extends StatelessWidget {
             title: const Text("Documents"),
             actions: [
               IconButton(
-                onPressed: isLoading ? null : () => context.read<DocumentsBloc>().add(LoadDocumentsRequested(sessionToken: _token, showLoader: true)),
+                onPressed: isLoading
+                    ? null
+                    : () => context.read<DocumentsBloc>().add(
+                        LoadDocumentsRequested(
+                            sessionToken: _token, showLoader: true)),
                 icon: const Icon(Icons.refresh_rounded),
               ),
             ],
@@ -413,7 +451,10 @@ class _DocumentUploadView extends StatelessWidget {
                     padding: const EdgeInsets.all(18),
                     child: ListView(
                       children: [
-                        _InfoCard(loadError: state.status == DocumentsStatus.error ? state.errorMessage : null),
+                        _InfoCard(
+                            loadError: state.status == DocumentsStatus.error
+                                ? state.errorMessage
+                                : null),
                         const SizedBox(height: 18),
                         const SectionHeader(title: "Required Documents"),
                         const SizedBox(height: 12),
@@ -429,12 +470,24 @@ class _DocumentUploadView extends StatelessWidget {
                               statusLabel: _statusLabel(doc),
                               statusColor: _statusColor(doc),
                               remarks: doc?.adminRemarks,
-                              helperText: definition.type == "ndt" ? _ndtReminderText(state.ndtExpiryDate) : null,
-                              helperColor: definition.type == "ndt" ? _ndtReminderColor(state.ndtExpiryDate) : null,
+                              helperText: definition.type == "ndt"
+                                  ? _ndtReminderText(state.ndtExpiryDate)
+                                  : null,
+                              helperColor: definition.type == "ndt"
+                                  ? _ndtReminderColor(state.ndtExpiryDate)
+                                  : null,
                               isUploading: state.busyKeys.contains(busyKey),
-                              isViewing: doc != null && state.busyKeys.contains("view::${doc.id}"),
-                              onUpload: () => _handleUpload(context: context, definition: definition, busyKey: busyKey, state: state),
-                              onView: doc != null && doc.fileUrl.trim().isNotEmpty ? () => _viewDocument(context, doc, state) : null,
+                              isViewing: doc != null &&
+                                  state.busyKeys.contains("view::${doc.id}"),
+                              onUpload: () => _handleUpload(
+                                  context: context,
+                                  definition: definition,
+                                  busyKey: busyKey,
+                                  state: state),
+                              onView:
+                                  doc != null && doc.fileUrl.trim().isNotEmpty
+                                      ? () => _viewDocument(context, doc, state)
+                                      : null,
                               uploadLabel: doc == null ? "Upload" : "Re-upload",
                             ),
                           );
@@ -458,15 +511,18 @@ class _DocumentUploadView extends StatelessWidget {
                               padding: const EdgeInsets.only(bottom: 14),
                               child: _DocumentCard(
                                 title: doc.documentName,
-                                requiredLabel: _requiredLabel(_customDefinition, doc),
-                                requiredColor: _requiredColor(_customDefinition, doc),
+                                requiredLabel:
+                                    _requiredLabel(_customDefinition, doc),
+                                requiredColor:
+                                    _requiredColor(_customDefinition, doc),
                                 statusLabel: _statusLabel(doc),
                                 statusColor: _statusColor(doc),
                                 remarks: doc.adminRemarks,
                                 helperText: null,
                                 helperColor: null,
                                 isUploading: state.busyKeys.contains(busyKey),
-                                isViewing: state.busyKeys.contains("view::${doc.id}"),
+                                isViewing:
+                                    state.busyKeys.contains("view::${doc.id}"),
                                 onUpload: () => _handleUpload(
                                   context: context,
                                   definition: _customDefinition,
@@ -474,7 +530,9 @@ class _DocumentUploadView extends StatelessWidget {
                                   busyKey: busyKey,
                                   state: state,
                                 ),
-                                onView: doc.fileUrl.trim().isNotEmpty ? () => _viewDocument(context, doc, state) : null,
+                                onView: doc.fileUrl.trim().isNotEmpty
+                                    ? () => _viewDocument(context, doc, state)
+                                    : null,
                                 uploadLabel: "Re-upload",
                               ),
                             );
@@ -577,15 +635,22 @@ class _DocumentCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3),
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3),
           ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              StatusChip(label: requiredLabel, color: requiredColor, textColor: Colors.white),
-              StatusChip(label: statusLabel, color: statusColor, textColor: Colors.white),
+              StatusChip(
+                  label: requiredLabel,
+                  color: requiredColor,
+                  textColor: Colors.white),
+              StatusChip(
+                  label: statusLabel,
+                  color: statusColor,
+                  textColor: Colors.white),
             ],
           ),
           if (displayHelper.isNotEmpty) ...[
@@ -602,7 +667,8 @@ class _DocumentCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               "Remarks: $displayRemarks",
-              style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                  color: AppTheme.danger, fontWeight: FontWeight.w600),
             ),
           ],
           const SizedBox(height: 14),
@@ -612,10 +678,11 @@ class _DocumentCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: isUploading ? null : onUpload,
                   icon: isUploading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.upload_file_rounded),
                   label: Text(uploadLabel),
@@ -670,13 +737,15 @@ class _InfoCard extends StatelessWidget {
           const SizedBox(height: 8),
           const Text(
             "NDT upload requires an expiry date. Selfie and signature support camera, gallery, or file selection. Other documents use a validated file picker.",
-            style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600),
+            style:
+                TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600),
           ),
           if ((loadError ?? "").trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               "API warning: $loadError",
-              style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                  color: AppTheme.danger, fontWeight: FontWeight.w700),
             ),
           ],
         ],
@@ -742,9 +811,17 @@ class _DocumentDefinition {
 }
 
 const List<_DocumentDefinition> _defaultDefinitions = <_DocumentDefinition>[
-  _DocumentDefinition(type: "cv", displayName: "CV", isRequired: true, allowedExtensions: <String>["pdf", "doc", "docx"]),
-  _DocumentDefinition(type: "ndt", displayName: "NDT Certificate", isRequired: true),
-  _DocumentDefinition(type: "degree", displayName: "Degree / Diploma Certificate", isRequired: true),
+  _DocumentDefinition(
+      type: "cv",
+      displayName: "CV",
+      isRequired: true,
+      allowedExtensions: <String>["pdf", "doc", "docx"]),
+  _DocumentDefinition(
+      type: "ndt", displayName: "NDT Certificate", isRequired: true),
+  _DocumentDefinition(
+      type: "degree",
+      displayName: "Degree / Diploma Certificate",
+      isRequired: true),
   _DocumentDefinition(
     type: "selfie",
     displayName: "Selfie / Passport Size Photo",
@@ -753,7 +830,8 @@ const List<_DocumentDefinition> _defaultDefinitions = <_DocumentDefinition>[
     allowsCameraOrGallery: true,
   ),
   _DocumentDefinition(type: "pan", displayName: "PAN Card", isRequired: true),
-  _DocumentDefinition(type: "aadhaar", displayName: "Aadhaar Card", isRequired: true),
+  _DocumentDefinition(
+      type: "aadhaar", displayName: "Aadhaar Card", isRequired: true),
   _DocumentDefinition(
     type: "signature",
     displayName: "Signature Photo",
@@ -761,7 +839,10 @@ const List<_DocumentDefinition> _defaultDefinitions = <_DocumentDefinition>[
     allowPdf: false,
     allowsCameraOrGallery: true,
   ),
-  _DocumentDefinition(type: "appointment_letter", displayName: "Signed Appointment Letter", isRequired: true),
+  _DocumentDefinition(
+      type: "appointment_letter",
+      displayName: "Signed Appointment Letter",
+      isRequired: true),
 ];
 
 const _DocumentDefinition _customDefinition = _DocumentDefinition(

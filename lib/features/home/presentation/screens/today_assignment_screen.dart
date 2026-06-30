@@ -26,7 +26,8 @@ class TodayAssignmentScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => HomeBloc()..add(LoadAssignmentsRequested())),
+        BlocProvider(
+            create: (_) => HomeBloc()..add(LoadAssignmentsRequested())),
         BlocProvider(create: (_) => AttendanceBloc()),
       ],
       child: TodayAssignmentScreenView(
@@ -48,7 +49,8 @@ class TodayAssignmentScreenView extends StatefulWidget {
   });
 
   @override
-  State<TodayAssignmentScreenView> createState() => _TodayAssignmentScreenViewState();
+  State<TodayAssignmentScreenView> createState() =>
+      _TodayAssignmentScreenViewState();
 }
 
 class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
@@ -56,22 +58,26 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
 
   Future<String?> _promptExceptionReason(BuildContext context) async {
     return showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text("Out of Radius"),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(hintText: "Reason for exception punch (required)"),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text("Cancel")),
-            TextButton(onPressed: () => Navigator.of(ctx).pop(controller.text), child: const Text("Submit")),
-          ],
-        );
-      }
-    );
+        context: context,
+        builder: (ctx) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text("Out of Radius"),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                  hintText: "Reason for exception punch (required)"),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text("Cancel")),
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(controller.text),
+                  child: const Text("Submit")),
+            ],
+          );
+        });
   }
 
   void _punchIn(String projectId, {String? exceptionReason}) {
@@ -84,7 +90,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   Future<void> _punchOut() async {
     final remarks = await _promptRemarks();
     if (remarks == null) return;
-    
+
     if (!mounted) return;
     context.read<AttendanceBloc>().add(PunchOutRequested(
           remarks: remarks,
@@ -98,16 +104,19 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       builder: (ctx) {
         final controller = TextEditingController();
         return Padding(
-          padding: EdgeInsets.fromLTRB(18, 12, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.fromLTRB(
+              18, 12, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text("Punch out", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text("Punch out",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 14),
               TextField(
                 controller: controller,
-                decoration: const InputDecoration(hintText: "Remarks (required)"),
+                decoration:
+                    const InputDecoration(hintText: "Remarks (required)"),
               ),
               const SizedBox(height: 14),
               ElevatedButton(
@@ -122,8 +131,29 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   }
 
   String _dayDateTitle() {
-    const weekdays = <String>["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const months = <String>["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const weekdays = <String>[
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    ];
+    const months = <String>[
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
     final now = IstTime.now();
     final weekday = weekdays[now.weekday - 1];
     final month = months[now.month - 1];
@@ -143,14 +173,19 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Welcome Back",
-                style: TextStyle(fontSize: 14, color: AppTheme.muted, fontWeight: FontWeight.w600),
-              ),
+              const Text("Welcome Back",
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.muted,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(
                 widget.engineerName,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: AppTheme.navy),
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    color: AppTheme.navy),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -177,12 +212,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               color: AppTheme.success.withAlpha(20),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_circle_outline, color: AppTheme.success, size: 48),
+            child: const Icon(Icons.check_circle_outline,
+                color: AppTheme.success, size: 48),
           ),
           const SizedBox(height: 20),
           const Text(
             "You're all caught up!",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.navy),
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.navy),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -195,7 +234,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAssignmentCard(TodayAssignmentModel assignment, bool canPunchIn, bool canPunchOut, bool isCompleted) {
+  Widget _buildAssignmentCard(TodayAssignmentModel assignment, bool canPunchIn,
+      bool canPunchOut, bool isCompleted) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -210,7 +250,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppTheme.sky.withAlpha(15),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,17 +262,26 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
-                      BoxShadow(color: AppTheme.navy.withAlpha(10), blurRadius: 10, offset: const Offset(0, 4)),
+                      BoxShadow(
+                          color: AppTheme.navy.withAlpha(10),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4)),
                     ],
                   ),
-                  child: const Icon(Icons.business_center, color: AppTheme.sky, size: 28),
+                  child: const Icon(Icons.business_center,
+                      color: AppTheme.sky, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("TODAY's ASSIGNMENT", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.sky, letterSpacing: 0.5)),
+                      const Text("TODAY's ASSIGNMENT",
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.sky,
+                              letterSpacing: 0.5)),
                       const SizedBox(height: 4),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -242,17 +292,25 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                               children: [
                                 Text(
                                   assignment.projectName,
-                                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppTheme.navy, letterSpacing: -0.2),
+                                  style: const TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.navy,
+                                      letterSpacing: -0.2),
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    const Icon(Icons.location_on, size: 14, color: AppTheme.muted),
+                                    const Icon(Icons.location_on,
+                                        size: 14, color: AppTheme.muted),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
                                         assignment.siteName,
-                                        style: const TextStyle(fontSize: 14, color: AppTheme.muted, fontWeight: FontWeight.w500),
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            color: AppTheme.muted,
+                                            fontWeight: FontWeight.w500),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -264,7 +322,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                           ),
                           if (isCompleted)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: AppTheme.success.withAlpha(20),
                                 borderRadius: BorderRadius.circular(12),
@@ -272,15 +331,21 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle, size: 14, color: AppTheme.success),
+                                  Icon(Icons.check_circle,
+                                      size: 14, color: AppTheme.success),
                                   SizedBox(width: 4),
-                                  Text("COMPLETED", style: TextStyle(color: AppTheme.success, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  Text("COMPLETED",
+                                      style: TextStyle(
+                                          color: AppTheme.success,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             )
                           else if (canPunchOut)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: AppTheme.sky.withAlpha(20),
                                 borderRadius: BorderRadius.circular(12),
@@ -288,9 +353,14 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.timelapse, size: 14, color: AppTheme.sky),
+                                  Icon(Icons.timelapse,
+                                      size: 14, color: AppTheme.sky),
                                   SizedBox(width: 4),
-                                  Text("ACTIVE", style: TextStyle(color: AppTheme.sky, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  Text("ACTIVE",
+                                      style: TextStyle(
+                                          color: AppTheme.sky,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ),
@@ -314,10 +384,13 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         child: PrimaryButton(
                           label: "Punch In",
                           isLoading: isPunching && canPunchIn,
-                          onPressed: (canPunchIn && !isPunching) ? () {
-                            selectedProjectIdForException = assignment.projectId;
-                            _punchIn(assignment.projectId);
-                          } : null,
+                          onPressed: (canPunchIn && !isPunching)
+                              ? () {
+                                  selectedProjectIdForException =
+                                      assignment.projectId;
+                                  _punchIn(assignment.projectId);
+                                }
+                              : null,
                           icon: Icons.login,
                         ),
                       ),
@@ -326,7 +399,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         child: PrimaryButton(
                           label: "Punch Out",
                           isLoading: isPunching && canPunchOut,
-                          onPressed: (canPunchOut && !isPunching) ? _punchOut : null,
+                          onPressed:
+                              (canPunchOut && !isPunching) ? _punchOut : null,
                           icon: Icons.logout,
                         ),
                       ),
@@ -346,7 +420,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       children: [
         const Text(
           "Quick Actions",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.navy),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.navy),
         ),
         const SizedBox(height: 16),
         Row(
@@ -356,7 +431,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 icon: Icons.history,
                 title: "History",
                 color: const Color(0xFF6366F1),
-                onTap: () => context.read<ShellBloc>().add(const ShellTabChanged(1)),
+                onTap: () =>
+                    context.read<ShellBloc>().add(const ShellTabChanged(1)),
               ),
             ),
             const SizedBox(width: 16),
@@ -365,7 +441,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 icon: Icons.edit_note,
                 title: "Work Update",
                 color: const Color(0xFFF59E0B),
-                onTap: () => context.read<ShellBloc>().add(const ShellTabChanged(2)),
+                onTap: () =>
+                    context.read<ShellBloc>().add(const ShellTabChanged(2)),
               ),
             ),
           ],
@@ -378,7 +455,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 icon: Icons.photo_camera,
                 title: "Site Photos",
                 color: const Color(0xFFEC4899),
-                onTap: () => context.read<ShellBloc>().add(const ShellTabChanged(2)),
+                onTap: () =>
+                    context.read<ShellBloc>().add(const ShellTabChanged(2)),
               ),
             ),
             const SizedBox(width: 16),
@@ -387,7 +465,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 icon: Icons.person_outline,
                 title: "My Profile",
                 color: const Color(0xFF10B981),
-                onTap: () => context.read<ShellBloc>().add(const ShellTabChanged(3)),
+                onTap: () =>
+                    context.read<ShellBloc>().add(const ShellTabChanged(3)),
               ),
             ),
           ],
@@ -403,18 +482,24 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         if (state is AttendanceError) {
           if (state.message == 'OUT_OF_RADIUS_REASON_REQUIRED') {
             _promptExceptionReason(context).then((reason) {
-              if (reason != null && reason.trim().isNotEmpty && selectedProjectIdForException != null) {
-                _punchIn(selectedProjectIdForException!, exceptionReason: reason.trim());
+              if (reason != null &&
+                  reason.trim().isNotEmpty &&
+                  selectedProjectIdForException != null) {
+                _punchIn(selectedProjectIdForException!,
+                    exceptionReason: reason.trim());
               }
             });
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message)));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(state.message)));
           }
         } else if (state is PunchInSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Punch In Successful")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Punch In Successful")));
           context.read<HomeBloc>().add(LoadAssignmentsRequested());
         } else if (state is PunchOutSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Punch Out Successful")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Punch Out Successful")));
           context.read<HomeBloc>().add(LoadAssignmentsRequested());
         }
       },
@@ -424,10 +509,15 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           automaticallyImplyLeading: false,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: Text(_dayDateTitle(), style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.navy, fontSize: 16)),
+          title: Text(_dayDateTitle(),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.navy,
+                  fontSize: 16)),
           actions: [
             IconButton(
-              onPressed: () => context.read<HomeBloc>().add(LoadAssignmentsRequested()),
+              onPressed: () =>
+                  context.read<HomeBloc>().add(LoadAssignmentsRequested()),
               icon: const Icon(Icons.refresh, color: AppTheme.navy),
             ),
           ],
@@ -453,19 +543,34 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 builder: (context, state) {
                   if (state is HomeInitial || state is HomeLoading) {
                     return ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 20),
                       children: const [
-                        ShimmerBox(width: double.infinity, height: 80, borderRadius: 16),
+                        ShimmerBox(
+                            width: double.infinity,
+                            height: 80,
+                            borderRadius: 16),
                         SizedBox(height: 24),
-                        ShimmerBox(width: double.infinity, height: 200, borderRadius: 24),
+                        ShimmerBox(
+                            width: double.infinity,
+                            height: 200,
+                            borderRadius: 24),
                         SizedBox(height: 32),
                         ShimmerBox(width: 150, height: 24, borderRadius: 8),
                         SizedBox(height: 16),
                         Row(
                           children: [
-                            Expanded(child: ShimmerBox(width: double.infinity, height: 110, borderRadius: 20)),
+                            Expanded(
+                                child: ShimmerBox(
+                                    width: double.infinity,
+                                    height: 110,
+                                    borderRadius: 20)),
                             SizedBox(width: 16),
-                            Expanded(child: ShimmerBox(width: double.infinity, height: 110, borderRadius: 20)),
+                            Expanded(
+                                child: ShimmerBox(
+                                    width: double.infinity,
+                                    height: 110,
+                                    borderRadius: 20)),
                           ],
                         )
                       ],
@@ -475,7 +580,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                   if (state is HomeError) {
                     return ListView(
                       padding: const EdgeInsets.all(20),
-                      children: [Center(child: Text("Error: ${state.message}"))],
+                      children: [
+                        Center(child: Text("Error: ${state.message}"))
+                      ],
                     );
                   }
 
@@ -487,27 +594,30 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
 
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
                       children: [
                         _buildGreeting(),
                         const SizedBox(height: 24),
-                        
                         if (!hasAssignment)
                           _buildEmptyState()
-                        else 
+                        else
                           ...assignments.map((assignment) {
-                            final isThisProjectActive = resp.activeProjectId == assignment.projectId;
-                            final isCompleted = assignment.todayStatus == "COMPLETED";
-                            
+                            final isThisProjectActive =
+                                resp.activeProjectId == assignment.projectId;
+                            final isCompleted =
+                                assignment.todayStatus == "COMPLETED";
+
                             final canPunchOut = isThisProjectActive;
-                            final canPunchIn = !isAnyProjectActive && !isCompleted;
+                            final canPunchIn =
+                                !isAnyProjectActive && !isCompleted;
 
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildAssignmentCard(assignment, canPunchIn, canPunchOut, isCompleted),
+                              child: _buildAssignmentCard(assignment,
+                                  canPunchIn, canPunchOut, isCompleted),
                             );
                           }),
-                          
                         const SizedBox(height: 36),
                         _buildQuickActions(context),
                         const SizedBox(height: 20),
@@ -565,7 +675,10 @@ class _QuickActionCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.navy),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppTheme.navy),
             ),
           ],
         ),

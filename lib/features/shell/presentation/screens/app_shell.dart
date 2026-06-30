@@ -73,7 +73,8 @@ class _AppShellViewState extends State<_AppShellView> {
     }
 
     runOnce();
-    _offlineSyncTimer = Timer.periodic(const Duration(seconds: 25), (_) => runOnce());
+    _offlineSyncTimer =
+        Timer.periodic(const Duration(seconds: 25), (_) => runOnce());
   }
 
   @override
@@ -84,9 +85,11 @@ class _AppShellViewState extends State<_AppShellView> {
         if (session == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!context.mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
           });
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -95,9 +98,14 @@ class _AppShellViewState extends State<_AppShellView> {
         });
 
         final tabs = [
-          TodayAssignmentScreen(sessionToken: session.token, engineerName: session.engineer.fullName, engineerEmpCode: session.engineer.empCode),
+          TodayAssignmentScreen(
+              sessionToken: session.token,
+              engineerName: session.engineer.fullName,
+              engineerEmpCode: session.engineer.empCode),
           ActivityTimelineScreen(sessionToken: session.token),
-          TimesheetScreen(sessionToken: session.token, engineerEmpCode: session.engineer.empCode),
+          TimesheetScreen(
+              sessionToken: session.token,
+              engineerEmpCode: session.engineer.empCode),
           const ProfileScreen(),
         ];
 
@@ -107,7 +115,8 @@ class _AppShellViewState extends State<_AppShellView> {
 
             return AppShellScope(
               index: currentIndex,
-              setIndex: (idx) => context.read<ShellBloc>().add(ShellTabChanged(idx)),
+              setIndex: (idx) =>
+                  context.read<ShellBloc>().add(ShellTabChanged(idx)),
               child: PopScope(
                 canPop: false,
                 onPopInvokedWithResult: (didPop, result) {
@@ -159,7 +168,10 @@ class _AppShellViewState extends State<_AppShellView> {
                                 backgroundColor: AppTheme.navy,
                                 indicatorColor: AppTheme.sky.withAlpha(40),
                                 labelTextStyle: const WidgetStatePropertyAll(
-                                  TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                                  TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800),
                                 ),
                                 iconTheme: const WidgetStatePropertyAll(
                                   IconThemeData(color: Colors.white70),
@@ -169,26 +181,32 @@ class _AppShellViewState extends State<_AppShellView> {
                                 selectedIndex: currentIndex,
                                 height: 64,
                                 elevation: 0,
-                                onDestinationSelected: (idx) => context.read<ShellBloc>().add(ShellTabChanged(idx)),
+                                onDestinationSelected: (idx) => context
+                                    .read<ShellBloc>()
+                                    .add(ShellTabChanged(idx)),
                                 destinations: const [
                                   NavigationDestination(
                                     icon: Icon(Icons.today_outlined),
-                                    selectedIcon: Icon(Icons.today, color: AppTheme.sky),
+                                    selectedIcon:
+                                        Icon(Icons.today, color: AppTheme.sky),
                                     label: "Today",
                                   ),
                                   NavigationDestination(
                                     icon: Icon(Icons.timeline),
-                                    selectedIcon: Icon(Icons.timeline, color: AppTheme.sky),
+                                    selectedIcon: Icon(Icons.timeline,
+                                        color: AppTheme.sky),
                                     label: "Timeline",
                                   ),
                                   NavigationDestination(
                                     icon: Icon(Icons.edit_note),
-                                    selectedIcon: Icon(Icons.edit_note, color: AppTheme.sky),
+                                    selectedIcon: Icon(Icons.edit_note,
+                                        color: AppTheme.sky),
                                     label: "Work Update",
                                   ),
                                   NavigationDestination(
                                     icon: Icon(Icons.person_outline),
-                                    selectedIcon: Icon(Icons.person, color: AppTheme.sky),
+                                    selectedIcon:
+                                        Icon(Icons.person, color: AppTheme.sky),
                                     label: "Profile",
                                   ),
                                 ],

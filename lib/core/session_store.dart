@@ -3,7 +3,7 @@ import "dart:convert";
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
-import "../models/auth_session.dart";
+import "package:sitepulse_engineer/shared/models/auth_session.dart";
 
 class SessionStore {
   static AuthSession? current;

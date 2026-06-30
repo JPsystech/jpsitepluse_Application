@@ -53,7 +53,7 @@ class _ProfileView extends StatelessWidget {
                 const SectionHeader(title: "Account"),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
