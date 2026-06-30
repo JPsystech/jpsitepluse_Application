@@ -34,7 +34,8 @@ Future<void> setStoredApiBaseUrl(String value) async {
   _resolvedApiBaseUrl = null;
 }
 
-const String _apiBaseUrlOverride = String.fromEnvironment("API_BASE_URL", defaultValue: "");
+const String _apiBaseUrlOverride =
+    String.fromEnvironment("API_BASE_URL", defaultValue: "");
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
 
 const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
@@ -92,25 +93,36 @@ Future<String> _resolveApiBaseUrlInner() async {
   }
 
   if (Platform.isAndroid) {
-    final ok = await _canConnect(host: "10.0.2.2", port: 8011, timeout: const Duration(milliseconds: 400));
+    final ok = await _canConnect(
+        host: "10.0.2.2",
+        port: 8011,
+        timeout: const Duration(milliseconds: 400));
     if (ok) {
       return emulatorApiBaseUrl;
     }
-    throw ApiConfigException("Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.12:8011)");
+    throw ApiConfigException(
+        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.12:8011)");
   }
 
   if (Platform.isIOS) {
-    final ok = await _canConnect(host: "127.0.0.1", port: 8011, timeout: const Duration(milliseconds: 400));
+    final ok = await _canConnect(
+        host: "127.0.0.1",
+        port: 8011,
+        timeout: const Duration(milliseconds: 400));
     if (ok) {
       return iosSimulatorApiBaseUrl;
     }
-    throw ApiConfigException("Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.12:8011)");
+    throw ApiConfigException(
+        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.12:8011)");
   }
 
   throw ApiConfigException("API base URL is not configured");
 }
 
-Future<bool> _canConnect({required String host, required int port, required Duration timeout}) async {
+Future<bool> _canConnect(
+    {required String host,
+    required int port,
+    required Duration timeout}) async {
   Socket? socket;
   try {
     socket = await Socket.connect(host, port, timeout: timeout);

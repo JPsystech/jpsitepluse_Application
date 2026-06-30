@@ -2,7 +2,7 @@ part of 'terms_bloc.dart';
 
 abstract class TermsState extends Equatable {
   const TermsState();
-  
+
   @override
   List<Object> get props => [];
 }

@@ -3,7 +3,8 @@ import "package:dio/dio.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
 
 class OfflinePunchSyncService {
-  OfflinePunchSyncService({OfflinePunchQueue? queue, AttendanceService? attendanceService})
+  OfflinePunchSyncService(
+      {OfflinePunchQueue? queue, AttendanceService? attendanceService})
       : queue = queue ?? OfflinePunchQueue(),
         attendanceService = attendanceService ?? AttendanceService();
 
@@ -61,4 +62,3 @@ class OfflinePunchSyncService {
     }
   }
 }
-

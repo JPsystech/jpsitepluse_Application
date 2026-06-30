@@ -18,7 +18,8 @@ class ApiClient {
   final String? baseUrl;
   Future<String>? _resolvedBaseUrl;
 
-  ApiClient({this.baseUrl, http.Client? client}) : client = client ?? http.Client();
+  ApiClient({this.baseUrl, http.Client? client})
+      : client = client ?? http.Client();
 
   Future<Uri> url(String path) async {
     final base = await _ensureBaseUrl();
@@ -40,31 +41,38 @@ class ApiClient {
     return resolved;
   }
 
-  Future<Map<String, dynamic>?> getJson(Uri uri, {Map<String, String>? headers}) async {
+  Future<Map<String, dynamic>?> getJson(Uri uri,
+      {Map<String, String>? headers}) async {
     _log("[ApiClient] GET $uri");
     final resp = await _safeRequest(() => client.get(uri, headers: headers));
     return _handleJson(uri, resp);
   }
 
-  Future<Map<String, dynamic>?> postJson(Uri uri, {Map<String, String>? headers, Object? body}) async {
+  Future<Map<String, dynamic>?> postJson(Uri uri,
+      {Map<String, String>? headers, Object? body}) async {
     _log("[ApiClient] POST $uri");
     _log("[ApiClient] Headers: $headers");
     _log("[ApiClient] Body: $body");
-    final resp = await _safeRequest(() => client.post(uri, headers: headers, body: body));
+    final resp = await _safeRequest(
+        () => client.post(uri, headers: headers, body: body));
     return _handleJson(uri, resp);
   }
 
-  Future<({Uint8List bytes, Map<String, String> headers})> getBytes(Uri uri, {Map<String, String>? headers}) async {
+  Future<({Uint8List bytes, Map<String, String> headers})> getBytes(Uri uri,
+      {Map<String, String>? headers}) async {
     _log("[ApiClient] GET (bytes) $uri");
     final resp = await _safeRequest(() => client.get(uri, headers: headers));
     _log("[ApiClient] Response ${resp.statusCode} from $uri");
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       final ct = (resp.headers["content-type"] ?? "").toLowerCase();
       Map<String, dynamic>? json;
-      if (ct.contains("application/json") || ct.contains("text/json") || resp.body.trimLeft().startsWith("{")) {
+      if (ct.contains("application/json") ||
+          ct.contains("text/json") ||
+          resp.body.trimLeft().startsWith("{")) {
         json = _decodeJson(resp.body);
       }
-      throw ApiException(_extractErrorMessage(json, fallback: "Request failed"), statusCode: resp.statusCode);
+      throw ApiException(_extractErrorMessage(json, fallback: "Request failed"),
+          statusCode: resp.statusCode);
     }
     return (bytes: resp.bodyBytes, headers: resp.headers);
   }
@@ -85,7 +93,8 @@ class ApiClient {
       req.files.add(file);
       final streamed = await req.send();
       final body = await streamed.stream.bytesToString();
-      final resp = http.Response(body, streamed.statusCode, headers: streamed.headers, request: streamed.request);
+      final resp = http.Response(body, streamed.statusCode,
+          headers: streamed.headers, request: streamed.request);
       return _handleJson(uri, resp);
     } on HandshakeException catch (e) {
       _log("[ApiClient] HandshakeException: $e");
@@ -99,7 +108,8 @@ class ApiClient {
     }
   }
 
-  Future<http.Response> _safeRequest(Future<http.Response> Function() action) async {
+  Future<http.Response> _safeRequest(
+      Future<http.Response> Function() action) async {
     try {
       return await action();
     } on HandshakeException catch (e) {
@@ -110,7 +120,8 @@ class ApiClient {
       throw ApiException("Network error: $e");
     } on SocketException catch (e) {
       _log("[ApiClient] SocketException: $e");
-      throw ApiException("Backend unreachable. Check if server is on same WiFi: $e");
+      throw ApiException(
+          "Backend unreachable. Check if server is on same WiFi: $e");
     } catch (e) {
       _log("[ApiClient] Unexpected error: $e");
       throw ApiException("Unexpected network error: $e");
@@ -127,7 +138,8 @@ class ApiClient {
       }
       final parsed = _extractApiError(json);
       throw ApiException(
-        _extractErrorMessage(json, fallback: "Request failed (Status: ${resp.statusCode})"),
+        _extractErrorMessage(json,
+            fallback: "Request failed (Status: ${resp.statusCode})"),
         statusCode: resp.statusCode,
         code: parsed.code,
         details: parsed.details,
@@ -156,7 +168,8 @@ Map<String, dynamic>? _decodeJson(String body) {
   return null;
 }
 
-String _extractErrorMessage(Map<String, dynamic>? json, {required String fallback}) {
+String _extractErrorMessage(Map<String, dynamic>? json,
+    {required String fallback}) {
   final detail = json?["detail"];
   if (detail is String && detail.trim().isNotEmpty) {
     return detail;
@@ -172,7 +185,8 @@ String _extractErrorMessage(Map<String, dynamic>? json, {required String fallbac
         if (first is Map<String, dynamic>) {
           final msg = first["msg"];
           if (msg is String && msg.trim().isNotEmpty) {
-            final cleaned = msg.trim().replaceFirst(RegExp(r"^Value error,\s*"), "");
+            final cleaned =
+                msg.trim().replaceFirst(RegExp(r"^Value error,\s*"), "");
             return cleaned;
           }
         }
@@ -184,7 +198,8 @@ String _extractErrorMessage(Map<String, dynamic>? json, {required String fallbac
   return fallback;
 }
 
-({String? code, Map<String, dynamic>? details}) _extractApiError(Map<String, dynamic>? json) {
+({String? code, Map<String, dynamic>? details}) _extractApiError(
+    Map<String, dynamic>? json) {
   if (json == null) {
     return (code: null, details: null);
   }

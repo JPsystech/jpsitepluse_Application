@@ -5,7 +5,12 @@ class EngineerDocumentListResponse {
 
   factory EngineerDocumentListResponse.fromJson(Map<String, dynamic> json) {
     final raw = json["items"];
-    final items = raw is List ? raw.whereType<Map<String, dynamic>>().map(EngineerDocument.fromJson).toList() : <EngineerDocument>[];
+    final items = raw is List
+        ? raw
+            .whereType<Map<String, dynamic>>()
+            .map(EngineerDocument.fromJson)
+            .toList()
+        : <EngineerDocument>[];
     return EngineerDocumentListResponse(items: items);
   }
 
@@ -14,7 +19,10 @@ class EngineerDocumentListResponse {
       return EngineerDocumentListResponse.fromJson(json);
     }
     if (json is List) {
-      final items = json.whereType<Map<String, dynamic>>().map(EngineerDocument.fromJson).toList();
+      final items = json
+          .whereType<Map<String, dynamic>>()
+          .map(EngineerDocument.fromJson)
+          .toList();
       return EngineerDocumentListResponse(items: items);
     }
     return EngineerDocumentListResponse(items: const []);
@@ -62,14 +70,19 @@ class EngineerDocument {
       documentName: (json["document_name"] as String?) ?? "",
       fileUrl: (json["file_url"] as String?) ?? (json["url"] as String?) ?? "",
       originalFilename: json["original_filename"] as String?,
-      contentType: (json["content_type"] as String?) ?? "application/octet-stream",
+      contentType:
+          (json["content_type"] as String?) ?? "application/octet-stream",
       sizeBytes: (json["size_bytes"] as num?)?.toInt() ?? 0,
-      verificationStatus: (json["verification_status"] as String?) ?? (json["status"] as String?) ?? "",
+      verificationStatus: (json["verification_status"] as String?) ??
+          (json["status"] as String?) ??
+          "",
       adminRemarks: json["admin_remarks"] as String?,
       isRequired: json["is_required"] as bool? ?? json["required"] as bool?,
       requiredLabel: json["required_label"] as String?,
-      uploadedAt: DateTime.tryParse((json["uploaded_at"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0),
-      updatedAt: DateTime.tryParse((json["updated_at"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0),
+      uploadedAt: DateTime.tryParse((json["uploaded_at"] as String?) ?? "") ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: DateTime.tryParse((json["updated_at"] as String?) ?? "") ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 

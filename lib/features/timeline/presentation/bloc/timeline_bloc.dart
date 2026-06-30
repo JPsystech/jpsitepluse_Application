@@ -59,7 +59,7 @@ class TimelineBloc extends Bloc<TimelineEvent, TimelineState> {
         token: event.sessionToken,
         month: event.month.trim().isEmpty ? null : event.month,
       );
-      
+
       final dir = await getApplicationDocumentsDirectory();
       final safeName = resp.filename.replaceAll(RegExp(r'[\\/:*?"<>|]'), "_");
       final file = File("${dir.path}/$safeName");
@@ -70,7 +70,7 @@ class TimelineBloc extends Bloc<TimelineEvent, TimelineState> {
         downloadedFileName: safeName,
         downloadedFilePath: file.path,
       ));
-      
+
       // Reset back to loaded
       emit(state.copyWith(status: TimelineStatus.loaded));
     } catch (e) {

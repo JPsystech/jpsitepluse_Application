@@ -4,7 +4,8 @@ import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart
 class AuthRepository {
   final AuthService _authService;
 
-  AuthRepository({AuthService? authService}) : _authService = authService ?? AuthService();
+  AuthRepository({AuthService? authService})
+      : _authService = authService ?? AuthService();
 
   Future<AuthSessionModel> login({
     required String companyCode,

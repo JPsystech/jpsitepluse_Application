@@ -15,7 +15,8 @@ class DocumentsService {
 
   Future<List<EngineerDocument>> listDocuments({required String token}) async {
     final uri = await api.url("/api/v1/engineer/documents");
-    final json = await api.getJson(uri, headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+    final json = await api.getJson(uri,
+        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
     final resp = EngineerDocumentListResponse.fromUnknown(json);
     return resp.items;
   }
@@ -114,7 +115,9 @@ class DocumentsService {
       throw ApiException("Presign failed: public_url missing");
     }
 
-    final headers = <String, String>{HttpHeaders.contentTypeHeader: contentType};
+    final headers = <String, String>{
+      HttpHeaders.contentTypeHeader: contentType
+    };
     headers.addAll(presigned.requiredHeaders);
 
     try {
@@ -127,11 +130,15 @@ class DocumentsService {
         if (alt.isEmpty) {
           rethrow;
         }
-        resp = await api.client.put(Uri.parse(alt), headers: headers, body: bytes);
+        resp =
+            await api.client.put(Uri.parse(alt), headers: headers, body: bytes);
       }
 
-      if (resp.statusCode != 200 && resp.statusCode != 201 && resp.statusCode != 204) {
-        throw ApiException("Upload failed (status ${resp.statusCode}): ${resp.body}");
+      if (resp.statusCode != 200 &&
+          resp.statusCode != 201 &&
+          resp.statusCode != 204) {
+        throw ApiException(
+            "Upload failed (status ${resp.statusCode}): ${resp.body}");
       }
     } on HandshakeException catch (e) {
       throw ApiException("Upload failed (TLS): $e");
@@ -153,4 +160,3 @@ class DocumentsService {
     );
   }
 }
-

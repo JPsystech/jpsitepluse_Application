@@ -1,6 +1,5 @@
 import "package:flutter/material.dart";
-
-import "main_foundation.dart";
+import "app.dart";
 
 void main() {
   runApp(const SitePulseAppFoundation());

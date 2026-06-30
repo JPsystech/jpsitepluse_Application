@@ -21,5 +21,6 @@ class ChangePasswordSubmitted extends ChangePasswordEvent {
   });
 
   @override
-  List<Object> get props => [sessionToken, currentPassword, newPassword, confirmPassword];
+  List<Object> get props =>
+      [sessionToken, currentPassword, newPassword, confirmPassword];
 }

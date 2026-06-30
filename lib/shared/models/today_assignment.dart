@@ -18,12 +18,20 @@ class TodayAssignmentResponse {
   factory TodayAssignmentResponse.fromJson(Map<String, dynamic> json) {
     final a = json["assignment"];
     final rawList = json["assignments"];
-    final list = rawList is List ? rawList.whereType<Map<String, dynamic>>().map(TodayAssignment.fromJson).toList() : <TodayAssignment>[];
-    final single = a is Map<String, dynamic> ? TodayAssignment.fromJson(a) : null;
+    final list = rawList is List
+        ? rawList
+            .whereType<Map<String, dynamic>>()
+            .map(TodayAssignment.fromJson)
+            .toList()
+        : <TodayAssignment>[];
+    final single =
+        a is Map<String, dynamic> ? TodayAssignment.fromJson(a) : null;
     return TodayAssignmentResponse(
       hasAssignment: (json["has_assignment"] as bool?) ?? false,
       assignment: single,
-      assignments: list.isNotEmpty ? list : (single != null ? [single] : <TodayAssignment>[]),
+      assignments: list.isNotEmpty
+          ? list
+          : (single != null ? [single] : <TodayAssignment>[]),
       message: json["message"] as String?,
       activeAttendanceLogId: json["active_attendance_log_id"] as String?,
       activeProjectId: json["active_project_id"] as String?,
@@ -98,7 +106,9 @@ class PunchInResponse {
     return PunchInResponse(
       attendanceLogId: (json["attendance_log_id"] as String?) ?? "",
       workDate: (json["work_date"] as String?) ?? "",
-      punchInTime: DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0),
+      punchInTime:
+          DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ??
+              DateTime.fromMillisecondsSinceEpoch(0),
       punchInLat: (json["punch_in_lat"] as num?)?.toDouble() ?? 0,
       punchInLng: (json["punch_in_lng"] as num?)?.toDouble() ?? 0,
       punchInDistanceM: (json["punch_in_distance_m"] as num?)?.toDouble() ?? 0,
@@ -141,10 +151,13 @@ class PunchOutResponse {
     return PunchOutResponse(
       attendanceLogId: (json["attendance_log_id"] as String?) ?? "",
       workDate: (json["work_date"] as String?) ?? "",
-      punchOutTime: DateTime.tryParse((json["punch_out_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0),
+      punchOutTime:
+          DateTime.tryParse((json["punch_out_time"] as String?) ?? "") ??
+              DateTime.fromMillisecondsSinceEpoch(0),
       punchOutLat: (json["punch_out_lat"] as num?)?.toDouble() ?? 0,
       punchOutLng: (json["punch_out_lng"] as num?)?.toDouble() ?? 0,
-      punchOutDistanceM: (json["punch_out_distance_m"] as num?)?.toDouble() ?? 0,
+      punchOutDistanceM:
+          (json["punch_out_distance_m"] as num?)?.toDouble() ?? 0,
       isInsideRadius: json["is_inside_radius"] as bool?,
       isExceptionPunch: json["is_exception_punch"] as bool?,
       exceptionStatus: json["exception_status"] as String?,
@@ -159,11 +172,17 @@ class EngineerHistoryResponse {
   final String endDate;
   final List<EngineerHistoryRow> items;
 
-  EngineerHistoryResponse({required this.startDate, required this.endDate, required this.items});
+  EngineerHistoryResponse(
+      {required this.startDate, required this.endDate, required this.items});
 
   factory EngineerHistoryResponse.fromJson(Map<String, dynamic> json) {
     final raw = json["items"];
-    final items = raw is List ? raw.whereType<Map<String, dynamic>>().map(EngineerHistoryRow.fromJson).toList() : <EngineerHistoryRow>[];
+    final items = raw is List
+        ? raw
+            .whereType<Map<String, dynamic>>()
+            .map(EngineerHistoryRow.fromJson)
+            .toList()
+        : <EngineerHistoryRow>[];
     return EngineerHistoryResponse(
       startDate: (json["start_date"] as String?) ?? "",
       endDate: (json["end_date"] as String?) ?? "",
@@ -201,12 +220,17 @@ class EngineerHistoryRow {
     List<String> readUrls(String key) {
       final raw = json[key];
       if (raw is List) {
-        return raw.whereType<String>().where((s) => s.trim().isNotEmpty).toList();
+        return raw
+            .whereType<String>()
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
       }
       return <String>[];
     }
 
-    final punchInTime = DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final punchInTime =
+        DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ??
+            DateTime.fromMillisecondsSinceEpoch(0);
     final punchOutTimeRaw = (json["punch_out_time"] as String?);
 
     return EngineerHistoryRow(
@@ -214,7 +238,8 @@ class EngineerHistoryRow {
       projectName: (json["project_name"] as String?) ?? "",
       siteName: (json["site_name"] as String?) ?? "",
       punchInTime: punchInTime,
-      punchOutTime: punchOutTimeRaw != null ? DateTime.tryParse(punchOutTimeRaw) : null,
+      punchOutTime:
+          punchOutTimeRaw != null ? DateTime.tryParse(punchOutTimeRaw) : null,
       remarks: (json["remarks"] as String?),
       status: (json["status"] as String?) ?? "",
       punchInPhotoUrls: readUrls("punch_in_photo_urls"),
@@ -241,7 +266,12 @@ class EngineerTimesheetListResponse {
 
   factory EngineerTimesheetListResponse.fromJson(Map<String, dynamic> json) {
     final raw = json["items"];
-    final items = raw is List ? raw.whereType<Map<String, dynamic>>().map(EngineerTimesheetRow.fromJson).toList() : <EngineerTimesheetRow>[];
+    final items = raw is List
+        ? raw
+            .whereType<Map<String, dynamic>>()
+            .map(EngineerTimesheetRow.fromJson)
+            .toList()
+        : <EngineerTimesheetRow>[];
     return EngineerTimesheetListResponse(
       startDate: (json["start_date"] as String?) ?? "",
       endDate: (json["end_date"] as String?) ?? "",
@@ -280,7 +310,9 @@ class EngineerTimesheetRow {
   });
 
   factory EngineerTimesheetRow.fromJson(Map<String, dynamic> json) {
-    final punchInTime = DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final punchInTime =
+        DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ??
+            DateTime.fromMillisecondsSinceEpoch(0);
     final punchOutTimeRaw = json["punch_out_time"] as String?;
     return EngineerTimesheetRow(
       attendanceLogId: (json["attendance_log_id"] as String?) ?? "",
@@ -290,7 +322,8 @@ class EngineerTimesheetRow {
       projectName: (json["project_name"] as String?) ?? "",
       siteName: (json["site_name"] as String?) ?? "",
       punchInTime: punchInTime,
-      punchOutTime: punchOutTimeRaw != null ? DateTime.tryParse(punchOutTimeRaw) : null,
+      punchOutTime:
+          punchOutTimeRaw != null ? DateTime.tryParse(punchOutTimeRaw) : null,
       totalHours: (json["total_hours"] as num?)?.toDouble() ?? 0,
       remarks: json["remarks"] as String?,
       mark: json["mark"] as String?,
@@ -303,13 +336,19 @@ class EngineerTimesheetFilterOptionsResponse {
   final List<String> projects;
   final List<String> sites;
 
-  EngineerTimesheetFilterOptionsResponse({required this.clients, required this.projects, required this.sites});
+  EngineerTimesheetFilterOptionsResponse(
+      {required this.clients, required this.projects, required this.sites});
 
-  factory EngineerTimesheetFilterOptionsResponse.fromJson(Map<String, dynamic> json) {
+  factory EngineerTimesheetFilterOptionsResponse.fromJson(
+      Map<String, dynamic> json) {
     List<String> readList(String key) {
       final raw = json[key];
       if (raw is List) {
-        return raw.whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        return raw
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
       }
       return <String>[];
     }
@@ -373,12 +412,17 @@ class EngineerTimesheetDetailResponse {
     List<String> readUrls(String key) {
       final raw = json[key];
       if (raw is List) {
-        return raw.whereType<String>().where((s) => s.trim().isNotEmpty).toList();
+        return raw
+            .whereType<String>()
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
       }
       return <String>[];
     }
 
-    final punchInTime = DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final punchInTime =
+        DateTime.tryParse((json["punch_in_time"] as String?) ?? "") ??
+            DateTime.fromMillisecondsSinceEpoch(0);
     final punchOutTimeRaw = json["punch_out_time"] as String?;
 
     return EngineerTimesheetDetailResponse(
@@ -393,7 +437,8 @@ class EngineerTimesheetDetailResponse {
       punchInLat: (json["punch_in_lat"] as num?)?.toDouble() ?? 0,
       punchInLng: (json["punch_in_lng"] as num?)?.toDouble() ?? 0,
       punchInDistanceM: (json["punch_in_distance_m"] as num?)?.toDouble() ?? 0,
-      punchOutTime: punchOutTimeRaw != null ? DateTime.tryParse(punchOutTimeRaw) : null,
+      punchOutTime:
+          punchOutTimeRaw != null ? DateTime.tryParse(punchOutTimeRaw) : null,
       punchOutLat: (json["punch_out_lat"] as num?)?.toDouble(),
       punchOutLng: (json["punch_out_lng"] as num?)?.toDouble(),
       punchOutDistanceM: (json["punch_out_distance_m"] as num?)?.toDouble(),

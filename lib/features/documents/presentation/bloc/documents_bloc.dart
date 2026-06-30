@@ -44,7 +44,8 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
     final key = _ndtExpiryKey;
     if (key == null) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, DateTime(date.year, date.month, date.day).toIso8601String());
+    await prefs.setString(
+        key, DateTime(date.year, date.month, date.day).toIso8601String());
   }
 
   String _friendlyUploadError(String message) {
@@ -53,7 +54,9 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
     if (lower.contains("too large")) {
       return "File size too large. Please upload a file smaller than 15 MB.";
     }
-    if (lower.contains("unsupported") || lower.contains("only jpg") || lower.contains("only png")) {
+    if (lower.contains("unsupported") ||
+        lower.contains("only jpg") ||
+        lower.contains("only png")) {
       return "Unsupported format. Please select an allowed document format.";
     }
     if (lower.contains("network") || lower.contains("unreachable")) {
@@ -65,13 +68,17 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
   Future<void> _onLoadDocumentsRequested(
       LoadDocumentsRequested event, Emitter<DocumentsState> emit) async {
     if (event.showLoader) {
-      emit(state.copyWith(status: DocumentsStatus.loading, errorMessage: "", clearOneOffs: true));
+      emit(state.copyWith(
+          status: DocumentsStatus.loading,
+          errorMessage: "",
+          clearOneOffs: true));
     }
-    
+
     try {
       final ndtDate = await _loadNdtExpiryDate();
-      final docs = await _documentService.listDocuments(token: event.sessionToken);
-      
+      final docs =
+          await _documentService.listDocuments(token: event.sessionToken);
+
       emit(state.copyWith(
         status: DocumentsStatus.loaded,
         documents: docs,
@@ -109,14 +116,17 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       DateTime? newNdtDate = state.ndtExpiryDate;
       if (event.documentType == "ndt" && event.ndtExpiryDate != null) {
         await _saveNdtExpiryDate(event.ndtExpiryDate!);
-        newNdtDate = DateTime(event.ndtExpiryDate!.year, event.ndtExpiryDate!.month, event.ndtExpiryDate!.day);
+        newNdtDate = DateTime(event.ndtExpiryDate!.year,
+            event.ndtExpiryDate!.month, event.ndtExpiryDate!.day);
       }
 
       // Automatically reload documents after success
-      final docs = await _documentService.listDocuments(token: event.sessionToken);
+      final docs =
+          await _documentService.listDocuments(token: event.sessionToken);
 
-      final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
-      
+      final updatedBusyKeys = Set<String>.from(state.busyKeys)
+        ..remove(event.busyKey);
+
       emit(state.copyWith(
         documents: docs,
         busyKeys: updatedBusyKeys,
@@ -126,9 +136,10 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         clearOneOffs: false,
       ));
     } catch (e) {
-      final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
+      final updatedBusyKeys = Set<String>.from(state.busyKeys)
+        ..remove(event.busyKey);
       final msg = _friendlyUploadError(e.toString());
-      
+
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
         snackbarMessage: msg,
@@ -151,9 +162,11 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw "Failed to download file";
       }
-      
+
       final tempDir = await getTemporaryDirectory();
-      final name = event.document.effectiveFileName.isEmpty ? "document.pdf" : event.document.effectiveFileName;
+      final name = event.document.effectiveFileName.isEmpty
+          ? "document.pdf"
+          : event.document.effectiveFileName;
       final safeName = name
           .replaceAll("\\", "_")
           .replaceAll("/", "_")
@@ -164,23 +177,26 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
           .replaceAll("<", "_")
           .replaceAll(">", "_")
           .replaceAll("|", "_");
-          
+
       final file = File("${tempDir.path}${Platform.pathSeparator}$safeName");
       await file.writeAsBytes(response.bodyBytes, flush: true);
 
-      final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
-      
+      final updatedBusyKeys = Set<String>.from(state.busyKeys)
+        ..remove(event.busyKey);
+
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
         downloadedFilePath: file.path,
         clearOneOffs: false,
       ));
     } catch (e) {
-      final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
-      
+      final updatedBusyKeys = Set<String>.from(state.busyKeys)
+        ..remove(event.busyKey);
+
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
-        snackbarMessage: "Unable to open file. ${_friendlyUploadError(e.toString())}",
+        snackbarMessage:
+            "Unable to open file. ${_friendlyUploadError(e.toString())}",
         isErrorSnackbar: true,
         clearOneOffs: false,
       ));

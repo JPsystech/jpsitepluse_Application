@@ -56,8 +56,10 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
       SubmitTimesheetRequested event, Emitter<TimesheetState> emit) async {
     emit(state.copyWith(status: TimesheetStatus.submitting));
     try {
-      final hoursText = (event.minutes / 60).toStringAsFixed(event.minutes % 60 == 0 ? 0 : 1);
-      final addressText = "${event.activityType} • ${hoursText}h • ${event.description}";
+      final hoursText =
+          (event.minutes / 60).toStringAsFixed(event.minutes % 60 == 0 ? 0 : 1);
+      final addressText =
+          "${event.activityType} • ${hoursText}h • ${event.description}";
 
       final fileUrl = await _sitePhotoService.uploadProgressPhoto(
         token: event.sessionToken,
@@ -67,7 +69,8 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
         addressText: addressText,
         projectName: state.projectName.trim().isEmpty ? "-" : state.projectName,
         siteName: state.siteName.trim().isEmpty ? "-" : state.siteName,
-        empCode: event.engineerEmpCode.trim().isEmpty ? "-" : event.engineerEmpCode,
+        empCode:
+            event.engineerEmpCode.trim().isEmpty ? "-" : event.engineerEmpCode,
         capturedAt: DateTime.now(),
       );
 
@@ -75,16 +78,15 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
         status: TimesheetStatus.submitSuccess,
         uploadedPhotoUrl: fileUrl,
       ));
-      
+
       // Reset status to loaded for future submissions
       emit(state.copyWith(status: TimesheetStatus.loaded));
-      
     } catch (e) {
       emit(state.copyWith(
         status: TimesheetStatus.error,
         errorMessage: e.toString(),
       ));
-      
+
       // Revert status to loaded
       emit(state.copyWith(status: TimesheetStatus.loaded));
     }

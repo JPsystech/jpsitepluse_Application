@@ -11,7 +11,8 @@ class LoadDocumentsRequested extends DocumentsEvent {
   final String sessionToken;
   final bool showLoader;
 
-  const LoadDocumentsRequested({required this.sessionToken, this.showLoader = true});
+  const LoadDocumentsRequested(
+      {required this.sessionToken, this.showLoader = true});
 
   @override
   List<Object?> get props => [sessionToken, showLoader];
