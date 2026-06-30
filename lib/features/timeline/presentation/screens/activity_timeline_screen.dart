@@ -1,11 +1,9 @@
-import "dart:io";
-
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:open_filex/open_filex.dart";
 import "package:share_plus/share_plus.dart";
 
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:sitepulse_engineer/core/utils/ist_time.dart";
 import "package:sitepulse_engineer/core/utils/formatters.dart";
 import "package:sitepulse_engineer/shared/models/today_assignment.dart";
@@ -23,7 +21,8 @@ class ActivityTimelineScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => TimelineBloc()..add(LoadTimelineRequested(sessionToken: sessionToken)),
+      create: (_) => TimelineBloc()
+        ..add(LoadTimelineRequested(sessionToken: sessionToken)),
       child: _ActivityTimelineView(sessionToken: sessionToken),
     );
   }
@@ -44,17 +43,19 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
     final out = <String>[""];
     for (var i = 0; i < 12; i++) {
       final d = DateTime(now.year, now.month - i, 1);
-      out.add("${d.year.toString().padLeft(4, "0")}-${d.month.toString().padLeft(2, "0")}");
+      out.add(
+          "${d.year.toString().padLeft(4, "0")}-${d.month.toString().padLeft(2, "0")}");
     }
     return out;
   }
 
-  String _monthLabel(String value) => value.trim().isEmpty ? "All months" : value;
+  String _monthLabel(String value) =>
+      value.trim().isEmpty ? "All months" : value;
 
   Future<void> _openFilters(BuildContext context, TimelineState state) async {
     String draftMonth = state.month;
     String draftStatus = state.statusFilter;
-    
+
     final applied = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
@@ -68,27 +69,40 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Timeline Filters", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                    const Text("Timeline Filters",
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2)),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       value: draftMonth,
-                      decoration: const InputDecoration(labelText: "Month", border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                          labelText: "Month", border: OutlineInputBorder()),
                       items: _monthOptions()
-                          .map((m) => DropdownMenuItem<String>(value: m, child: Text(_monthLabel(m))))
+                          .map((m) => DropdownMenuItem<String>(
+                              value: m, child: Text(_monthLabel(m))))
                           .toList(growable: false),
-                      onChanged: (v) => setModalState(() => draftMonth = v ?? ""),
+                      onChanged: (v) =>
+                          setModalState(() => draftMonth = v ?? ""),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: draftStatus,
-                      decoration: const InputDecoration(labelText: "Status", border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                          labelText: "Status", border: OutlineInputBorder()),
                       items: const [
-                        DropdownMenuItem(value: "ALL", child: Text("All status")),
-                        DropdownMenuItem(value: "PUNCHED_IN", child: Text("Punched In")),
-                        DropdownMenuItem(value: "PUNCHED_OUT", child: Text("Punched Out")),
-                        DropdownMenuItem(value: "COMPLETED", child: Text("Completed")),
+                        DropdownMenuItem(
+                            value: "ALL", child: Text("All status")),
+                        DropdownMenuItem(
+                            value: "PUNCHED_IN", child: Text("Punched In")),
+                        DropdownMenuItem(
+                            value: "PUNCHED_OUT", child: Text("Punched Out")),
+                        DropdownMenuItem(
+                            value: "COMPLETED", child: Text("Completed")),
                       ],
-                      onChanged: (v) => setModalState(() => draftStatus = v ?? "ALL"),
+                      onChanged: (v) =>
+                          setModalState(() => draftStatus = v ?? "ALL"),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -120,23 +134,28 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
         );
       },
     );
-    
+
     if (applied != true || !context.mounted) return;
-    
+
     final bloc = context.read<TimelineBloc>();
     bloc.add(FilterTimelineRequested(statusFilter: draftStatus));
-    
+
     if (draftMonth != state.month) {
-      bloc.add(LoadTimelineRequested(sessionToken: widget.sessionToken, month: draftMonth));
+      bloc.add(LoadTimelineRequested(
+          sessionToken: widget.sessionToken, month: draftMonth));
     }
   }
 
-  List<EngineerHistoryRow> _filteredItems(List<EngineerHistoryRow> items, String statusFilter) {
+  List<EngineerHistoryRow> _filteredItems(
+      List<EngineerHistoryRow> items, String statusFilter) {
     if (statusFilter == "ALL") return items;
-    return items.where((item) => item.status.trim().toUpperCase() == statusFilter).toList();
+    return items
+        .where((item) => item.status.trim().toUpperCase() == statusFilter)
+        .toList();
   }
 
-  void _showPdfBottomSheet(BuildContext context, String fileName, String filePath) {
+  void _showPdfBottomSheet(
+      BuildContext context, String fileName, String filePath) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -148,9 +167,16 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text("Timeline PDF saved", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                const Text("Timeline PDF saved",
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2)),
                 const SizedBox(height: 6),
-                Text(fileName, style: const TextStyle(color:AppTheme.muted, fontWeight: FontWeight.w700)),
+                Text(fileName,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 14),
                 PrimaryButton(
                   label: "Open PDF",
@@ -166,7 +192,8 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                   icon: Icons.share_outlined,
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    await Share.shareXFiles([XFile(filePath)], text: "My timeline PDF");
+                    await Share.shareXFiles([XFile(filePath)],
+                        text: "My timeline PDF");
                   },
                 ),
               ],
@@ -176,8 +203,6 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
       },
     );
   }
-
-
 
   bool _isSystemAutoClosed(String? remarks) {
     return (remarks ?? "").startsWith("SYSTEM_AUTO_CLOSED");
@@ -190,10 +215,11 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
     return raw;
   }
 
-  Color _chipColor(ColorScheme cs, String status) {
+  Color _chipColor(BuildContext context, ColorScheme cs, String status) {
     final s = status.trim().toUpperCase();
-    if (s == "COMPLETED" || s == "PUNCHED_OUT") return AppTheme.successBg;
-    if (s == "PUNCHED_IN") return AppTheme.sky.withAlpha(26);
+    if (s == "COMPLETED" || s == "PUNCHED_OUT")
+      return Theme.of(context).extension<AppColorsExtension>()!.successBg;
+    if (s == "PUNCHED_IN") return cs.primary.withAlpha(26);
     return cs.primaryContainer;
   }
 
@@ -208,26 +234,35 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
         actions: [
           BlocBuilder<TimelineBloc, TimelineState>(
             builder: (context, state) {
-              final isLoading = state.status == TimelineStatus.loading || state.status == TimelineStatus.initial;
+              final isLoading = state.status == TimelineStatus.loading ||
+                  state.status == TimelineStatus.initial;
               final isDownloading = state.status == TimelineStatus.downloading;
               return Row(
                 children: [
                   IconButton(
-                    onPressed: isLoading ? null : () => _openFilters(context, state), 
-                    icon: const Icon(Icons.filter_alt_outlined)
-                  ),
+                      onPressed:
+                          isLoading ? null : () => _openFilters(context, state),
+                      icon: const Icon(Icons.filter_alt_outlined)),
                   IconButton(
-                    onPressed: isDownloading ? null : () {
-                      context.read<TimelineBloc>().add(DownloadTimelinePdfRequested(sessionToken: widget.sessionToken, month: state.month));
-                    }, 
-                    icon: const Icon(Icons.download_outlined)
-                  ),
+                      onPressed: isDownloading
+                          ? null
+                          : () {
+                              context.read<TimelineBloc>().add(
+                                  DownloadTimelinePdfRequested(
+                                      sessionToken: widget.sessionToken,
+                                      month: state.month));
+                            },
+                      icon: const Icon(Icons.download_outlined)),
                   IconButton(
-                    onPressed: isLoading ? null : () {
-                      context.read<TimelineBloc>().add(LoadTimelineRequested(sessionToken: widget.sessionToken, month: state.month));
-                    }, 
-                    icon: const Icon(Icons.refresh)
-                  ),
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              context.read<TimelineBloc>().add(
+                                  LoadTimelineRequested(
+                                      sessionToken: widget.sessionToken,
+                                      month: state.month));
+                            },
+                      icon: const Icon(Icons.refresh)),
                 ],
               );
             },
@@ -240,17 +275,25 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
             if (state.status == TimelineStatus.error) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text(state.errorMessage),
-                backgroundColor: AppTheme.danger,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ));
             } else if (state.status == TimelineStatus.downloadSuccess) {
-              if (state.downloadedFileName != null && state.downloadedFilePath != null) {
-                _showPdfBottomSheet(context, state.downloadedFileName!, state.downloadedFilePath!,);
+              if (state.downloadedFileName != null &&
+                  state.downloadedFilePath != null) {
+                _showPdfBottomSheet(
+                  context,
+                  state.downloadedFileName!,
+                  state.downloadedFilePath!,
+                );
               }
             }
           },
           builder: (context, state) {
-            final isLoading = state.status == TimelineStatus.loading || state.status == TimelineStatus.initial;
-            final items = _filteredItems(state.data?.items ?? const <EngineerHistoryRow>[], state.statusFilter);
+            final isLoading = state.status == TimelineStatus.loading ||
+                state.status == TimelineStatus.initial;
+            final items = _filteredItems(
+                state.data?.items ?? const <EngineerHistoryRow>[],
+                state.statusFilter);
 
             return Padding(
               padding: const EdgeInsets.all(18),
@@ -259,14 +302,18 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(child: SectionHeader(title: "Activity Timeline")),
+                      const Expanded(
+                          child: SectionHeader(title: "Activity Timeline")),
                       if (state.month.trim().isNotEmpty)
-                        StatusChip(label: _monthLabel(state.month), color: cs.primaryContainer),
+                        StatusChip(
+                            label: _monthLabel(state.month),
+                            color: cs.primaryContainer),
                     ],
                   ),
                   const SizedBox(height: 12),
                   if (isLoading) const LinearProgressIndicator(),
-                  if (state.status == TimelineStatus.error && state.data == null) ...[
+                  if (state.status == TimelineStatus.error &&
+                      state.data == null) ...[
                     const SizedBox(height: 14),
                     Card(
                       child: Padding(
@@ -274,13 +321,25 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Failed to load timeline", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                            const Text("Failed to load timeline",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.2)),
                             const SizedBox(height: 8),
-                            Text(state.errorMessage, style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700)),
+                            Text(state.errorMessage,
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.w700)),
                             const SizedBox(height: 12),
-                            PrimaryButton(label: "Retry", onPressed: () {
-                              context.read<TimelineBloc>().add(LoadTimelineRequested(sessionToken: widget.sessionToken, month: state.month));
-                            }, icon: Icons.refresh),
+                            PrimaryButton(
+                                label: "Retry",
+                                onPressed: () {
+                                  context.read<TimelineBloc>().add(
+                                      LoadTimelineRequested(
+                                          sessionToken: widget.sessionToken,
+                                          month: state.month));
+                                },
+                                icon: Icons.refresh),
                           ],
                         ),
                       ),
@@ -292,10 +351,20 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text("No activity yet", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                          children: [
+                            Text("No activity yet",
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.2)),
                             SizedBox(height: 8),
-                            Text("Punch in/out and submit work updates to build your timeline.", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600)),
+                            Text(
+                                "Punch in/out and submit work updates to build your timeline.",
+                                style: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -308,7 +377,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (ctx, idx) {
                           final row = items[idx];
-                          final chip = _chipColor(cs, row.status);
+                          final chip = _chipColor(context, cs, row.status);
                           final isAutoClosed = _isSystemAutoClosed(row.remarks);
                           return Card(
                             child: Padding(
@@ -320,55 +389,112 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          AppFormatters.formatDateString(row.workDate),
-                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2),
+                                          AppFormatters.formatDateString(
+                                              row.workDate),
+                                          style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: -0.2),
                                         ),
                                       ),
-                                      if (row.status.trim().isNotEmpty) StatusChip(label: row.status, color: chip),
+                                      if (row.status.trim().isNotEmpty)
+                                        StatusChip(
+                                            label: row.status, color: chip),
                                       if (isAutoClosed) ...[
                                         const SizedBox(width: 8),
-                                        const StatusChip(label: "AUTO CLOSED", color: AppTheme.warningBg),
+                                        StatusChip(
+                                            label: "AUTO CLOSED",
+                                            color: Theme.of(context)
+                                                .extension<
+                                                    AppColorsExtension>()!
+                                                .warningBg),
                                       ],
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  Text(row.projectName, style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                                  Text(row.projectName,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.2)),
                                   const SizedBox(height: 4),
-                                  Text(row.siteName, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600)),
+                                  Text(row.siteName,
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontWeight: FontWeight.w600)),
                                   const SizedBox(height: 12),
                                   Row(
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            const Text("Punch In", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700)),
+                                            Text("Punch In",
+                                                style: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                    fontWeight:
+                                                        FontWeight.w700)),
                                             const SizedBox(height: 4),
-                                            Text(AppFormatters.formatTime(row.punchInTime), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                            Text(
+                                                AppFormatters.formatTime(
+                                                    row.punchInTime),
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.w900)),
                                           ],
                                         ),
                                       ),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            const Text("Punch Out", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700)),
+                                            Text("Punch Out",
+                                                style: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                    fontWeight:
+                                                        FontWeight.w700)),
                                             const SizedBox(height: 4),
-                                            Text(AppFormatters.formatTime(row.punchOutTime), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                            Text(
+                                                AppFormatters.formatTime(
+                                                    row.punchOutTime),
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.w900)),
                                           ],
                                         ),
                                       ),
                                     ],
                                   ),
-                                  if (_displayRemarks(row.remarks).isNotEmpty) ...[
+                                  if (_displayRemarks(row.remarks)
+                                      .isNotEmpty) ...[
                                     const SizedBox(height: 12),
-                                    const Text("Punch-out remarks", style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700)),
+                                    Text("Punch-out remarks",
+                                        style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                            fontWeight: FontWeight.w700)),
                                     const SizedBox(height: 4),
-                                    Text(_displayRemarks(row.remarks), style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    Text(_displayRemarks(row.remarks),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700)),
                                   ],
-                                  PhotoGalleryRow(label: "Punch-in photos", urls: row.punchInPhotoUrls),
-                                  PhotoGalleryRow(label: "Punch-out photos", urls: row.punchOutPhotoUrls),
-                                  PhotoGalleryRow(label: "Work updates", urls: row.progressPhotoUrls),
+                                  PhotoGalleryRow(
+                                      label: "Punch-in photos",
+                                      urls: row.punchInPhotoUrls),
+                                  PhotoGalleryRow(
+                                      label: "Punch-out photos",
+                                      urls: row.punchOutPhotoUrls),
+                                  PhotoGalleryRow(
+                                      label: "Work updates",
+                                      urls: row.progressPhotoUrls),
                                 ],
                               ),
                             ),

@@ -12,7 +12,7 @@ import "package:sitepulse_engineer/features/home/presentation/screens/today_assi
 import "package:sitepulse_engineer/features/profile/presentation/screens/profile_screen.dart";
 import "package:sitepulse_engineer/features/timeline/presentation/screens/activity_timeline_screen.dart";
 import "package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
+
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
 
 class AppShellScope extends InheritedWidget {
@@ -140,7 +140,10 @@ class _AppShellViewState extends State<_AppShellView> {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.navy.withAlpha(15),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withAlpha(15),
                           blurRadius: 20,
                           offset: const Offset(0, -4),
                         ),
@@ -151,11 +154,14 @@ class _AppShellViewState extends State<_AppShellView> {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: AppTheme.navy,
+                            color: Theme.of(context).colorScheme.onSurface,
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.navy.withAlpha(40),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withAlpha(40),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -165,8 +171,12 @@ class _AppShellViewState extends State<_AppShellView> {
                             borderRadius: BorderRadius.circular(24),
                             child: NavigationBarTheme(
                               data: NavigationBarThemeData(
-                                backgroundColor: AppTheme.navy,
-                                indicatorColor: AppTheme.sky.withAlpha(40),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.onSurface,
+                                indicatorColor: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withAlpha(40),
                                 labelTextStyle: const WidgetStatePropertyAll(
                                   TextStyle(
                                       color: Colors.white,
@@ -184,29 +194,37 @@ class _AppShellViewState extends State<_AppShellView> {
                                 onDestinationSelected: (idx) => context
                                     .read<ShellBloc>()
                                     .add(ShellTabChanged(idx)),
-                                destinations: const [
+                                destinations: [
                                   NavigationDestination(
-                                    icon: Icon(Icons.today_outlined),
-                                    selectedIcon:
-                                        Icon(Icons.today, color: AppTheme.sky),
+                                    icon: const Icon(Icons.today_outlined),
+                                    selectedIcon: Icon(Icons.today,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary),
                                     label: "Today",
                                   ),
                                   NavigationDestination(
-                                    icon: Icon(Icons.timeline),
+                                    icon: const Icon(Icons.timeline),
                                     selectedIcon: Icon(Icons.timeline,
-                                        color: AppTheme.sky),
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary),
                                     label: "Timeline",
                                   ),
                                   NavigationDestination(
-                                    icon: Icon(Icons.edit_note),
+                                    icon: const Icon(Icons.edit_note),
                                     selectedIcon: Icon(Icons.edit_note,
-                                        color: AppTheme.sky),
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary),
                                     label: "Work Update",
                                   ),
                                   NavigationDestination(
-                                    icon: Icon(Icons.person_outline),
-                                    selectedIcon:
-                                        Icon(Icons.person, color: AppTheme.sky),
+                                    icon: const Icon(Icons.person_outline),
+                                    selectedIcon: Icon(Icons.person,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary),
                                     label: "Profile",
                                   ),
                                 ],

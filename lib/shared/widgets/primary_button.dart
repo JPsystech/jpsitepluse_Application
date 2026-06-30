@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 class PrimaryButton extends StatefulWidget {
   const PrimaryButton({
@@ -21,7 +21,8 @@ class PrimaryButton extends StatefulWidget {
   State<PrimaryButton> createState() => _PrimaryButtonState();
 }
 
-class _PrimaryButtonState extends State<PrimaryButton> with SingleTickerProviderStateMixin {
+class _PrimaryButtonState extends State<PrimaryButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -79,15 +80,23 @@ class _PrimaryButtonState extends State<PrimaryButton> with SingleTickerProvider
             gradient: isDisabled
                 ? null
                 : (widget.isDestructive
-                    ? const LinearGradient(colors: [AppTheme.danger, Color(0xFFBE123C)])
-                    : AppTheme.primaryGradient),
-            color: isDisabled ?  Color(0xFFCBD5E1) : null,
+                    ? LinearGradient(colors: [
+                        Theme.of(context).colorScheme.error,
+                        const Color(0xFFBE123C)
+                      ])
+                    : Theme.of(context)
+                        .extension<AppColorsExtension>()!
+                        .primaryGradient),
+            color: isDisabled ? const Color(0xFFCBD5E1) : null,
             borderRadius: BorderRadius.circular(16),
             boxShadow: isDisabled
                 ? null
                 : [
                     BoxShadow(
-                      color: (widget.isDestructive ? AppTheme.danger : AppTheme.sky).withAlpha(60),
+                      color: (widget.isDestructive
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).colorScheme.primary)
+                          .withAlpha(60),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -101,7 +110,8 @@ class _PrimaryButtonState extends State<PrimaryButton> with SingleTickerProvider
                   const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
                 ] else if (widget.icon != null) ...[

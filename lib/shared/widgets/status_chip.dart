@@ -1,8 +1,8 @@
 import "package:flutter/material.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
 
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, this.color, this.textColor});
+  const StatusChip(
+      {super.key, required this.label, this.color, this.textColor});
 
   final String label;
   final Color? color;
@@ -11,12 +11,16 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = color ?? Theme.of(context).colorScheme.primaryContainer;
-    final fg = textColor ?? (color == null ? Theme.of(context).colorScheme.onPrimaryContainer : AppTheme.navy);
+    final fg = textColor ??
+        (color == null
+            ? Theme.of(context).colorScheme.onPrimaryContainer
+            : Theme.of(context).colorScheme.onSurface);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: bg.withAlpha(bg.alpha == 255 ? 40 : bg.alpha), // Ensure soft background
+        color: bg.withAlpha(
+            bg.alpha == 255 ? 40 : bg.alpha), // Ensure soft background
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: bg.withAlpha(60), width: 1.2),
       ),
@@ -46,4 +50,3 @@ class StatusChip extends StatelessWidget {
     );
   }
 }
-

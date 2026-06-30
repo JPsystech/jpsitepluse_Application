@@ -7,7 +7,8 @@ import "package:sitepulse_engineer/shared/models/auth_session.dart";
 
 class SessionStore {
   static AuthSession? current;
-  static final ValueNotifier<AuthSession?> notifier = ValueNotifier<AuthSession?>(null);
+  static final ValueNotifier<AuthSession?> notifier =
+      ValueNotifier<AuthSession?>(null);
 
   static const String _key = "sitepulse_engineer_session";
 

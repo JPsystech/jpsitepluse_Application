@@ -53,7 +53,9 @@ class OfflinePunch {
     if (lat is! num || lng is! num || acc is! num) return null;
     return OfflinePunch(
       clientPunchId: id,
-      type: typeRaw == "IN" ? OfflinePunchType.inPunch : OfflinePunchType.outPunch,
+      type: typeRaw == "IN"
+          ? OfflinePunchType.inPunch
+          : OfflinePunchType.outPunch,
       clientPunchTimeIso: timeIso,
       lat: lat.toDouble(),
       lng: lng.toDouble(),
@@ -107,19 +109,27 @@ class OfflinePunchQueue {
   Future<void> add(OfflinePunch punch) async {
     final prefs = await SharedPreferences.getInstance();
     final items = await list();
-    final exists = items.any((p) => p.clientPunchId == punch.clientPunchId && p.type == punch.type);
+    final exists = items.any(
+        (p) => p.clientPunchId == punch.clientPunchId && p.type == punch.type);
     if (exists) return;
     items.add(punch);
     items.sort((a, b) => a.clientPunchTimeIso.compareTo(b.clientPunchTimeIso));
-    final trimmed = items.length > _maxItems ? items.sublist(items.length - _maxItems) : items;
-    await prefs.setString(_key, jsonEncode(trimmed.map((e) => e.toJson()).toList()));
+    final trimmed = items.length > _maxItems
+        ? items.sublist(items.length - _maxItems)
+        : items;
+    await prefs.setString(
+        _key, jsonEncode(trimmed.map((e) => e.toJson()).toList()));
   }
 
-  Future<void> remove({required String clientPunchId, required OfflinePunchType type}) async {
+  Future<void> remove(
+      {required String clientPunchId, required OfflinePunchType type}) async {
     final prefs = await SharedPreferences.getInstance();
     final items = await list();
-    final next = items.where((p) => !(p.clientPunchId == clientPunchId && p.type == type)).toList();
-    await prefs.setString(_key, jsonEncode(next.map((e) => e.toJson()).toList()));
+    final next = items
+        .where((p) => !(p.clientPunchId == clientPunchId && p.type == type))
+        .toList();
+    await prefs.setString(
+        _key, jsonEncode(next.map((e) => e.toJson()).toList()));
   }
 
   Future<void> clear() async {

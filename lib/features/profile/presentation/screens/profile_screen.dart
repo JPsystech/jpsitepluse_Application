@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
@@ -40,11 +40,13 @@ class _ProfileView extends StatelessWidget {
     return BlocListener<ProfileBloc, ProfileState>(
       listener: (context, state) {
         if (state is ProfileLogoutSuccess) {
-          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
         }
       },
       child: Scaffold(
-        appBar: AppBar(automaticallyImplyLeading: false, title: const Text("Profile")),
+        appBar: AppBar(
+            automaticallyImplyLeading: false, title: const Text("Profile")),
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -57,8 +59,14 @@ class _ProfileView extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: AppTheme.softShadow,
-                    border: Border.all(color: AppTheme.navy.withAlpha(8)),
+                    boxShadow: Theme.of(context)
+                        .extension<AppColorsExtension>()!
+                        .softShadow,
+                    border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withAlpha(8)),
                   ),
                   child: Row(
                     children: [
@@ -67,10 +75,15 @@ class _ProfileView extends StatelessWidget {
                         height: 60,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: AppTheme.primaryGradient,
+                          gradient: Theme.of(context)
+                              .extension<AppColorsExtension>()!
+                              .primaryGradient,
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.sky.withAlpha(50),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withAlpha(50),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -79,7 +92,10 @@ class _ProfileView extends StatelessWidget {
                         alignment: Alignment.center,
                         child: Text(
                           initial,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 24),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -89,12 +105,23 @@ class _ProfileView extends StatelessWidget {
                           children: [
                             Text(
                               name.isEmpty ? "Engineer" : name,
-                              style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5, fontSize: 18),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
+                                  fontSize: 18),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              [if (emp.isNotEmpty) "Emp: $emp", if (mobile.isNotEmpty) "Mobile: $mobile"].join(" • "),
-                              style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700, fontSize: 13),
+                              [
+                                if (emp.isNotEmpty) "Emp: $emp",
+                                if (mobile.isNotEmpty) "Mobile: $mobile"
+                              ].join(" • "),
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13),
                             ),
                           ],
                         ),
@@ -109,8 +136,14 @@ class _ProfileView extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: AppTheme.cardShadow,
-                    border: Border.all(color: AppTheme.navy.withAlpha(8)),
+                    boxShadow: Theme.of(context)
+                        .extension<AppColorsExtension>()!
+                        .cardShadow,
+                    border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withAlpha(8)),
                   ),
                   child: Column(
                     children: [
@@ -119,7 +152,9 @@ class _ProfileView extends StatelessWidget {
                         title: "Change Password",
                         onTap: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => ChangePasswordScreen(sessionToken: session.token)),
+                            MaterialPageRoute(
+                                builder: (_) => ChangePasswordScreen(
+                                    sessionToken: session.token)),
                           );
                         },
                       ),
@@ -127,26 +162,33 @@ class _ProfileView extends StatelessWidget {
                       _ProfileTile(
                         icon: Icons.settings_outlined,
                         title: "App Settings",
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const SettingsScreen())),
                       ),
                       const Divider(),
                       _ProfileTile(
                         icon: Icons.folder_open_outlined,
                         title: "Documents",
-                        onTap: () => Navigator.of(context).pushNamed(AppRoutes.documents),
+                        onTap: () => Navigator.of(context)
+                            .pushNamed(AppRoutes.documents),
                       ),
                       const Divider(),
                       _ProfileTile(
                         icon: Icons.support_agent_rounded,
                         title: "Help & Support",
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportScreen())),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const HelpSupportScreen())),
                       ),
                       const Divider(),
                       _ProfileTile(
                         icon: Icons.logout_rounded,
                         title: "Logout",
                         isDestructive: true,
-                        onTap: () => context.read<ProfileBloc>().add(ProfileLogoutRequested()),
+                        onTap: () => context
+                            .read<ProfileBloc>()
+                            .add(ProfileLogoutRequested()),
                       ),
                     ],
                   ),
@@ -176,16 +218,24 @@ class _ProfileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: isDestructive ? AppTheme.danger : AppTheme.navy, size: 22),
+      leading: Icon(icon,
+          color: isDestructive
+              ? Theme.of(context).colorScheme.error
+              : Theme.of(context).colorScheme.onSurface,
+          size: 22),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: isDestructive ? AppTheme.danger : AppTheme.navy,
+          color: isDestructive
+              ? Theme.of(context).colorScheme.error
+              : Theme.of(context).colorScheme.onSurface,
           fontSize: 15,
         ),
       ),
-      trailing: isDestructive ? null : const Icon(Icons.chevron_right_rounded, size: 20),
+      trailing: isDestructive
+          ? null
+          : const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),

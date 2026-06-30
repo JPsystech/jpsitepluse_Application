@@ -22,11 +22,16 @@ class HelpSupportScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      Text("Need help?", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                      Text("Need help?",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.2)),
                       SizedBox(height: 8),
                       Text(
                         "Contact your admin to reset password or resolve assignment issues.",
-                        style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -41,18 +46,28 @@ class HelpSupportScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      Text("Punch In/Out", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                      Text("Punch In/Out",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.2)),
                       SizedBox(height: 8),
                       Text(
                         "Punch in when you arrive at the site. Punch out with remarks when you finish. Ensure location permission is enabled.",
-                        style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w700),
                       ),
                       SizedBox(height: 14),
-                      Text("Timesheet", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+                      Text("Timesheet",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.2)),
                       SizedBox(height: 8),
                       Text(
                         "Submit a timesheet entry with a progress photo and a short description of your work.",
-                        style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -65,4 +80,3 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 }
-

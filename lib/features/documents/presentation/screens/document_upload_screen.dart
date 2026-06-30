@@ -10,11 +10,12 @@ import "package:open_filex/open_filex.dart";
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
 import "package:sitepulse_engineer/features/documents/data/services/documents_service.dart";
-import "package:sitepulse_engineer/core/theme/app_theme.dart";
 import "package:sitepulse_engineer/shared/widgets/image_viewer.dart";
 import "package:sitepulse_engineer/shared/widgets/section_header.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
+
+import "../../../../core/theme/app_colors_extension.dart";
 
 class DocumentUploadScreen extends StatelessWidget {
   const DocumentUploadScreen({super.key});
@@ -40,7 +41,7 @@ class _DocumentUploadView extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? AppTheme.danger : null,
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
       ),
     );
   }
@@ -304,8 +305,9 @@ class _DocumentUploadView extends StatelessWidget {
   String? _validateCustomDocumentName(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return "Document name is required";
-    if (trimmed.length < 3)
+    if (trimmed.length < 3) {
       return "Document name must be at least 3 characters";
+    }
     if (!RegExp(r"^[A-Za-z0-9 &()_\-./]+$").hasMatch(trimmed)) {
       return "Document name contains invalid characters";
     }
@@ -331,8 +333,9 @@ class _DocumentUploadView extends StatelessWidget {
   }
 
   List<String> _pickerExtensionsForDefinition(_DocumentDefinition definition) {
-    if (definition.allowedExtensions.isNotEmpty)
+    if (definition.allowedExtensions.isNotEmpty) {
       return definition.allowedExtensions;
+    }
     return definition.allowPdf
         ? const ["pdf", "jpg", "jpeg", "png"]
         : const ["jpg", "jpeg", "png"];
@@ -353,14 +356,16 @@ class _DocumentUploadView extends StatelessWidget {
     return "Expiry date: $label";
   }
 
-  Color? _ndtReminderColor(DateTime? expiry) {
+  Color? _ndtReminderColor(BuildContext context, DateTime? expiry) {
     if (expiry == null) return null;
     final today = DateTime.now();
     final startToday = DateTime(today.year, today.month, today.day);
     final diffDays = expiry.difference(startToday).inDays;
-    if (diffDays < 0) return AppTheme.danger;
-    if (diffDays <= 30) return AppTheme.warning;
-    return AppTheme.muted;
+    if (diffDays < 0) return Theme.of(context).colorScheme.error;
+    if (diffDays <= 30) {
+      return Theme.of(context).extension<AppColorsExtension>()!.warning;
+    }
+    return Theme.of(context).colorScheme.onSurfaceVariant;
   }
 
   String _formatDate(DateTime date) {
@@ -466,15 +471,17 @@ class _DocumentUploadView extends StatelessWidget {
                             child: _DocumentCard(
                               title: definition.displayName,
                               requiredLabel: _requiredLabel(definition, doc),
-                              requiredColor: _requiredColor(definition, doc),
+                              requiredColor:
+                                  _requiredColor(context, definition, doc),
                               statusLabel: _statusLabel(doc),
-                              statusColor: _statusColor(doc),
+                              statusColor: _statusColor(context, doc),
                               remarks: doc?.adminRemarks,
                               helperText: definition.type == "ndt"
                                   ? _ndtReminderText(state.ndtExpiryDate)
                                   : null,
                               helperColor: definition.type == "ndt"
-                                  ? _ndtReminderColor(state.ndtExpiryDate)
+                                  ? _ndtReminderColor(
+                                      context, state.ndtExpiryDate)
                                   : null,
                               isUploading: state.busyKeys.contains(busyKey),
                               isViewing: doc != null &&
@@ -513,10 +520,10 @@ class _DocumentUploadView extends StatelessWidget {
                                 title: doc.documentName,
                                 requiredLabel:
                                     _requiredLabel(_customDefinition, doc),
-                                requiredColor:
-                                    _requiredColor(_customDefinition, doc),
+                                requiredColor: _requiredColor(
+                                    context, _customDefinition, doc),
                                 statusLabel: _statusLabel(doc),
-                                statusColor: _statusColor(doc),
+                                statusColor: _statusColor(context, doc),
                                 remarks: doc.adminRemarks,
                                 helperText: null,
                                 helperColor: null,
@@ -554,9 +561,12 @@ class _DocumentUploadView extends StatelessWidget {
     return isRequired ? "Required" : "Optional";
   }
 
-  Color _requiredColor(_DocumentDefinition definition, EngineerDocument? doc) {
+  Color _requiredColor(BuildContext context, _DocumentDefinition definition,
+      EngineerDocument? doc) {
     final isRequired = doc?.isRequired ?? definition.isRequired;
-    return isRequired ? AppTheme.sky : AppTheme.muted;
+    return isRequired
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurfaceVariant;
   }
 
   String _statusLabel(EngineerDocument? doc) {
@@ -572,16 +582,16 @@ class _DocumentUploadView extends StatelessWidget {
     }
   }
 
-  Color _statusColor(EngineerDocument? doc) {
-    if (doc == null) return AppTheme.muted;
+  Color _statusColor(BuildContext context, EngineerDocument? doc) {
+    if (doc == null) return Theme.of(context).colorScheme.onSurfaceVariant;
     switch (doc.verificationStatus.trim().toUpperCase()) {
       case "APPROVED":
-        return AppTheme.success;
+        return Theme.of(context).extension<AppColorsExtension>()!.success;
       case "REJECTED":
-        return AppTheme.danger;
+        return Theme.of(context).colorScheme.error;
       case "PENDING":
       default:
-        return AppTheme.warning;
+        return Theme.of(context).extension<AppColorsExtension>()!.warning;
     }
   }
 }
@@ -627,8 +637,10 @@ class _DocumentCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.cardShadow,
-        border: Border.all(color: AppTheme.navy.withAlpha(8)),
+        boxShadow:
+            Theme.of(context).extension<AppColorsExtension>()!.cardShadow,
+        border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,7 +670,8 @@ class _DocumentCard extends StatelessWidget {
             Text(
               displayHelper,
               style: TextStyle(
-                color: helperColor ?? AppTheme.muted,
+                color: helperColor ??
+                    Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -667,8 +680,9 @@ class _DocumentCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               "Remarks: $displayRemarks",
-              style: const TextStyle(
-                  color: AppTheme.danger, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600),
             ),
           ],
           const SizedBox(height: 14),
@@ -724,8 +738,10 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.softShadow,
-        border: Border.all(color: AppTheme.navy.withAlpha(8)),
+        boxShadow:
+            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+        border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,18 +750,20 @@ class _InfoCard extends StatelessWidget {
             "CV supports PDF, DOC, and DOCX. Other documents support PDF or image files based on document type. Maximum file size is 15 MB.",
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             "NDT upload requires an expiry date. Selfie and signature support camera, gallery, or file selection. Other documents use a validated file picker.",
-            style:
-                TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600),
           ),
           if ((loadError ?? "").trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               "API warning: $loadError",
-              style: const TextStyle(
-                  color: AppTheme.danger, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w700),
             ),
           ],
         ],
@@ -760,15 +778,18 @@ class _EmptyCustomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.navy.withAlpha(8)),
+        border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
       ),
-      child: const Text(
+      child: Text(
         "No custom documents uploaded yet. Use Add More Document to upload an extra file.",
-        style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w700),
+        style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700),
       ),
     );
   }

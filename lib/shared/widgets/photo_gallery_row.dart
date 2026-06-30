@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sitepulse_engineer/core/theme/app_theme.dart';
+
 import 'package:sitepulse_engineer/shared/widgets/image_viewer.dart';
 
 class PhotoGalleryRow extends StatelessWidget {
@@ -37,15 +37,16 @@ class PhotoGalleryRow extends StatelessWidget {
             errorBuilder: (_, __, ___) => Container(
               width: 84,
               height: 84,
-              color: AppTheme.bg,
-              child: const Icon(Icons.broken_image_outlined, color: AppTheme.muted),
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: Icon(Icons.broken_image_outlined,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
               return Container(
                 width: 84,
                 height: 84,
-                color: AppTheme.bg,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 child: const Center(
                   child: SizedBox(
                     width: 18,
@@ -74,9 +75,15 @@ class PhotoGalleryRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(label, style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800)),
+              child: Text(label,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w800)),
             ),
-            Text("${urls.length}", style: const TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w800)),
+            Text("${urls.length}",
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800)),
           ],
         ),
         const SizedBox(height: 10),
@@ -92,13 +99,16 @@ class PhotoGalleryRow extends StatelessWidget {
                   width: 84,
                   height: 84,
                   decoration: BoxDecoration(
-                    color: AppTheme.bg,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
                     child: Text(
                       "+$hiddenCount",
-                      style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.navy, fontSize: 18),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 18),
                     ),
                   ),
                 );
