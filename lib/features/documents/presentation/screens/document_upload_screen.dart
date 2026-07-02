@@ -633,7 +633,7 @@ class _DocumentCard extends StatelessWidget {
     final displayHelper = (helperText ?? "").trim();
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -645,12 +645,27 @@ class _DocumentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.3),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.description_rounded, color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: -0.3),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -666,7 +681,7 @@ class _DocumentCard extends StatelessWidget {
             ],
           ),
           if (displayHelper.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               displayHelper,
               style: TextStyle(
@@ -677,22 +692,37 @@ class _DocumentCard extends StatelessWidget {
             ),
           ],
           if (displayRemarks.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              "Remarks: $displayRemarks",
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w600),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.feedback_outlined, size: 20, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Remarks: $displayRemarks",
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
                   onPressed: isUploading ? null : onUpload,
                   icon: isUploading
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -703,18 +733,19 @@ class _DocumentCard extends StatelessWidget {
                 ),
               ),
               if (onView != null) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: FilledButton.tonalIcon(
                     onPressed: isViewing ? null : onView,
                     icon: isViewing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Theme.of(context).colorScheme.primary),
                           )
-                        : const Icon(Icons.visibility_outlined),
-                    label: const Text("View"),
+                        : const Icon(Icons.visibility_rounded),
+                    label: const Text("View File"),
                   ),
                 ),
               ],
@@ -736,36 +767,43 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.primary.withAlpha(15),
         borderRadius: BorderRadius.circular(24),
-        boxShadow:
-            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
         border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
+            color: Theme.of(context).colorScheme.primary.withAlpha(40)),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "CV supports PDF, DOC, and DOCX. Other documents support PDF or image files based on document type. Maximum file size is 15 MB.",
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "NDT upload requires an expiry date. Selfie and signature support camera, gallery, or file selection. Other documents use a validated file picker.",
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600),
-          ),
-          if ((loadError ?? "").trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              "API warning: $loadError",
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w700),
+          Icon(Icons.info_outline_rounded, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "CV supports PDF, DOC, and DOCX. Other documents support PDF or image files based on document type. Maximum file size is 15 MB.",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "NDT upload requires an expiry date. Selfie and signature support camera, gallery, or file selection.",
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600, fontSize: 13, height: 1.4),
+                ),
+                if ((loadError ?? "").trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    "API warning: $loadError",
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -778,18 +816,35 @@ class _EmptyCustomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.onSurface.withAlpha(5),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(50),
+            style: BorderStyle.solid),
       ),
-      child: Text(
-        "No custom documents uploaded yet. Use Add More Document to upload an extra file.",
-        style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700),
+      child: Column(
+        children: [
+          Icon(Icons.folder_open_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(100)),
+          const SizedBox(height: 16),
+          Text(
+            "No custom documents uploaded",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Use 'Add More Document' to upload an extra file.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }

@@ -76,6 +76,20 @@ Future<String> _resolveApiBaseUrlInner() async {
     return normalizeApiBaseUrlInput(override);
   }
 
+  if (kReleaseMode) {
+    return normalizeApiBaseUrlInput(productionApiBaseUrl);
+  }
+
+  if (Platform.isAndroid && kDebugMode) {
+    final okEmulator = await _canConnect(
+        host: "10.0.2.2",
+        port: 8011,
+        timeout: const Duration(milliseconds: 400));
+    if (okEmulator) {
+      return emulatorApiBaseUrl;
+    }
+  }
+
   final stored = await getStoredApiBaseUrl();
   _log("[ApiConfig] stored: '$stored'");
   if (stored != null && stored.isNotEmpty) {
@@ -88,24 +102,13 @@ Future<String> _resolveApiBaseUrlInner() async {
     return normalizeApiBaseUrlInput(pcIp);
   }
 
-  if (kReleaseMode) {
-    return normalizeApiBaseUrlInput(productionApiBaseUrl);
-  }
-
   if (Platform.isAndroid) {
-    final okEmulator = await _canConnect(
-        host: "10.0.2.2",
-        port: 8011,
-        timeout: const Duration(milliseconds: 400));
-    if (okEmulator) {
-      return emulatorApiBaseUrl;
-    }
     final okPhysical = await _canConnect(
-        host: "192.168.1.7",
+        host: "192.168.1.15",
         port: 8011,
         timeout: const Duration(milliseconds: 400));
     if (okPhysical) {
-      return "http://192.168.1.7:8011";
+      return "http://192.168.1.15:8011";
     }
     throw ApiConfigException(
         "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.15:8011)");

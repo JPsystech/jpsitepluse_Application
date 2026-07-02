@@ -108,6 +108,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         ));
   }
 
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -595,7 +596,7 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                   obscureText: true,
                   textInputAction: TextInputAction.next,
                   helperText:
-                      "8-128 characters, at least 1 letter and 1 number.",
+                      "8 to 10 characters, at least 1 letter and 1 number.",
                 ),
                 const SizedBox(height: 14),
                 AppTextField(
@@ -624,12 +625,6 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                       ),
                       SizedBox(height: 8),
                       Text("Minimum 8 characters",
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant)),
-                      Text("Maximum 128 characters",
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: Theme.of(context)
