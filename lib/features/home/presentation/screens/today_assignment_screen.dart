@@ -9,6 +9,7 @@ import 'package:sitepulse_engineer/features/attendance/presentation/bloc/attenda
 import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
 import 'package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart';
+import 'package:sitepulse_engineer/features/history/presentation/screens/history_screen.dart';
 
 class TodayAssignmentScreen extends StatelessWidget {
   const TodayAssignmentScreen({
@@ -31,6 +32,7 @@ class TodayAssignmentScreen extends StatelessWidget {
         BlocProvider(create: (_) => AttendanceBloc()),
       ],
       child: TodayAssignmentScreenView(
+        sessionToken: sessionToken,
         engineerName: engineerName,
         engineerEmpCode: engineerEmpCode,
       ),
@@ -39,11 +41,13 @@ class TodayAssignmentScreen extends StatelessWidget {
 }
 
 class TodayAssignmentScreenView extends StatefulWidget {
+  final String sessionToken;
   final String engineerName;
   final String engineerEmpCode;
 
   const TodayAssignmentScreenView({
     super.key,
+    required this.sessionToken,
     required this.engineerName,
     required this.engineerEmpCode,
   });
@@ -163,29 +167,49 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   Widget _buildGreeting() {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(40),
-          child: Icon(Icons.person,
-              color: Theme.of(context).colorScheme.primary, size: 32),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withAlpha(50),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.primary.withAlpha(30),
+                blurRadius: 16,
+                spreadRadius: 4,
+              )
+            ],
+          ),
+          child: CircleAvatar(
+            radius: 26,
+            backgroundColor:
+                Theme.of(context).colorScheme.primary.withAlpha(20),
+            child: Icon(Icons.person_rounded,
+                color: Theme.of(context).colorScheme.primary, size: 32),
+          ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 18),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Welcome Back",
+              Text("WELCOME BACK",
                   style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
+                      fontSize: 11,
+                      letterSpacing: 1.5,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
               Text(
                 widget.engineerName,
                 style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.8,
+                    height: 1.1,
                     color: Theme.of(context).colorScheme.onSurface),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -243,210 +267,265 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAssignmentCard(TodayAssignmentModel assignment, bool canPunchIn,
-      bool canPunchOut, bool isCompleted) {
+  Widget _buildAssignmentCard(TodayAssignmentModel assignment,
+      bool isAnyProjectActive, bool isThisProjectActive, bool isCompleted) {
+    final borderColor = isThisProjectActive
+        ? Theme.of(context).colorScheme.primary.withAlpha(100)
+        : Theme.of(context).colorScheme.onSurface.withAlpha(10);
+
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow:
-            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context)
+                .colorScheme
+                .primary
+                .withAlpha(isThisProjectActive ? 25 : 5),
+            blurRadius: 24,
+            spreadRadius: 0,
+            offset: const Offset(0, 8),
+          )
+        ],
         border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withAlpha(10)),
+            color: borderColor, width: isThisProjectActive ? 1.5 : 1.0),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withAlpha(15),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withAlpha(10),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Icon(Icons.business_center,
-                      color: Theme.of(context).colorScheme.primary, size: 28),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isThisProjectActive)
+              Container(
+                width: 6,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("TODAY's ASSIGNMENT",
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                              letterSpacing: 0.5)),
-                      const SizedBox(height: 4),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  assignment.projectName,
-                                  style: TextStyle(
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w800,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                      letterSpacing: -0.2),
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        size: 14,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        assignment.siteName,
-                                        style: TextStyle(
-                                            fontSize: 14,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                            fontWeight: FontWeight.w500),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+              ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isThisProjectActive
+                          ? Theme.of(context).colorScheme.primary.withAlpha(25)
+                          : Theme.of(context).colorScheme.primary.withAlpha(10),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(isThisProjectActive ? 20 : 10),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4)),
+                            ],
                           ),
-                          if (isCompleted)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .extension<AppColorsExtension>()!
-                                    .success
-                                    .withAlpha(20),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                          child: Icon(Icons.business_center,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("TODAY'S ASSIGNMENT",
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      letterSpacing: 0.8)),
+                              const SizedBox(height: 4),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.check_circle,
-                                      size: 14,
-                                      color: Theme.of(context)
-                                          .extension<AppColorsExtension>()!
-                                          .success),
-                                  const SizedBox(width: 4),
-                                  Text("COMPLETED",
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .extension<AppColorsExtension>()!
-                                              .success,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold)),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          assignment.projectName,
+                                          style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w900,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface,
+                                              letterSpacing: -0.3),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.location_on,
+                                                size: 14,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                assignment.siteName,
+                                                style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                    fontWeight:
+                                                        FontWeight.w600),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isCompleted)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .extension<AppColorsExtension>()!
+                                            .success
+                                            .withAlpha(20),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.check_circle,
+                                              size: 14,
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppColorsExtension>()!
+                                                  .success),
+                                          const SizedBox(width: 4),
+                                          Text("COMPLETED",
+                                              style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .extension<
+                                                          AppColorsExtension>()!
+                                                      .success,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    )
+                                  else if (isThisProjectActive)
+                                    const _PulsingActiveBadge(),
                                 ],
                               ),
-                            )
-                          else if (canPunchOut)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isCompleted)
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: BlocBuilder<AttendanceBloc, AttendanceState>(
+                        builder: (context, attendanceState) {
+                          final isPunching =
+                              attendanceState is AttendanceLoading;
+                          final isThisLoading = isPunching &&
+                              selectedProjectIdForException ==
+                                  assignment.projectId;
+
+                          if (isThisProjectActive) {
+                            return PrimaryButton(
+                              label: "Punch Out",
+                              isLoading: isThisLoading,
+                              isDestructive: true,
+                              onPressed: isPunching
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        selectedProjectIdForException =
+                                            assignment.projectId;
+                                      });
+                                      _punchOut();
+                                    },
+                              icon: Icons.logout,
+                            );
+                          } else if (!isAnyProjectActive) {
+                            return PrimaryButton(
+                              label: "Punch In",
+                              isLoading: isThisLoading,
+                              onPressed: isPunching
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        selectedProjectIdForException =
+                                            assignment.projectId;
+                                      });
+                                      _punchIn(assignment.projectId);
+                                    },
+                              icon: Icons.login,
+                            );
+                          } else {
+                            return Container(
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Theme.of(context)
                                     .colorScheme
-                                    .primary
-                                    .withAlpha(20),
+                                    .onSurface
+                                    .withAlpha(10),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withAlpha(15)),
                               ),
                               child: Row(
-                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.timelapse,
-                                      size: 14,
+                                  Icon(Icons.info_outline,
+                                      size: 20,
                                       color: Theme.of(context)
                                           .colorScheme
-                                          .primary),
-                                  const SizedBox(width: 4),
-                                  Text("ACTIVE",
+                                          .onSurfaceVariant),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      "Please punch out of the active project first.",
                                       style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold)),
+                                        fontSize: 13,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                        ],
+                            );
+                          }
+                        },
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!isCompleted)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: BlocBuilder<AttendanceBloc, AttendanceState>(
-                builder: (context, attendanceState) {
-                  final isPunching = attendanceState is AttendanceLoading;
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: PrimaryButton(
-                          label: "Punch In",
-                          isLoading: isPunching && canPunchIn,
-                          onPressed: (canPunchIn && !isPunching)
-                              ? () {
-                                  selectedProjectIdForException =
-                                      assignment.projectId;
-                                  _punchIn(assignment.projectId);
-                                }
-                              : null,
-                          icon: Icons.login,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: PrimaryButton(
-                          label: "Punch Out",
-                          isLoading: isPunching && canPunchOut,
-                          onPressed:
-                              (canPunchOut && !isPunching) ? _punchOut : null,
-                          icon: Icons.logout,
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                    ),
+                ],
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -467,11 +546,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           children: [
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.history,
-                title: "History",
+                icon: Icons.schedule_rounded,
+                title: "Timesheet",
                 color: const Color(0xFF6366F1),
-                onTap: () =>
-                    context.read<ShellBloc>().add(const ShellTabChanged(1)),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => HistoryScreen(sessionToken: widget.sessionToken),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -648,14 +732,13 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                             final isCompleted =
                                 assignment.todayStatus == "COMPLETED";
 
-                            final canPunchOut = isThisProjectActive;
-                            final canPunchIn =
-                                !isAnyProjectActive && !isCompleted;
-
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildAssignmentCard(assignment,
-                                  canPunchIn, canPunchOut, isCompleted),
+                              child: _buildAssignmentCard(
+                                  assignment,
+                                  isAnyProjectActive,
+                                  isThisProjectActive,
+                                  isCompleted),
                             );
                           }),
                         const SizedBox(height: 36),
@@ -676,7 +759,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
+class _QuickActionCard extends StatefulWidget {
   final IconData icon;
   final String title;
   final Color color;
@@ -690,41 +773,151 @@ class _QuickActionCard extends StatelessWidget {
   });
 
   @override
+  State<_QuickActionCard> createState() => _QuickActionCardState();
+}
+
+class _QuickActionCardState extends State<_QuickActionCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 100));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow:
-              Theme.of(context).extension<AppColorsExtension>()!.softShadow,
-          border: Border.all(
-              color: Theme.of(context).colorScheme.onSurface.withAlpha(5)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withAlpha(20),
-                borderRadius: BorderRadius.circular(12),
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  widget.color.withAlpha(15),
+                ]),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withAlpha(20),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              )
+            ],
+            border: Border.all(color: widget.color.withAlpha(40), width: 1.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: widget.color.withAlpha(30),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(widget.icon, color: widget.color, size: 26),
               ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                widget.title,
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    letterSpacing: -0.2,
+                    color: Theme.of(context).colorScheme.onSurface),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _PulsingActiveBadge extends StatefulWidget {
+  const _PulsingActiveBadge();
+
+  @override
+  State<_PulsingActiveBadge> createState() => _PulsingActiveBadgeState();
+}
+
+class _PulsingActiveBadgeState extends State<_PulsingActiveBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+    _opacityAnimation = Tween<double>(begin: 0.3, end: 1.0)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _opacityAnimation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withAlpha((_opacityAnimation.value * 50).round()),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withAlpha((_opacityAnimation.value * 100).round()),
+                width: 1,
+              )),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.timelapse,
+                  size: 14, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 4),
+              Text("ACTIVE",
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      },
     );
   }
 }

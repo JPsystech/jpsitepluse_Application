@@ -56,29 +56,47 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
     String draftMonth = state.month;
     String draftStatus = state.statusFilter;
 
+    final inputDecoration = InputDecoration(
+      filled: true,
+      fillColor: Theme.of(context).colorScheme.onSurface.withAlpha(12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+
     final applied = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("Timeline Filters",
                         style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 20,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.2)),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 20),
+                    const Text("Month",
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: draftMonth,
-                      decoration: const InputDecoration(
-                          labelText: "Month", border: OutlineInputBorder()),
+                      decoration: inputDecoration,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                      dropdownColor: Colors.white,
                       items: _monthOptions()
                           .map((m) => DropdownMenuItem<String>(
                               value: m, child: Text(_monthLabel(m))))
@@ -86,11 +104,16 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                       onChanged: (v) =>
                           setModalState(() => draftMonth = v ?? ""),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    const Text("Status",
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: draftStatus,
-                      decoration: const InputDecoration(
-                          labelText: "Status", border: OutlineInputBorder()),
+                      decoration: inputDecoration,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                      dropdownColor: Colors.white,
                       items: const [
                         DropdownMenuItem(
                             value: "ALL", child: Text("All status")),
@@ -104,7 +127,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                       onChanged: (v) =>
                           setModalState(() => draftStatus = v ?? "ALL"),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 32),
                     Row(
                       children: [
                         Expanded(
@@ -114,14 +137,36 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                               draftStatus = "ALL";
                               Navigator.of(ctx).pop(true);
                             },
-                            child: const Text("Clear"),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              side: BorderSide(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(20),
+                                  width: 1.5),
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onSurface,
+                            ),
+                            child: const Text("Clear",
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w700)),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: FilledButton(
                             onPressed: () => Navigator.of(ctx).pop(true),
-                            child: const Text("Apply"),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: const Text("Apply",
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ],
@@ -159,25 +204,29 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text("Timeline PDF saved",
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.2)),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(fileName,
                     style: TextStyle(
+                        fontSize: 15,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700)),
-                const SizedBox(height: 14),
+                const SizedBox(height: 24),
                 PrimaryButton(
                   label: "Open PDF",
                   icon: Icons.picture_as_pdf_outlined,
@@ -186,7 +235,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                     await OpenFilex.open(filePath);
                   },
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 PrimaryButton(
                   label: "Share PDF",
                   icon: Icons.share_outlined,
@@ -217,8 +266,9 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
 
   Color _chipColor(BuildContext context, ColorScheme cs, String status) {
     final s = status.trim().toUpperCase();
-    if (s == "COMPLETED" || s == "PUNCHED_OUT")
+    if (s == "COMPLETED" || s == "PUNCHED_OUT") {
       return Theme.of(context).extension<AppColorsExtension>()!.successBg;
+    }
     if (s == "PUNCHED_IN") return cs.primary.withAlpha(26);
     return cs.primaryContainer;
   }
@@ -315,58 +365,90 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                   if (state.status == TimelineStatus.error &&
                       state.data == null) ...[
                     const SizedBox(height: 14),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("Failed to load timeline",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.2)),
-                            const SizedBox(height: 8),
-                            Text(state.errorMessage,
-                                style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 12),
-                            PrimaryButton(
-                                label: "Retry",
-                                onPressed: () {
-                                  context.read<TimelineBloc>().add(
-                                      LoadTimelineRequested(
-                                          sessionToken: widget.sessionToken,
-                                          month: state.month));
-                                },
-                                icon: Icons.refresh),
-                          ],
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: Theme.of(context)
+                            .extension<AppColorsExtension>()!
+                            .softShadow,
+                        border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .error
+                                .withAlpha(50)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: Theme.of(context).colorScheme.error,
+                              size: 32),
+                          const SizedBox(height: 16),
+                          const Text("Failed to load timeline",
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.2)),
+                          const SizedBox(height: 8),
+                          Text(state.errorMessage,
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 20),
+                          PrimaryButton(
+                              label: "Retry",
+                              onPressed: () {
+                                context.read<TimelineBloc>().add(
+                                    LoadTimelineRequested(
+                                        sessionToken: widget.sessionToken,
+                                        month: state.month));
+                              },
+                              icon: Icons.refresh),
+                        ],
                       ),
                     ),
                     const Spacer(),
                   ] else if (!isLoading && items.isEmpty) ...[
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("No activity yet",
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.2)),
-                            SizedBox(height: 8),
-                            Text(
-                                "Punch in/out and submit work updates to build your timeline.",
-                                style: TextStyle(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: Theme.of(context)
+                            .extension<AppColorsExtension>()!
+                            .softShadow,
+                        border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withAlpha(10)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.timeline_rounded,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              size: 32),
+                          const SizedBox(height: 16),
+                          const Text("No activity yet",
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.2)),
+                          const SizedBox(height: 8),
+                          Text(
+                              "Punch in/out and submit work updates to build your timeline.",
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  fontWeight: FontWeight.w600)),
+                        ],
                       ),
                     ),
                     const Spacer(),
@@ -379,123 +461,232 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                           final row = items[idx];
                           final chip = _chipColor(context, cs, row.status);
                           final isAutoClosed = _isSystemAutoClosed(row.remarks);
-                          return Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          AppFormatters.formatDateString(
-                                              row.workDate),
-                                          style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: -0.2),
-                                        ),
-                                      ),
-                                      if (row.status.trim().isNotEmpty)
-                                        StatusChip(
-                                            label: row.status, color: chip),
-                                      if (isAutoClosed) ...[
-                                        const SizedBox(width: 8),
-                                        StatusChip(
-                                            label: "AUTO CLOSED",
-                                            color: Theme.of(context)
-                                                .extension<
-                                                    AppColorsExtension>()!
-                                                .warningBg),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(row.projectName,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: -0.2)),
-                                  const SizedBox(height: 4),
-                                  Text(row.siteName,
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: Theme.of(context)
+                                  .extension<AppColorsExtension>()!
+                                  .softShadow,
+                              border: Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(10)),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Container(width: 6, color: chip),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text("Punch In",
-                                                style: TextStyle(
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    AppFormatters
+                                                        .formatDateString(
+                                                            row.workDate),
+                                                    style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        letterSpacing: -0.2),
+                                                  ),
+                                                ),
+                                                if (row.status
+                                                    .trim()
+                                                    .isNotEmpty)
+                                                  StatusChip(
+                                                      label: row.status,
+                                                      color: chip),
+                                                if (isAutoClosed) ...[
+                                                  const SizedBox(width: 8),
+                                                  StatusChip(
+                                                      label: "AUTO CLOSED",
+                                                      color: Theme.of(context)
+                                                          .extension<
+                                                              AppColorsExtension>()!
+                                                          .warningBg),
+                                                ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(row.projectName,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 18,
+                                                    letterSpacing: -0.2)),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on_outlined,
+                                                    size: 14,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(row.siteName,
+                                                      style: TextStyle(
+                                                          color: Theme.of(
+                                                                  context)
+                                                              .colorScheme
+                                                              .onSurfaceVariant,
+                                                          fontWeight:
+                                                              FontWeight.w600)),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
+                                                    .withAlpha(10),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text("Punch In",
+                                                            style: TextStyle(
+                                                                color: Theme.of(
+                                                                        context)
+                                                                    .colorScheme
+                                                                    .onSurfaceVariant,
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w800)),
+                                                        const SizedBox(
+                                                            height: 4),
+                                                        Text(
+                                                            AppFormatters
+                                                                .formatTime(row
+                                                                    .punchInTime),
+                                                            style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w900)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text("Punch Out",
+                                                            style: TextStyle(
+                                                                color: Theme.of(
+                                                                        context)
+                                                                    .colorScheme
+                                                                    .onSurfaceVariant,
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w800)),
+                                                        const SizedBox(
+                                                            height: 4),
+                                                        Text(
+                                                            AppFormatters
+                                                                .formatTime(row
+                                                                    .punchOutTime),
+                                                            style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w900)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            if (_displayRemarks(row.remarks)
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 12),
+                                              Container(
+                                                width: double.infinity,
+                                                padding:
+                                                    const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  color: isAutoClosed
+                                                      ? Theme.of(context)
+                                                          .extension<
+                                                              AppColorsExtension>()!
+                                                          .warningBg
+                                                          .withAlpha(20)
+                                                      : Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurface
+                                                          .withAlpha(10),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                      color: isAutoClosed
+                                                          ? Theme.of(context)
+                                                              .extension<
+                                                                  AppColorsExtension>()!
+                                                              .warningBg
+                                                              .withAlpha(50)
+                                                          : Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurface
+                                                              .withAlpha(20)),
+                                                ),
+                                                child: Text(
+                                                  _displayRemarks(row.remarks),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 13,
                                                     color: Theme.of(context)
                                                         .colorScheme
                                                         .onSurfaceVariant,
-                                                    fontWeight:
-                                                        FontWeight.w700)),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                                AppFormatters.formatTime(
-                                                    row.punchInTime),
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w900)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                            if (row.punchInPhotoUrls
+                                                    .isNotEmpty ||
+                                                row.punchOutPhotoUrls
+                                                    .isNotEmpty ||
+                                                row.progressPhotoUrls
+                                                    .isNotEmpty)
+                                              const SizedBox(height: 16),
+                                            PhotoGalleryRow(
+                                                label: "Punch-in photos",
+                                                urls: row.punchInPhotoUrls),
+                                            PhotoGalleryRow(
+                                                label: "Punch-out photos",
+                                                urls: row.punchOutPhotoUrls),
+                                            PhotoGalleryRow(
+                                                label: "Work updates",
+                                                urls: row.progressPhotoUrls),
                                           ],
                                         ),
                                       ),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text("Punch Out",
-                                                style: TextStyle(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                                    fontWeight:
-                                                        FontWeight.w700)),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                                AppFormatters.formatTime(
-                                                    row.punchOutTime),
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w900)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (_displayRemarks(row.remarks)
-                                      .isNotEmpty) ...[
-                                    const SizedBox(height: 12),
-                                    Text("Punch-out remarks",
-                                        style: TextStyle(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                            fontWeight: FontWeight.w700)),
-                                    const SizedBox(height: 4),
-                                    Text(_displayRemarks(row.remarks),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700)),
+                                    ),
                                   ],
-                                  PhotoGalleryRow(
-                                      label: "Punch-in photos",
-                                      urls: row.punchInPhotoUrls),
-                                  PhotoGalleryRow(
-                                      label: "Punch-out photos",
-                                      urls: row.punchOutPhotoUrls),
-                                  PhotoGalleryRow(
-                                      label: "Work updates",
-                                      urls: row.progressPhotoUrls),
-                                ],
+                                ),
                               ),
                             ),
                           );

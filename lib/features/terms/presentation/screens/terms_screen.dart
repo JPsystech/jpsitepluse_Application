@@ -4,6 +4,7 @@ import "package:flutter_bloc/flutter_bloc.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/features/terms/presentation/bloc/terms_bloc.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 class TermsScreen extends StatelessWidget {
   const TermsScreen({super.key});
@@ -49,19 +50,26 @@ class _TermsViewState extends State<_TermsView> {
             return Column(
               children: [
                 Expanded(
-                  child: Card(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+                      border: Border.all(
+                          color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(24),
                       child: SingleChildScrollView(
                         child: DefaultTextStyle(
-                          style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.45,
-                              color: Color(0xFF0F172A),
+                          style: TextStyle(
+                              fontSize: 15,
+                              height: 1.5,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
+                            children: [
                               Text("JP SitePulse Engineer App",
                                   style: TextStyle(
                                       fontSize: 18,

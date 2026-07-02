@@ -7,9 +7,9 @@ import "package:image_picker/image_picker.dart";
 
 import "package:sitepulse_engineer/core/utils/ist_time.dart";
 import "package:sitepulse_engineer/core/utils/formatters.dart";
-import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/shared/widgets/section_header.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 import "package:sitepulse_engineer/features/timesheet/presentation/bloc/timesheet_bloc.dart";
 
@@ -217,59 +217,89 @@ class _TimesheetViewState extends State<_TimesheetView> {
                 children: [
                   const SectionHeader(title: "New Work Update"),
                   const SizedBox(height: 10),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Date",
-                                        style: TextStyle(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                            fontWeight: FontWeight.w700)),
-                                    const SizedBox(height: 4),
-                                    Text(AppFormatters.formatDate(today),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w900)),
-                                  ],
-                                ),
-                              ),
-                              if (isLoading)
-                                const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text("Project / Site",
-                              style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 4),
-                          Text(pn.isEmpty ? "-" : pn,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 2),
-                          Text(sn.isEmpty ? "-" : sn,
-                              style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontWeight: FontWeight.w700)),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          const Color(0xFF6366F1), // Slight purple tint
                         ],
                       ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withAlpha(50),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("Date",
+                                      style: TextStyle(
+                                          color: Colors.white.withAlpha(200),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700)),
+                                  const SizedBox(height: 4),
+                                  Text(AppFormatters.formatDate(today),
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900)),
+                                ],
+                              ),
+                            ),
+                            if (isLoading)
+                              const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text("Project / Site",
+                            style: TextStyle(
+                                color: Colors.white.withAlpha(200),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 6),
+                        Text(pn.isEmpty ? "-" : pn,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.2)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on_outlined,
+                                size: 14, color: Colors.white.withAlpha(220)),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(sn.isEmpty ? "-" : sn,
+                                  style: TextStyle(
+                                      color: Colors.white.withAlpha(220),
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -278,105 +308,168 @@ class _TimesheetViewState extends State<_TimesheetView> {
                       children: [
                         const SectionHeader(title: "Work Details"),
                         const SizedBox(height: 10),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text("Work description",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.2)),
-                                const SizedBox(height: 10),
-                                TextField(
-                                  controller: descriptionCtrl,
-                                  maxLines: 4,
-                                  textInputAction: TextInputAction.newline,
-                                  decoration: const InputDecoration(
-                                    hintText:
-                                        "What work update do you want to submit?",
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: Theme.of(context)
+                                .extension<AppColorsExtension>()!
+                                .softShadow,
+                            border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withAlpha(10)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("Work description",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.2)),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: descriptionCtrl,
+                                maxLines: 4,
+                                textInputAction: TextInputAction.newline,
+                                decoration: InputDecoration(
+                                  hintText:
+                                      "What work update do you want to submit?",
+                                  hintStyle: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withAlpha(100)),
+                                  filled: true,
+                                  fillColor: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
                                   ),
+                                  contentPadding: const EdgeInsets.all(16),
                                 ),
-                                const SizedBox(height: 14),
-                                const Text("Activity type",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.2)),
-                                const SizedBox(height: 10),
-                                DropdownButtonFormField<String>(
-                                  value: activityType,
-                                  items: activityTypes
-                                      .map((t) => DropdownMenuItem<String>(
-                                          value: t,
-                                          child: Text(t,
-                                              style: const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.w700))))
-                                      .toList(),
-                                  onChanged: isSubmitting
-                                      ? null
-                                      : (v) => setState(() => activityType =
-                                          v ?? activityTypes.first),
-                                  decoration: const InputDecoration(),
+                              ),
+                              const SizedBox(height: 18),
+                              const Text("Activity type",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.2)),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<String>(
+                                value: activityType,
+                                items: activityTypes
+                                    .map((t) => DropdownMenuItem<String>(
+                                        value: t,
+                                        child: Text(t,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w700))))
+                                    .toList(),
+                                onChanged: isSubmitting
+                                    ? null
+                                    : (v) => setState(() => activityType =
+                                        v ?? activityTypes.first),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 14),
                                 ),
-                                const SizedBox(height: 14),
-                                Row(
-                                  children: [
-                                    const Expanded(
-                                      child: Text("Hours",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: -0.2)),
-                                    ),
-                                    TextButton(
-                                      onPressed: isSubmitting
-                                          ? null
-                                          : () {
-                                              final raw = hoursCtrl.text.trim();
-                                              final v =
-                                                  double.tryParse(raw) ?? 0;
-                                              final next =
-                                                  (v - 0.5).clamp(0, 24);
-                                              setState(() => hoursCtrl.text =
-                                                  next == next.roundToDouble()
-                                                      ? next.toInt().toString()
-                                                      : next
-                                                          .toStringAsFixed(1));
-                                            },
-                                      child: const Text("-0.5h"),
-                                    ),
-                                    TextButton(
-                                      onPressed: isSubmitting
-                                          ? null
-                                          : () {
-                                              final raw = hoursCtrl.text.trim();
-                                              final v =
-                                                  double.tryParse(raw) ?? 0;
-                                              final next =
-                                                  (v + 0.5).clamp(0, 24);
-                                              setState(() => hoursCtrl.text =
-                                                  next == next.roundToDouble()
-                                                      ? next.toInt().toString()
-                                                      : next
-                                                          .toStringAsFixed(1));
-                                            },
-                                      child: const Text("+0.5h"),
-                                    ),
-                                  ],
+                                icon: const Icon(
+                                    Icons.keyboard_arrow_down_rounded),
+                                dropdownColor: Colors.white,
+                              ),
+                              const SizedBox(height: 18),
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text("Hours",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: -0.2)),
+                                  ),
+                                  FilledButton.tonal(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () {
+                                            final raw = hoursCtrl.text.trim();
+                                            final v = double.tryParse(raw) ?? 0;
+                                            final next = (v - 0.5).clamp(0, 24);
+                                            setState(() => hoursCtrl.text =
+                                                next == next.roundToDouble()
+                                                    ? next.toInt().toString()
+                                                    : next.toStringAsFixed(1));
+                                          },
+                                    style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12))),
+                                    child: const Text("-0.5h",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w800)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton.tonal(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () {
+                                            final raw = hoursCtrl.text.trim();
+                                            final v = double.tryParse(raw) ?? 0;
+                                            final next = (v + 0.5).clamp(0, 24);
+                                            setState(() => hoursCtrl.text =
+                                                next == next.roundToDouble()
+                                                    ? next.toInt().toString()
+                                                    : next.toStringAsFixed(1));
+                                          },
+                                    style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12))),
+                                    child: const Text("+0.5h",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w800)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: hoursCtrl,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                textInputAction: TextInputAction.next,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800, fontSize: 16),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 14),
                                 ),
-                                const SizedBox(height: 10),
-                                AppTextField(
-                                  label: "Hours",
-                                  controller: hoursCtrl,
-                                  showLabel: false,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true),
-                                  textInputAction: TextInputAction.next,
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 14),

@@ -247,6 +247,24 @@ class _HistoryViewState extends State<_HistoryView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final inputDecoration = InputDecoration(
+      isDense: true,
+      filled: true,
+      fillColor: cs.onSurface.withAlpha(12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: cs.primary.withAlpha(100), width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    );
 
     return BlocConsumer<HistoryBloc, HistoryState>(
       listener: (context, state) {
@@ -300,298 +318,307 @@ class _HistoryViewState extends State<_HistoryView> {
               children: [
                 Row(
                   children: [
-                    const Expanded(child: SectionHeader(title: "My Timesheet")),
+                    Expanded(
+                        child: Text("My Timesheet",
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                letterSpacing: -0.5))),
                     IconButton(
                         onPressed: isLoading ? null : _load,
                         icon: const Icon(Icons.refresh)),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Filters",
-                            style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.2)),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: month.trim().isEmpty ? null : month,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    labelText: "Month",
-                                    border: OutlineInputBorder()),
-                                items: _monthOptions()
-                                    .map((m) => DropdownMenuItem<String>(
-                                        value: m, child: Text(m)))
-                                    .toList(growable: false),
-                                onChanged: isOptionsLoading
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: Theme.of(context)
+                        .extension<AppColorsExtension>()!
+                        .softShadow,
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha(10)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.filter_list_rounded,
+                              size: 18, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Text("Filters",
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  letterSpacing: -0.2)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: month.trim().isEmpty ? null : month,
+                              decoration: inputDecoration.copyWith(labelText: "Month"),
+                              items: _monthOptions()
+                                  .map((m) => DropdownMenuItem<String>(
+                                      value: m, child: Text(m)))
+                                  .toList(growable: false),
+                              onChanged: isOptionsLoading
+                                  ? null
+                                  : (v) {
+                                      setState(() {
+                                        month = v ?? "";
+                                        startDateCtrl.text = "";
+                                        endDateCtrl.text = "";
+                                        selectedProject = null;
+                                        selectedSite = null;
+                                      });
+                                      _loadFilterOptions();
+                                    },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              readOnly: true,
+                              decoration: inputDecoration.copyWith(labelText: "Start date"),
+                              controller: startDateCtrl,
+                              onTap: () => _pickDate(isStart: true),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              readOnly: true,
+                              decoration: inputDecoration.copyWith(labelText: "End date"),
+                              controller: endDateCtrl,
+                              onTap: () => _pickDate(isStart: false),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: selectedClient,
+                              isExpanded: true,
+                              decoration: inputDecoration.copyWith(labelText: "Client"),
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text("All",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis)),
+                                ),
+                                ...clientOptions.map(
+                                  (c) => DropdownMenuItem<String>(
+                                    value: c,
+                                    child: SizedBox(
+                                        width: double.infinity,
+                                        child: Text(c,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
+                                  ),
+                                ),
+                              ],
+                              selectedItemBuilder: (context) => [
+                                const Text("All",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                ...clientOptions.map((c) => Text(c,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)),
+                              ],
+                              onChanged: isOptionsLoading
+                                  ? null
+                                  : (v) {
+                                      setState(() {
+                                        selectedClient = v;
+                                        selectedProject = null;
+                                        selectedSite = null;
+                                      });
+                                      _loadFilterOptions();
+                                    },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: selectedProject,
+                              isExpanded: true,
+                              decoration: inputDecoration.copyWith(labelText: "Project"),
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text("All",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis)),
+                                ),
+                                ...projectOptions.map(
+                                  (p) => DropdownMenuItem<String>(
+                                    value: p,
+                                    child: SizedBox(
+                                        width: double.infinity,
+                                        child: Text(p,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
+                                  ),
+                                ),
+                              ],
+                              selectedItemBuilder: (context) => [
+                                const Text("All",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                ...projectOptions.map((p) => Text(p,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)),
+                              ],
+                              onChanged: isOptionsLoading
+                                  ? null
+                                  : (v) {
+                                      setState(() {
+                                        selectedProject = v;
+                                        selectedSite = null;
+                                      });
+                                      _loadFilterOptions();
+                                    },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: selectedSite,
+                              isExpanded: true,
+                              decoration: inputDecoration.copyWith(labelText: "Site"),
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text("All",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis)),
+                                ),
+                                ...siteOptions.map(
+                                  (s) => DropdownMenuItem<String>(
+                                    value: s,
+                                    child: SizedBox(
+                                        width: double.infinity,
+                                        child: Text(s,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
+                                  ),
+                                ),
+                              ],
+                              selectedItemBuilder: (context) => [
+                                const Text("All",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                ...siteOptions.map((s) => Text(s,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)),
+                              ],
+                              onChanged: isOptionsLoading
+                                  ? null
+                                  : (v) => setState(() => selectedSite = v),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: PrimaryButton(
+                              label: "Apply",
+                              onPressed: isLoading || isOptionsLoading
+                                  ? null
+                                  : _load,
+                              icon: Icons.filter_alt_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: isLoading
                                     ? null
-                                    : (v) {
+                                    : () {
+                                        final now = IstTime.now();
                                         setState(() {
-                                          month = v ?? "";
+                                          month =
+                                              "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
                                           startDateCtrl.text = "";
                                           endDateCtrl.text = "";
+                                          selectedClient = null;
                                           selectedProject = null;
                                           selectedSite = null;
                                         });
                                         _loadFilterOptions();
+                                        _load();
                                       },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    labelText: "Start date",
-                                    border: OutlineInputBorder()),
-                                controller: startDateCtrl,
-                                onTap: () => _pickDate(isStart: true),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    labelText: "End date",
-                                    border: OutlineInputBorder()),
-                                controller: endDateCtrl,
-                                onTap: () => _pickDate(isStart: false),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: selectedClient,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    labelText: "Client",
-                                    border: OutlineInputBorder()),
-                                items: [
-                                  const DropdownMenuItem<String>(
-                                    value: null,
-                                    child: SizedBox(
-                                        width: double.infinity,
-                                        child: Text("All",
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis)),
-                                  ),
-                                  ...clientOptions.map(
-                                    (c) => DropdownMenuItem<String>(
-                                      value: c,
-                                      child: SizedBox(
-                                          width: double.infinity,
-                                          child: Text(c,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis)),
-                                    ),
-                                  ),
-                                ],
-                                selectedItemBuilder: (context) => [
-                                  const Text("All",
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis),
-                                  ...clientOptions.map((c) => Text(c,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis)),
-                                ],
-                                onChanged: isOptionsLoading
-                                    ? null
-                                    : (v) {
-                                        setState(() {
-                                          selectedClient = v;
-                                          selectedProject = null;
-                                          selectedSite = null;
-                                        });
-                                        _loadFilterOptions();
-                                      },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: selectedProject,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    labelText: "Project",
-                                    border: OutlineInputBorder()),
-                                items: [
-                                  const DropdownMenuItem<String>(
-                                    value: null,
-                                    child: SizedBox(
-                                        width: double.infinity,
-                                        child: Text("All",
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis)),
-                                  ),
-                                  ...projectOptions.map(
-                                    (p) => DropdownMenuItem<String>(
-                                      value: p,
-                                      child: SizedBox(
-                                          width: double.infinity,
-                                          child: Text(p,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis)),
-                                    ),
-                                  ),
-                                ],
-                                selectedItemBuilder: (context) => [
-                                  const Text("All",
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis),
-                                  ...projectOptions.map((p) => Text(p,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis)),
-                                ],
-                                onChanged: isOptionsLoading
-                                    ? null
-                                    : (v) {
-                                        setState(() {
-                                          selectedProject = v;
-                                          selectedSite = null;
-                                        });
-                                        _loadFilterOptions();
-                                      },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: selectedSite,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    labelText: "Site",
-                                    border: OutlineInputBorder()),
-                                items: [
-                                  const DropdownMenuItem<String>(
-                                    value: null,
-                                    child: SizedBox(
-                                        width: double.infinity,
-                                        child: Text("All",
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis)),
-                                  ),
-                                  ...siteOptions.map(
-                                    (s) => DropdownMenuItem<String>(
-                                      value: s,
-                                      child: SizedBox(
-                                          width: double.infinity,
-                                          child: Text(s,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis)),
-                                    ),
-                                  ),
-                                ],
-                                selectedItemBuilder: (context) => [
-                                  const Text("All",
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis),
-                                  ...siteOptions.map((s) => Text(s,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis)),
-                                ],
-                                onChanged: isOptionsLoading
-                                    ? null
-                                    : (v) => setState(() => selectedSite = v),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: PrimaryButton(
-                                label: "Apply",
-                                onPressed: isLoading || isOptionsLoading
-                                    ? null
-                                    : _load,
-                                icon: Icons.filter_alt_outlined,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: SizedBox(
-                                height: 52,
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: isLoading
-                                      ? null
-                                      : () {
-                                          final now = IstTime.now();
-                                          setState(() {
-                                            month =
-                                                "${now.year.toString().padLeft(4, "0")}-${now.month.toString().padLeft(2, "0")}";
-                                            startDateCtrl.text = "";
-                                            endDateCtrl.text = "";
-                                            selectedClient = null;
-                                            selectedProject = null;
-                                            selectedSite = null;
-                                          });
-                                          _loadFilterOptions();
-                                          _load();
-                                        },
-                                  style: OutlinedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(16)),
-                                    side: BorderSide(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .outline),
-                                    foregroundColor:
-                                        Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                  icon: const Icon(Icons.refresh, size: 18),
-                                  label: const Text("Reset",
-                                      style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700)),
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                  side: BorderSide(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface.withAlpha(20), width: 1.5),
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
+                                icon: const Icon(Icons.refresh, size: 18),
+                                label: const Text("Reset",
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700)),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 if (data != null) ...[
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Theme.of(context).colorScheme.primary.withAlpha(200),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: Theme.of(context)
-                          .extension<AppColorsExtension>()!
-                          .softShadow,
-                      border: Border.all(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withAlpha(8)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Theme.of(context).colorScheme.primary.withAlpha(80),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
@@ -601,29 +628,22 @@ class _HistoryViewState extends State<_HistoryView> {
                             children: [
                               Text("Present Days",
                                   style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: Colors.white.withAlpha(200),
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13)),
                               const SizedBox(height: 4),
                               Text("${data.totalPresentDays}",
-                                  style: TextStyle(
-                                      fontSize: 20,
+                                  style: const TextStyle(
+                                      fontSize: 24,
                                       fontWeight: FontWeight.w900,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface)),
+                                      color: Colors.white)),
                             ],
                           ),
                         ),
                         Container(
                             width: 1,
                             height: 40,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outline
-                                .withAlpha(100)),
+                            color: Colors.white.withAlpha(50)),
                         const SizedBox(width: 20),
                         Expanded(
                           child: Column(
@@ -631,19 +651,15 @@ class _HistoryViewState extends State<_HistoryView> {
                             children: [
                               Text("Total Hours",
                                   style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: Colors.white.withAlpha(200),
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13)),
                               const SizedBox(height: 4),
                               Text(AppFormatters.formatHours(data.totalHours),
-                                  style: TextStyle(
-                                      fontSize: 20,
+                                  style: const TextStyle(
+                                      fontSize: 24,
                                       fontWeight: FontWeight.w900,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface)),
+                                      color: Colors.white)),
                             ],
                           ),
                         ),
@@ -762,155 +778,173 @@ class _HistoryViewState extends State<_HistoryView> {
                           : cs.primaryContainer;
                       final isAutoClosed =
                           (row.remarks ?? "").startsWith("SYSTEM_AUTO_CLOSED");
-                      return Card(
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => HistoryDetailScreen(
-                                  sessionToken: widget.sessionToken,
-                                  attendanceLogId: row.attendanceLogId,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+                          border: Border.all(color: Theme.of(context).colorScheme.onSurface.withAlpha(10)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        AppFormatters.formatDateString(
-                                            row.workDate),
-                                        style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: -0.2),
+                                Container(width: 6, color: markColor),
+                                Expanded(
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => HistoryDetailScreen(
+                                              sessionToken: widget.sessionToken,
+                                              attendanceLogId: row.attendanceLogId,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    AppFormatters.formatDateString(row.workDate),
+                                                    style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w900,
+                                                        letterSpacing: -0.2),
+                                                  ),
+                                                ),
+                                                StatusChip(label: mark, color: markColor),
+                                                if (isAutoClosed) ...[
+                                                  const SizedBox(width: 8),
+                                                  StatusChip(
+                                                      label: "AUTO CLOSED",
+                                                      color: Theme.of(context)
+                                                          .extension<AppColorsExtension>()!
+                                                          .warningBg),
+                                                ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            if ((row.clientName ?? "").trim().isNotEmpty) ...[
+                                              Text(row.clientName!.trim(),
+                                                  style: const TextStyle(
+                                                      fontWeight: FontWeight.w800, fontSize: 13)),
+                                              const SizedBox(height: 4),
+                                            ],
+                                            Text(row.projectName,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 18,
+                                                    letterSpacing: -0.2)),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on_outlined, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(row.siteName,
+                                                      style: TextStyle(
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurfaceVariant,
+                                                          fontWeight: FontWeight.w600)),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context).colorScheme.onSurface.withAlpha(10),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text("Punch In",
+                                                            style: TextStyle(
+                                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.w800)),
+                                                        const SizedBox(height: 4),
+                                                        Text(AppFormatters.formatTime(row.punchInTime),
+                                                            style: const TextStyle(fontWeight: FontWeight.w900)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text("Punch Out",
+                                                            style: TextStyle(
+                                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.w800)),
+                                                        const SizedBox(height: 4),
+                                                        Text(AppFormatters.formatTime(row.punchOutTime),
+                                                            style: const TextStyle(fontWeight: FontWeight.w900)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text("Hours",
+                                                            style: TextStyle(
+                                                                color: Theme.of(context).colorScheme.primary,
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.w800)),
+                                                        const SizedBox(height: 4),
+                                                        Text(AppFormatters.formatHours(row.totalHours),
+                                                            style: TextStyle(
+                                                                color: Theme.of(context).colorScheme.primary,
+                                                                fontWeight: FontWeight.w900)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            if ((row.remarks ?? "").trim().isNotEmpty) ...[
+                                              const SizedBox(height: 12),
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context).extension<AppColorsExtension>()!.warningBg.withAlpha(20),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Theme.of(context).extension<AppColorsExtension>()!.warningBg.withAlpha(50)),
+                                                ),
+                                                child: Text(
+                                                  isAutoClosed ? "System auto-closed" : row.remarks!.trim(),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 13,
+                                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    StatusChip(label: mark, color: markColor),
-                                    if (isAutoClosed) ...[
-                                      const SizedBox(width: 8),
-                                      StatusChip(
-                                          label: "AUTO CLOSED",
-                                          color: Theme.of(context)
-                                              .extension<AppColorsExtension>()!
-                                              .warningBg),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                if ((row.clientName ?? "")
-                                    .trim()
-                                    .isNotEmpty) ...[
-                                  Text(row.clientName!.trim(),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 4),
-                                ],
-                                Text(row.projectName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.2)),
-                                const SizedBox(height: 4),
-                                Text(row.siteName,
-                                    style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                        fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text("Punch In",
-                                              style: TextStyle(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w800)),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                              AppFormatters.formatTime(
-                                                  row.punchInTime),
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w900)),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text("Punch Out",
-                                              style: TextStyle(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w800)),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                              AppFormatters.formatTime(
-                                                  row.punchOutTime),
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w900)),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text("Hours",
-                                              style: TextStyle(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w800)),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                              AppFormatters.formatHours(
-                                                  row.totalHours),
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w900)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if ((row.remarks ?? "").trim().isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  Text("Remark",
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    isAutoClosed
-                                        ? "Closed by system"
-                                        : row.remarks!.trim(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700),
                                   ),
-                                ],
-                                const SizedBox(height: 6),
-                                Text("Tap to view details",
-                                    style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                        fontWeight: FontWeight.w700)),
+                                ),
                               ],
                             ),
                           ),

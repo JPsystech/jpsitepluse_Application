@@ -52,39 +52,41 @@ class _ProfileView extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             child: ListView(
               children: [
-                const SectionHeader(title: "Account"),
-                const SizedBox(height: 10),
                 Container(
-                  padding: EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        const Color(0xFF4F46E5), // Indigo tone
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: Theme.of(context)
-                        .extension<AppColorsExtension>()!
-                        .softShadow,
-                    border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withAlpha(8)),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            Theme.of(context).colorScheme.primary.withAlpha(50),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      )
+                    ],
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 60,
-                        height: 60,
+                        width: 64,
+                        height: 64,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: Theme.of(context)
-                              .extension<AppColorsExtension>()!
-                              .primaryGradient,
+                          color: Colors.white.withAlpha(30),
+                          border: Border.all(
+                              color: Colors.white.withAlpha(50), width: 2),
                           boxShadow: [
                             BoxShadow(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withAlpha(50),
-                              blurRadius: 12,
+                              color: Colors.black.withAlpha(20),
+                              blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
                           ],
@@ -95,10 +97,10 @@ class _ProfileView extends StatelessWidget {
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
-                              fontSize: 24),
+                              fontSize: 26),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 20),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,20 +108,19 @@ class _ProfileView extends StatelessWidget {
                             Text(
                               name.isEmpty ? "Engineer" : name,
                               style: const TextStyle(
+                                  color: Colors.white,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: -0.5,
-                                  fontSize: 18),
+                                  fontSize: 20),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               [
                                 if (emp.isNotEmpty) "Emp: $emp",
                                 if (mobile.isNotEmpty) "Mobile: $mobile"
                               ].join(" • "),
                               style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                                  color: Colors.white.withAlpha(200),
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13),
                             ),
@@ -158,7 +159,6 @@ class _ProfileView extends StatelessWidget {
                           );
                         },
                       ),
-                      const Divider(),
                       _ProfileTile(
                         icon: Icons.settings_outlined,
                         title: "App Settings",
@@ -166,14 +166,12 @@ class _ProfileView extends StatelessWidget {
                             MaterialPageRoute(
                                 builder: (_) => const SettingsScreen())),
                       ),
-                      const Divider(),
                       _ProfileTile(
                         icon: Icons.folder_open_outlined,
                         title: "Documents",
                         onTap: () => Navigator.of(context)
                             .pushNamed(AppRoutes.documents),
                       ),
-                      const Divider(),
                       _ProfileTile(
                         icon: Icons.support_agent_rounded,
                         title: "Help & Support",
@@ -181,18 +179,29 @@ class _ProfileView extends StatelessWidget {
                             MaterialPageRoute(
                                 builder: (_) => const HelpSupportScreen())),
                       ),
-                      const Divider(),
-                      _ProfileTile(
-                        icon: Icons.logout_rounded,
-                        title: "Logout",
-                        isDestructive: true,
-                        onTap: () => context
-                            .read<ProfileBloc>()
-                            .add(ProfileLogoutRequested()),
-                      ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 30),
+                FilledButton.tonalIcon(
+                  onPressed: () =>
+                      context.read<ProfileBloc>().add(ProfileLogoutRequested()),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .errorContainer
+                        .withAlpha(80),
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                  ),
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text("Logout",
+                      style:
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -206,39 +215,38 @@ class _ProfileTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
-  final bool isDestructive;
 
   const _ProfileTile({
     required this.icon,
     required this.title,
     required this.onTap,
-    this.isDestructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon,
-          color: isDestructive
-              ? Theme.of(context).colorScheme.error
-              : Theme.of(context).colorScheme.onSurface,
-          size: 22),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withAlpha(20),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child:
+            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+      ),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: isDestructive
-              ? Theme.of(context).colorScheme.error
-              : Theme.of(context).colorScheme.onSurface,
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 15,
         ),
       ),
-      trailing: isDestructive
-          ? null
-          : const Icon(Icons.chevron_right_rounded, size: 20),
+      trailing: const Icon(Icons.chevron_right_rounded,
+          size: 20, color: Colors.black38),
       onTap: onTap,
       dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
     );
   }
 }

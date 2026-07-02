@@ -4,6 +4,7 @@ import "package:flutter_bloc/flutter_bloc.dart";
 import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/change_password_bloc.dart";
+import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 class ChangePasswordScreen extends StatelessWidget {
   const ChangePasswordScreen({super.key, required this.sessionToken});
@@ -58,7 +59,14 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
             padding: const EdgeInsets.all(18),
             child: ListView(
               children: [
-                Card(
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: Theme.of(context).extension<AppColorsExtension>()!.softShadow,
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
