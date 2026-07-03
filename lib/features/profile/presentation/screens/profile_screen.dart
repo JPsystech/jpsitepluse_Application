@@ -7,6 +7,7 @@ import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/section_header.dart";
 import "package:sitepulse_engineer/features/help/presentation/screens/help_support_screen.dart";
 import "package:sitepulse_engineer/features/settings/presentation/screens/settings_screen.dart";
+import "package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/profile_bloc.dart";
 import "change_password_screen.dart";
 
@@ -158,6 +159,13 @@ class _ProfileView extends StatelessWidget {
                                     sessionToken: session.token)),
                           );
                         },
+                      ),
+                      _ProfileTile(
+                        icon: Icons.analytics_outlined,
+                        title: "Attendance Dashboard",
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => AttendanceScreen(sessionToken: session.token))),
                       ),
                       _ProfileTile(
                         icon: Icons.settings_outlined,

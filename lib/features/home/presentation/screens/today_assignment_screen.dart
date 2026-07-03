@@ -10,6 +10,7 @@ import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dar
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
 import 'package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart';
 import 'package:sitepulse_engineer/features/history/presentation/screens/history_screen.dart';
+import 'package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart';
 
 class TodayAssignmentScreen extends StatelessWidget {
   const TodayAssignmentScreen({
@@ -585,11 +586,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
             const SizedBox(width: 16),
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.person_outline,
-                title: "My Profile",
+                icon: Icons.analytics_outlined,
+                title: "Attendance",
                 color: const Color(0xFF10B981),
-                onTap: () =>
-                    context.read<ShellBloc>().add(const ShellTabChanged(3)),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AttendanceScreen(sessionToken: widget.sessionToken),
+                    ),
+                  );
+                },
               ),
             ),
           ],
