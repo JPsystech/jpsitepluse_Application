@@ -13,7 +13,7 @@ class AttendanceLoading extends AttendanceState {}
 class PunchInSuccess extends AttendanceState {
   final PunchInResponseModel response;
   const PunchInSuccess({required this.response});
-  @override
+  @override 
   List<Object?> get props => [response];
 }
 
