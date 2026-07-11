@@ -13,7 +13,7 @@ class AuthService {
   }) async {
     final client = await ApiClient.instance.dio;
     final response = await client.post('/api/v1/engineer/login', data: {
-      'company_code': companyCode,
+      'vendor_code': companyCode,
       'emp_code': empCode,
       'password': password,
     });

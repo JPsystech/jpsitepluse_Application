@@ -83,13 +83,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       error = null;
     });
 
-    final company = "DEFAULT"; // Fallback company code
+    final company = companyCodeCtrl.text.trim();
     final emp = empCodeCtrl.text.trim();
     final normalizedEmp = emp.toUpperCase();
     final pass = passwordCtrl.text.trim();
-    if (normalizedEmp.isEmpty || pass.isEmpty) {
+    if (company.isEmpty || normalizedEmp.isEmpty || pass.isEmpty) {
       setState(() {
-        error = "Enter Emp Code and Password";
+        error = "Enter Company Code, Emp Code and Password";
       });
       return;
     }
@@ -263,6 +263,14 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              AppTextField(
+                                label: "Company Code",
+                                controller: companyCodeCtrl,
+                                prefixIcon: Icons.domain_outlined,
+                                hint: "Enter company code",
+                                textInputAction: TextInputAction.next,
+                              ),
+                              const SizedBox(height: 20),
                               AppTextField(
                                 label: "Employee Code",
                                 controller: empCodeCtrl,
