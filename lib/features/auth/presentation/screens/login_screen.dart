@@ -32,7 +32,7 @@ class LoginScreenView extends StatefulWidget {
 }
 
 class _LoginScreenViewState extends State<LoginScreenView> {
-  final companyCodeCtrl = TextEditingController();
+  final vendorCodeCtrl = TextEditingController();
   final empCodeCtrl = TextEditingController();
   final passwordCtrl = TextEditingController();
   final serverUrlCtrl = TextEditingController();
@@ -49,7 +49,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
   @override
   void dispose() {
-    companyCodeCtrl.dispose();
+    vendorCodeCtrl.dispose();
     empCodeCtrl.dispose();
     passwordCtrl.dispose();
     serverUrlCtrl.dispose();
@@ -83,13 +83,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       error = null;
     });
 
-    final company = companyCodeCtrl.text.trim();
+    final vendor = vendorCodeCtrl.text.trim();
     final emp = empCodeCtrl.text.trim();
     final normalizedEmp = emp.toUpperCase();
     final pass = passwordCtrl.text.trim();
-    if (company.isEmpty || normalizedEmp.isEmpty || pass.isEmpty) {
+    if (vendor.isEmpty || normalizedEmp.isEmpty || pass.isEmpty) {
       setState(() {
-        error = "Enter Company Code, Emp Code and Password";
+        error = "Enter Vendor Code, Emp Code and Password";
       });
       return;
     }
@@ -102,15 +102,47 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     }
 
     context.read<AuthBloc>().add(LoginRequested(
-          companyCode: company,
+          vendorCode: vendor,
           empCode: normalizedEmp,
           password: pass,
+          rememberMe: rememberMe,
         ));
   }
 
+  InputDecoration _buildInputDecoration(
+      BuildContext context, String label, String hint, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      filled: true,
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.primary,
+          width: 2,
+        ),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
         if (state is AuthError) {
@@ -130,7 +162,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             final accepted = await TermsStore.isAccepted();
             if (!mounted) return;
             Navigator.of(context).pushReplacementNamed(
-                accepted ? AppRoutes.app : AppRoutes.terms);
+                accepted ? AppRoutes.mpinSetup : AppRoutes.terms);
           }
         }
       },
@@ -138,41 +170,45 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
-            // Premium Background
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Theme.of(context).colorScheme.primary.withAlpha(20),
-                    Theme.of(context).scaffoldBackgroundColor,
-                  ],
+            // Soft Gradient Background
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.surface,
+                      cs.primaryContainer.withOpacity(0.3),
+                      cs.surface,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
                 ),
               ),
             ),
-            // Decorative Elements
+            // Decorative Abstract Shapes
             Positioned(
-              top: -60,
-              right: -60,
+              top: -100,
+              right: -50,
               child: Container(
-                width: 260,
-                height: 260,
+                width: 300,
+                height: 300,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.primary.withAlpha(12),
+                  color: cs.primary.withOpacity(0.05),
                 ),
               ),
             ),
             Positioned(
-              bottom: -40,
-              left: -40,
+              bottom: -50,
+              left: -100,
               child: Container(
-                width: 180,
-                height: 180,
+                width: 250,
+                height: 250,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.primary.withAlpha(10),
+                  color: cs.tertiary.withOpacity(0.05),
                 ),
               ),
             ),
@@ -182,236 +218,265 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 440),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Hero(
-                          tag: "logo",
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Theme.of(context).colorScheme.primary,
-                                    const Color(0xFF0EA5E9)
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withAlpha(40),
-                                    blurRadius: 25,
-                                    offset: const Offset(0, 10),
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Card(
+                      elevation: 0,
+                      color: cs.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        side: BorderSide(
+                          color: cs.outlineVariant.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Logo and Branding
+                            Hero(
+                              tag: "logo",
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary,
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                ],
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
+                                  child: Icon(
+                                    Icons.business_center_rounded,
+                                    color: cs.onPrimary,
+                                    size: 48,
+                                  ),
                                 ),
-                                child: const Icon(Icons.engineering_rounded,
-                                    color: Colors.white, size: 40),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          "Welcome Back",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -1.2,
-                              color: Theme.of(context).colorScheme.onSurface),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Log in to your engineer account",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16),
-                        ),
-                        const SizedBox(height: 48),
-                        Container(
-                          padding: const EdgeInsets.all(28),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: Theme.of(context)
-                                .extension<AppColorsExtension>()!
-                                .softShadow,
-                            border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withAlpha(8)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              AppTextField(
-                                label: "Company Code",
-                                controller: companyCodeCtrl,
-                                prefixIcon: Icons.domain_outlined,
-                                hint: "Enter company code",
-                                textInputAction: TextInputAction.next,
+                            const SizedBox(height: 24),
+                            Text(
+                              "SitePulse",
+                              textAlign: TextAlign.center,
+                              style: textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                color: cs.primary,
+                                letterSpacing: 1.2,
                               ),
-                              const SizedBox(height: 20),
-                              AppTextField(
-                                label: "Employee Code",
-                                controller: empCodeCtrl,
-                                prefixIcon: Icons.badge_outlined,
-                                hint: "Enter your code",
-                                textCapitalization:
-                                    TextCapitalization.characters,
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.allow(
-                                      RegExp(r"[A-Za-z0-9\-_/]")),
-                                  UpperCaseTextFormatter(),
-                                ],
-                                helperText:
-                                    "Employee code is entered in uppercase.",
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              "Welcome Back",
+                              textAlign: TextAlign.center,
+                              style: textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: cs.onSurface,
                               ),
-                              const SizedBox(height: 20),
-                              AppTextField(
-                                label: "Password",
-                                controller: passwordCtrl,
-                                obscureText: obscurePassword,
-                                prefixIcon: Icons.lock_outline,
-                                hint: "••••••••",
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Sign in to continue to your workspace",
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                            // Login Form
+                            TextField(
+                              controller: vendorCodeCtrl,
+                              textInputAction: TextInputAction.next,
+                              decoration: _buildInputDecoration(
+                                context,
+                                "Vendor Code",
+                                "Enter vendor code",
+                                Icons.domain_outlined,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: empCodeCtrl,
+                              textInputAction: TextInputAction.next,
+                              textCapitalization: TextCapitalization.characters,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r"[A-Za-z0-9\-_/]")),
+                                UpperCaseTextFormatter(),
+                              ],
+                              decoration: _buildInputDecoration(
+                                context,
+                                "Employee Code",
+                                "Enter your code",
+                                Icons.badge_outlined,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: passwordCtrl,
+                              obscureText: obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => submit(),
+                              decoration: _buildInputDecoration(
+                                context,
+                                "Password",
+                                "••••••••",
+                                Icons.lock_outline,
+                              ).copyWith(
                                 suffixIcon: IconButton(
                                   onPressed: () => setState(
                                       () => obscurePassword = !obscurePassword),
-                                  icon: Icon(obscurePassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined),
+                                  icon: Icon(
+                                    obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
-                                onSubmitted: (_) => submit(),
                               ),
-                              const SizedBox(height: 8),
+                            ),
+                            const SizedBox(height: 16),
+                            BlocBuilder<AuthBloc, AuthState>(
+                              builder: (context, state) {
+                                final isSubmitting = state is AuthLoading;
+                                return Row(
+                                  children: [
+                                    SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: Checkbox(
+                                        value: rememberMe,
+                                        onChanged: isSubmitting
+                                            ? null
+                                            : (v) => setState(
+                                                () => rememberMe = v ?? false),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      "Remember me",
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 32),
+                            // Error State
+                            if (error != null) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: cs.errorContainer.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: cs.error.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline,
+                                        color: cs.error, size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        error!,
+                                        style: textTheme.bodyMedium?.copyWith(
+                                          color: cs.error,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            // Submit Button
+                            BlocBuilder<AuthBloc, AuthState>(
+                              builder: (context, state) {
+                                final isSubmitting = state is AuthLoading;
+                                return SizedBox(
+                                  height: 56,
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                    ),
+                                    onPressed: isSubmitting ? null : submit,
+                                    child: isSubmitting
+                                        ? SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: cs.onPrimary,
+                                            ),
+                                          )
+                                        : Text(
+                                            "Log In",
+                                            style: textTheme.titleMedium
+                                                ?.copyWith(
+                                              color: cs.onPrimary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              },
+                            ),
+                            // Server Config Fallback
+                            if (_needsServerConfig) ...[
+                              const SizedBox(height: 32),
+                              Divider(color: cs.outlineVariant),
+                              const SizedBox(height: 32),
+                              TextField(
+                                controller: serverUrlCtrl,
+                                textInputAction: TextInputAction.done,
+                                decoration: _buildInputDecoration(
+                                  context,
+                                  "Server URL",
+                                  "Enter API URL",
+                                  Icons.public,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                               BlocBuilder<AuthBloc, AuthState>(
                                 builder: (context, state) {
                                   final isSubmitting = state is AuthLoading;
-                                  return CheckboxListTile(
-                                    value: rememberMe,
-                                    onChanged: isSubmitting
-                                        ? null
-                                        : (v) => setState(
-                                            () => rememberMe = v ?? false),
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    title: const Text(
-                                      "Remember me",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14),
+                                  return SizedBox(
+                                    height: 56,
+                                    width: double.infinity,
+                                    child: FilledButton.tonal(
+                                      style: FilledButton.styleFrom(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(18),
+                                        ),
+                                      ),
+                                      onPressed:
+                                          isSubmitting ? null : saveServer,
+                                      child: Text(
+                                        "Save Server",
+                                        style:
+                                            textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   );
                                 },
                               ),
-                              const SizedBox(height: 20),
-                              if (error != null) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .extension<AppColorsExtension>()!
-                                        .errorBg,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .error
-                                            .withAlpha(30)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.error_outline,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .error,
-                                          size: 20),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          error!,
-                                          style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .error,
-                                              fontWeight: FontWeight.w700),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                              ],
-                              BlocBuilder<AuthBloc, AuthState>(
-                                builder: (context, state) {
-                                  final isSubmitting = state is AuthLoading;
-                                  return PrimaryButton(
-                                    label: "Log In",
-                                    onPressed: isSubmitting ? null : submit,
-                                    isLoading: isSubmitting,
-                                    icon: Icons.login_rounded,
-                                  );
-                                },
-                              ),
-                              if (_needsServerConfig) ...[
-                                const SizedBox(height: 12),
-                                AppTextField(
-                                  label: "Server URL",
-                                  controller: serverUrlCtrl,
-                                  showLabel: false,
-                                  prefixIcon: Icons.public,
-                                  textInputAction: TextInputAction.done,
-                                ),
-                                const SizedBox(height: 10),
-                                BlocBuilder<AuthBloc, AuthState>(
-                                  builder: (context, state) {
-                                    final isSubmitting = state is AuthLoading;
-                                    return PrimaryButton(
-                                      label: "Save Server",
-                                      onPressed:
-                                          isSubmitting ? null : saveServer,
-                                      isLoading: false,
-                                    );
-                                  },
-                                ),
-                              ],
                             ],
-                          ),
+                          ],
                         ),
-                        const SizedBox(height: 32),
-                        Text(
-                          "Forgot password?\nContact your administrator to reset it.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              height: 1.5),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

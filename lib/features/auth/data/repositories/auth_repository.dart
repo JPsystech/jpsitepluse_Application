@@ -11,11 +11,15 @@ class AuthRepository {
     required String companyCode,
     required String empCode,
     required String password,
+    required bool rememberMe,
+    required String deviceId,
   }) async {
     return await _authService.login(
       companyCode: companyCode,
       empCode: empCode,
       password: password,
+      rememberMe: rememberMe,
+      deviceId: deviceId,
     );
   }
 

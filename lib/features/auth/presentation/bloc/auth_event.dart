@@ -7,18 +7,20 @@ abstract class AuthEvent extends Equatable {
 }
 
 class LoginRequested extends AuthEvent {
-  final String companyCode;
+  final String vendorCode;
   final String empCode;
   final String password;
+  final bool rememberMe;
 
   const LoginRequested({
-    required this.companyCode,
+    required this.vendorCode,
     required this.empCode,
     required this.password,
+    this.rememberMe = false,
   });
 
   @override
-  List<Object?> get props => [companyCode, empCode, password];
+  List<Object?> get props => [vendorCode, empCode, password, rememberMe];
 }
 
 class ChangePasswordRequested extends AuthEvent {

@@ -1,9 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/shared/widgets/primary_button.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
+import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dart';
@@ -60,29 +62,67 @@ class TodayAssignmentScreenView extends StatefulWidget {
 
 class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   String? selectedProjectIdForException;
+  bool isPunchingOutForException = false;
+  String? _lastPunchOutRemarks;
 
   Future<String?> _promptExceptionReason(BuildContext context) async {
-    return showDialog<String>(
-        context: context,
-        builder: (ctx) {
-          final controller = TextEditingController();
-          return AlertDialog(
-            title: const Text("Out of Radius"),
-            content: TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                  hintText: "Reason for exception punch (required)"),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text("Cancel")),
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(controller.text),
-                  child: const Text("Submit")),
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        final controller = TextEditingController();
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+              24, 8, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                "Out of Radius",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "You are attempting to punch from outside the designated project location. Please provide a reason.",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: "Reason for exception punch",
+                  hintText: "e.g., Authorized off-site work",
+                  filled: true,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text("Cancel"),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(controller.text),
+                    child: const Text("Submit"),
+                  ),
+                ],
+              ),
             ],
-          );
-        });
+          ),
+        );
+      },
+    );
   }
 
   void _punchIn(String projectId, {String? exceptionReason}) {
@@ -92,13 +132,15 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         ));
   }
 
-  Future<void> _punchOut() async {
-    final remarks = await _promptRemarks();
+  Future<void> _punchOut({String? remarks, String? exceptionReason}) async {
+    remarks ??= await _promptRemarks();
     if (remarks == null) return;
+    _lastPunchOutRemarks = remarks;
 
     if (!mounted) return;
     context.read<AttendanceBloc>().add(PunchOutRequested(
           remarks: remarks,
+          exceptionReason: exceptionReason,
         ));
   }
 
@@ -106,27 +148,44 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (ctx) {
         final controller = TextEditingController();
         return Padding(
           padding: EdgeInsets.fromLTRB(
-              18, 12, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom),
+              24, 8, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text("Punch out",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 14),
+              Text(
+                "Punch out",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Please provide a brief summary of the work completed.",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 24),
               TextField(
                 controller: controller,
-                decoration:
-                    const InputDecoration(hintText: "Remarks (required)"),
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: "Remarks (required)",
+                  hintText: "What did you work on?",
+                  filled: true,
+                ),
               ),
-              const SizedBox(height: 14),
-              ElevatedButton(
+              const SizedBox(height: 24),
+              FilledButton(
                 onPressed: () => Navigator.of(ctx).pop(controller.text),
-                child: const Text("Confirm"),
+                child: const Text("Confirm Punch Out"),
               ),
             ],
           ),
@@ -166,381 +225,359 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   }
 
   Widget _buildGreeting() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withAlpha(50),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(context).colorScheme.primary.withAlpha(30),
-                blurRadius: 16,
-                spreadRadius: 4,
-              )
-            ],
-          ),
-          child: CircleAvatar(
-            radius: 26,
-            backgroundColor:
-                Theme.of(context).colorScheme.primary.withAlpha(20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             child: Icon(Icons.person_rounded,
-                color: Theme.of(context).colorScheme.primary, size: 32),
+                color: Theme.of(context).colorScheme.onPrimaryContainer, size: 32),
           ),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("WELCOME BACK",
-                  style: TextStyle(
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text(
-                widget.engineerName,
-                style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
-                    height: 1.1,
-                    color: Theme.of(context).colorScheme.onSurface),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Welcome back",
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.engineerName,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineBanner() {
+    return FutureBuilder<int>(
+      future: OfflinePunchQueue().count(),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+
+        final ext = Theme.of(context).extension<AppColorsExtension>();
+        final warningColor = ext?.warning ?? Colors.orange;
+        final warningBg = ext?.warningBg ?? Colors.orange.withOpacity(0.1);
+
+        return Card(
+          elevation: 0,
+          color: warningBg,
+          margin: const EdgeInsets.only(top: 16, bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: warningColor.withOpacity(0.2)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.wifi_off_rounded, color: warningColor, size: 24),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Offline Mode Active",
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: warningColor,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "$count punches pending sync",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: warningColor.withOpacity(0.8),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: warningColor,
+                  ),
+                )
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow:
-            Theme.of(context).extension<AppColorsExtension>()!.softShadow,
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .extension<AppColorsExtension>()!
-                  .success
-                  .withAlpha(20),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.check_circle_outline,
-                color:
-                    Theme.of(context).extension<AppColorsExtension>()!.success,
-                size: 48),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40.0),
+      child: Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                "You're all caught up!",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "No assignments scheduled for today.",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            "You're all caught up!",
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "No assignments scheduled for today.",
-            style: TextStyle(
-                fontSize: 15,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            textAlign: TextAlign.center,
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildAssignmentCard(TodayAssignmentModel assignment,
       bool isAnyProjectActive, bool isThisProjectActive, bool isCompleted) {
+    
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<AppColorsExtension>();
+    final successColor = ext?.success ?? Colors.green;
+
+    // Use a filled card style, distinguishing active vs inactive states
+    final cardColor = isThisProjectActive 
+        ? colorScheme.primaryContainer.withOpacity(0.4) 
+        : colorScheme.surfaceContainerHighest.withOpacity(0.3);
+
     final borderColor = isThisProjectActive
-        ? Theme.of(context).colorScheme.primary.withAlpha(100)
-        : Theme.of(context).colorScheme.onSurface.withAlpha(10);
+        ? colorScheme.primary.withOpacity(0.5)
+        : Colors.transparent;
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: cardColor,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context)
-                .colorScheme
-                .primary
-                .withAlpha(isThisProjectActive ? 25 : 5),
-            blurRadius: 24,
-            spreadRadius: 0,
-            offset: const Offset(0, 8),
-          )
-        ],
-        border: Border.all(
-            color: borderColor, width: isThisProjectActive ? 1.5 : 1.0),
+        side: BorderSide(color: borderColor, width: 1.5),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (isThisProjectActive)
-              Container(
-                width: 6,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: isThisProjectActive
-                          ? Theme.of(context).colorScheme.primary.withAlpha(25)
-                          : Theme.of(context).colorScheme.primary.withAlpha(10),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withAlpha(isThisProjectActive ? 20 : 10),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4)),
-                            ],
-                          ),
-                          child: Icon(Icons.business_center,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 28),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("TODAY'S ASSIGNMENT",
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      letterSpacing: 0.8)),
-                              const SizedBox(height: 4),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          assignment.projectName,
-                                          style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w900,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface,
-                                              letterSpacing: -0.3),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.location_on,
-                                                size: 14,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                assignment.siteName,
-                                                style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (isCompleted)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .extension<AppColorsExtension>()!
-                                            .success
-                                            .withAlpha(20),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.check_circle,
-                                              size: 14,
-                                              color: Theme.of(context)
-                                                  .extension<
-                                                      AppColorsExtension>()!
-                                                  .success),
-                                          const SizedBox(width: 4),
-                                          Text("COMPLETED",
-                                              style: TextStyle(
-                                                  color: Theme.of(context)
-                                                      .extension<
-                                                          AppColorsExtension>()!
-                                                      .success,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                    )
-                                  else if (isThisProjectActive)
-                                    const _PulsingActiveBadge(),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header / Info Section
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isThisProjectActive 
+                        ? colorScheme.primary 
+                        : colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  if (!isCompleted)
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: BlocBuilder<AttendanceBloc, AttendanceState>(
-                        builder: (context, attendanceState) {
-                          final isPunching =
-                              attendanceState is AttendanceLoading;
-                          final isThisLoading = isPunching &&
-                              selectedProjectIdForException ==
-                                  assignment.projectId;
-
-                          if (isThisProjectActive) {
-                            return PrimaryButton(
-                              label: "Punch Out",
-                              isLoading: isThisLoading,
-                              isDestructive: true,
-                              onPressed: isPunching
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        selectedProjectIdForException =
-                                            assignment.projectId;
-                                      });
-                                      _punchOut();
-                                    },
-                              icon: Icons.logout,
-                            );
-                          } else if (!isAnyProjectActive) {
-                            return PrimaryButton(
-                              label: "Punch In",
-                              isLoading: isThisLoading,
-                              onPressed: isPunching
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        selectedProjectIdForException =
-                                            assignment.projectId;
-                                      });
-                                      _punchIn(assignment.projectId);
-                                    },
-                              icon: Icons.login,
-                            );
-                          } else {
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withAlpha(10),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withAlpha(15)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.info_outline,
-                                      size: 20,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      "Please punch out of the active project first.",
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        },
+                  child: Icon(
+                    Icons.business_center_rounded,
+                    color: isThisProjectActive 
+                        ? colorScheme.onPrimary 
+                        : colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "TODAY'S ASSIGNMENT",
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                          ),
+                          if (isCompleted)
+                            _StatusChip(
+                              icon: Icons.check_circle_rounded,
+                              label: "COMPLETED",
+                              color: successColor,
+                            )
+                          else if (isThisProjectActive)
+                            const _PulsingActiveBadge(),
+                        ],
                       ),
-                    ),
-                ],
+                      const SizedBox(height: 8),
+                      Text(
+                        assignment.projectName,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            size: 16,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              assignment.siteName,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Action Section
+          if (!isCompleted)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: BlocBuilder<AttendanceBloc, AttendanceState>(
+                builder: (context, attendanceState) {
+                  final isPunching = attendanceState is AttendanceLoading;
+                  final isThisLoading = isPunching &&
+                      selectedProjectIdForException == assignment.projectId;
+
+                  if (isThisProjectActive) {
+                    return PrimaryButton(
+                      label: "Punch Out",
+                      isLoading: isThisLoading,
+                      isDestructive: true,
+                      onPressed: isPunching
+                          ? null
+                          : () {
+                              setState(() {
+                                selectedProjectIdForException =
+                                    assignment.projectId;
+                                isPunchingOutForException = true;
+                              });
+                              _punchOut();
+                            },
+                      icon: Icons.logout_rounded,
+                    );
+                  } else if (!isAnyProjectActive) {
+                    return PrimaryButton(
+                      label: "Punch In",
+                      isLoading: isThisLoading,
+                      onPressed: isPunching
+                          ? null
+                          : () {
+                              setState(() {
+                                selectedProjectIdForException =
+                                    assignment.projectId;
+                                isPunchingOutForException = false;
+                              });
+                              _punchIn(assignment.projectId);
+                            },
+                      icon: Icons.login_rounded,
+                    );
+                  } else {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "Please punch out of the active project first.",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildQuickActions(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Quick Actions",
-          style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: Text(
+            "Quick Actions",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
         ),
         const SizedBox(height: 16),
         Row(
@@ -549,7 +586,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               child: _QuickActionCard(
                 icon: Icons.schedule_rounded,
                 title: "Timesheet",
-                color: const Color(0xFF6366F1),
+                color: colorScheme.primary,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -562,9 +599,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
             const SizedBox(width: 16),
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.edit_note,
+                icon: Icons.edit_note_rounded,
                 title: "Work Update",
-                color: const Color(0xFFF59E0B),
+                color: colorScheme.secondary,
                 onTap: () =>
                     context.read<ShellBloc>().add(const ShellTabChanged(2)),
               ),
@@ -576,9 +613,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           children: [
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.photo_camera,
+                icon: Icons.photo_camera_rounded,
                 title: "Site Photos",
-                color: const Color(0xFFEC4899),
+                color: colorScheme.tertiary,
                 onTap: () =>
                     context.read<ShellBloc>().add(const ShellTabChanged(2)),
               ),
@@ -588,7 +625,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               child: _QuickActionCard(
                 icon: Icons.analytics_outlined,
                 title: "Attendance",
-                color: const Color(0xFF10B981),
+                color: Theme.of(context).extension<AppColorsExtension>()?.success ?? Colors.green,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -614,8 +651,14 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               if (reason != null &&
                   reason.trim().isNotEmpty &&
                   selectedProjectIdForException != null) {
-                _punchIn(selectedProjectIdForException!,
-                    exceptionReason: reason.trim());
+                if (isPunchingOutForException) {
+                  _punchOut(
+                      remarks: _lastPunchOutRemarks,
+                      exceptionReason: reason.trim());
+                } else {
+                  _punchIn(selectedProjectIdForException!,
+                      exceptionReason: reason.trim());
+                }
               }
             });
           } else {
@@ -633,131 +676,114 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         }
       },
       child: Scaffold(
-        extendBodyBehindAppBar: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(_dayDateTitle(),
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 16)),
-          actions: [
-            IconButton(
-              onPressed: () =>
-                  context.read<HomeBloc>().add(LoadAssignmentsRequested()),
-              icon: Icon(Icons.refresh,
-                  color: Theme.of(context).colorScheme.onSurface),
-            ),
-          ],
-        ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).colorScheme.primary.withAlpha(30),
-                Theme.of(context).scaffoldBackgroundColor,
-              ],
-              stops: const [0.0, 0.4],
-            ),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          scrolledUnderElevation: 1,
+          title: Text(
+            _dayDateTitle(),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-          child: SafeArea(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                context.read<HomeBloc>().add(LoadAssignmentsRequested());
-              },
-              child: BlocBuilder<HomeBloc, HomeState>(
-                builder: (context, state) {
-                  if (state is HomeInitial || state is HomeLoading) {
-                    return ListView(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 20),
-                      children: const [
-                        ShimmerBox(
-                            width: double.infinity,
-                            height: 80,
-                            borderRadius: 16),
-                        SizedBox(height: 24),
-                        ShimmerBox(
-                            width: double.infinity,
-                            height: 200,
-                            borderRadius: 24),
-                        SizedBox(height: 32),
-                        ShimmerBox(width: 150, height: 24, borderRadius: 8),
-                        SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                                child: ShimmerBox(
-                                    width: double.infinity,
-                                    height: 110,
-                                    borderRadius: 20)),
-                            SizedBox(width: 16),
-                            Expanded(
-                                child: ShimmerBox(
-                                    width: double.infinity,
-                                    height: 110,
-                                    borderRadius: 20)),
-                          ],
-                        )
-                      ],
-                    );
-                  }
-
-                  if (state is HomeError) {
-                    return ListView(
-                      padding: const EdgeInsets.all(20),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            context.read<HomeBloc>().add(LoadAssignmentsRequested());
+          },
+          child: BlocBuilder<HomeBloc, HomeState>(
+            builder: (context, state) {
+              if (state is HomeInitial || state is HomeLoading) {
+                return ListView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 20),
+                  children: const [
+                    ShimmerBox(
+                        width: double.infinity, height: 80, borderRadius: 24),
+                    SizedBox(height: 24),
+                    ShimmerBox(
+                        width: double.infinity, height: 200, borderRadius: 24),
+                    SizedBox(height: 32),
+                    ShimmerBox(width: 150, height: 24, borderRadius: 8),
+                    SizedBox(height: 16),
+                    Row(
                       children: [
-                        Center(child: Text("Error: ${state.message}"))
+                        Expanded(
+                            child: ShimmerBox(
+                                width: double.infinity,
+                                height: 110,
+                                borderRadius: 24)),
+                        SizedBox(width: 16),
+                        Expanded(
+                            child: ShimmerBox(
+                                width: double.infinity,
+                                height: 110,
+                                borderRadius: 24)),
                       ],
-                    );
-                  }
+                    )
+                  ],
+                );
+              }
 
-                  if (state is HomeSuccess) {
-                    final resp = state.response;
-                    final assignments = resp.assignments;
-                    final hasAssignment = resp.hasAssignment;
-                    final isAnyProjectActive = (resp.activeProjectId != null);
+              if (state is HomeError) {
+                return ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    Center(
+                      child: Text(
+                        "Error: ${state.message}",
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  ],
+                );
+              }
 
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 10),
-                      children: [
-                        _buildGreeting(),
-                        const SizedBox(height: 24),
-                        if (!hasAssignment)
-                          _buildEmptyState()
-                        else
-                          ...assignments.map((assignment) {
-                            final isThisProjectActive =
-                                resp.activeProjectId == assignment.projectId;
-                            final isCompleted =
-                                assignment.todayStatus == "COMPLETED";
+              if (state is HomeSuccess) {
+                final resp = state.response;
+                final assignments = resp.assignments;
+                final hasAssignment = resp.hasAssignment;
+                final isAnyProjectActive = (resp.activeProjectId != null);
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildAssignmentCard(
-                                  assignment,
-                                  isAnyProjectActive,
-                                  isThisProjectActive,
-                                  isCompleted),
-                            );
-                          }),
-                        const SizedBox(height: 36),
-                        _buildQuickActions(context),
-                        const SizedBox(height: 20),
-                      ],
-                    );
-                  }
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  children: [
+                    _buildGreeting(),
+                    _buildOfflineBanner(),
+                    const SizedBox(height: 24),
+                    if (!hasAssignment)
+                      _buildEmptyState()
+                    else
+                      ...assignments.map((assignment) {
+                        final isThisProjectActive =
+                            resp.activeProjectId == assignment.projectId;
+                        final isCompleted =
+                            assignment.todayStatus == "COMPLETED";
 
-                  return const SizedBox();
-                },
-              ),
-            ),
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _buildAssignmentCard(
+                              assignment,
+                              isAnyProjectActive,
+                              isThisProjectActive,
+                              isCompleted),
+                        );
+                      }),
+                    const SizedBox(height: 32),
+                    _buildQuickActions(context),
+                    const SizedBox(height: 40),
+                  ],
+                );
+              }
+
+              return const SizedBox();
+            },
           ),
         ),
       ),
@@ -813,49 +839,74 @@ class _QuickActionCardState extends State<_QuickActionCard>
       onTapCancel: () => _controller.reverse(),
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  widget.color.withAlpha(15),
-                ]),
+        child: Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withAlpha(20),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              )
-            ],
-            border: Border.all(color: widget.color.withAlpha(40), width: 1.5),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: widget.color.withAlpha(30),
-                  borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(widget.icon, color: widget.color, size: 24),
                 ),
-                child: Icon(widget.icon, color: widget.color, size: 26),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.title,
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    letterSpacing: -0.2,
-                    color: Theme.of(context).colorScheme.onSurface),
-              ),
-            ],
+                const SizedBox(height: 20),
+                Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _StatusChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -879,7 +930,7 @@ class _PulsingActiveBadgeState extends State<_PulsingActiveBadge>
     _controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1200))
       ..repeat(reverse: true);
-    _opacityAnimation = Tween<double>(begin: 0.3, end: 1.0)
+    _opacityAnimation = Tween<double>(begin: 0.4, end: 1.0)
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
@@ -900,26 +951,26 @@ class _PulsingActiveBadgeState extends State<_PulsingActiveBadge>
               color: Theme.of(context)
                   .colorScheme
                   .primary
-                  .withAlpha((_opacityAnimation.value * 50).round()),
+                  .withOpacity(_opacityAnimation.value * 0.15),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: Theme.of(context)
                     .colorScheme
                     .primary
-                    .withAlpha((_opacityAnimation.value * 100).round()),
+                    .withOpacity(_opacityAnimation.value * 0.3),
                 width: 1,
               )),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.timelapse,
+              Icon(Icons.timelapse_rounded,
                   size: 14, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 4),
               Text("ACTIVE",
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold)),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      )),
             ],
           ),
         );

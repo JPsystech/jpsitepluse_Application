@@ -38,12 +38,11 @@ class StatusChip extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: bg.alpha == 255 ? bg : fg,
-              letterSpacing: -0.2,
-            ),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: bg.alpha == 255 ? bg : fg,
+                  letterSpacing: -0.2,
+                ),
           ),
         ],
       ),

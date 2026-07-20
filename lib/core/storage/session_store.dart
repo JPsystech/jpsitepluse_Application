@@ -2,6 +2,8 @@ import "dart:convert";
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
+import "package:flutter_secure_storage/flutter_secure_storage.dart";
+import "dart:math";
 
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
 
@@ -58,5 +60,18 @@ class SessionStore {
     notifier.value = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+  }
+
+  static Future<String> getDeviceId() async {
+    const storage = FlutterSecureStorage();
+    const deviceIdKey = "sitepulse_engineer_device_id";
+    String? deviceId = await storage.read(key: deviceIdKey);
+    if (deviceId == null || deviceId.trim().isEmpty) {
+      final rand = Random.secure();
+      final bytes = List<int>.generate(16, (i) => rand.nextInt(256));
+      deviceId = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
+      await storage.write(key: deviceIdKey, value: deviceId);
+    }
+    return deviceId;
   }
 }

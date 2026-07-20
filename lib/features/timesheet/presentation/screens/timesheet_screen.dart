@@ -10,6 +10,7 @@ import "package:sitepulse_engineer/core/utils/formatters.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/shared/widgets/section_header.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
+import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
 
 import "package:sitepulse_engineer/features/timesheet/presentation/bloc/timesheet_bloc.dart";
 
@@ -67,6 +68,10 @@ class _TimesheetViewState extends State<_TimesheetView> {
     "Other",
   ];
 
+  String? descError;
+  String? hoursError;
+  String? photoError;
+
   @override
   void dispose() {
     descriptionCtrl.dispose();
@@ -87,6 +92,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
       setState(() {
         photo = File(xfile.path);
         uploadedPhotoUrl = null;
+        photoError = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -127,9 +133,16 @@ class _TimesheetViewState extends State<_TimesheetView> {
     try {
       final desc = descriptionCtrl.text.trim();
       final mins = _parseHours();
-      if (desc.isEmpty) throw "Work description is required";
-      if (mins <= 0) throw "Hours must be greater than 0";
-      if (photo == null) throw "Please upload a photo";
+
+      setState(() {
+        descError = desc.isEmpty ? "Work description is required" : null;
+        hoursError = mins <= 0 ? "Hours must be greater than 0" : null;
+        photoError = photo == null && uploadedPhotoUrl == null
+            ? "Please upload a photo"
+            : null;
+      });
+
+      if (descError != null || hoursError != null || photoError != null) return;
 
       final loc = await _resolveLocation();
 
@@ -158,29 +171,30 @@ class _TimesheetViewState extends State<_TimesheetView> {
   @override
   Widget build(BuildContext context) {
     final today = IstTime.now();
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text("Work Update"),
-        actions: [
-          BlocBuilder<TimesheetBloc, TimesheetState>(
-            builder: (context, state) {
-              final isLoading = state.status == TimesheetStatus.loading ||
-                  state.status == TimesheetStatus.initial;
-              return IconButton(
-                onPressed: isLoading
-                    ? null
-                    : () {
-                        context.read<TimesheetBloc>().add(
-                            LoadTimesheetDataRequested(
-                                sessionToken: widget.sessionToken));
-                      },
-                icon: const Icon(Icons.refresh),
-              );
-            },
-          ),
-        ],
+        backgroundColor: cs.surface,
+        scrolledUnderElevation: 1,
+        toolbarHeight: 80,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Work Update",
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Track all completed work activities",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+        actions: const [],
       ),
       body: SafeArea(
         child: BlocConsumer<TimesheetBloc, TimesheetState>(
@@ -194,6 +208,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
                 activityType = activityTypes.first;
                 photo = null;
                 uploadedPhotoUrl = state.uploadedPhotoUrl;
+                descError = null;
+                hoursError = null;
+                photoError = null;
               });
             } else if (state.status == TimesheetStatus.error) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -210,36 +227,58 @@ class _TimesheetViewState extends State<_TimesheetView> {
             final pn = state.projectName.trim();
             final sn = state.siteName.trim();
 
-            return Padding(
-              padding: const EdgeInsets.all(18),
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<TimesheetBloc>().add(
+                    LoadTimesheetDataRequested(
+                        sessionToken: widget.sessionToken));
+                await Future.delayed(const Duration(milliseconds: 600));
+              },
+              child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SectionHeader(title: "New Work Update"),
-                  const SizedBox(height: 10),
+                  FutureBuilder<int>(
+                    future: OfflinePunchQueue().count(),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+                      if (count == 0) return const SizedBox.shrink();
+
+                      return Container(
+                        margin: const EdgeInsets.only(top: 16, bottom: 8),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).extension<AppColorsExtension>()!.warningBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Theme.of(context).extension<AppColorsExtension>()!.warning.withAlpha(50)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.wifi_off_rounded, color: Theme.of(context).extension<AppColorsExtension>()!.warning, size: 24),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("Offline Mode Active", style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).extension<AppColorsExtension>()!.warning)),
+                                  Text("$count punches pending sync", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).extension<AppColorsExtension>()!.warning.withAlpha(200))),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).colorScheme.primary,
-                          const Color(0xFF6366F1), // Slight purple tint
-                        ],
-                      ),
+                      color: cs.surfaceContainerHighest.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withAlpha(50),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        )
-                      ],
+                      border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,346 +286,334 @@ class _TimesheetViewState extends State<_TimesheetView> {
                         Row(
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text("Date",
-                                      style: TextStyle(
-                                          color: Colors.white.withAlpha(200),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 4),
-                                  Text(AppFormatters.formatDate(today),
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900)),
+                                  Icon(Icons.calendar_today_rounded, size: 16, color: cs.primary),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    AppFormatters.formatDate(today),
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.bold),
+                                  ),
                                 ],
                               ),
                             ),
                             if (isLoading)
-                              const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white)),
+                              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary)),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        Text("Project / Site",
-                            style: TextStyle(
-                                color: Colors.white.withAlpha(200),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 6),
-                        Text(pn.isEmpty ? "-" : pn,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.2)),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 16),
+                        Text(
+                          pn.isEmpty ? "-" : pn,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: cs.onSurface),
+                        ),
+                        const SizedBox(height: 8),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.location_on_outlined,
-                                size: 14, color: Colors.white.withAlpha(220)),
-                            const SizedBox(width: 4),
+                            Icon(Icons.location_on_rounded, size: 18, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 6),
                             Expanded(
-                              child: Text(sn.isEmpty ? "-" : sn,
-                                  style: TextStyle(
-                                      color: Colors.white.withAlpha(220),
-                                      fontWeight: FontWeight.w600)),
+                              child: Text(
+                                sn.isEmpty ? "-" : sn,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, height: 1.4),
+                              ),
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 24),
                   Expanded(
-                    child: ListView(
-                      children: [
-                        const SectionHeader(title: "Work Details"),
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: Theme.of(context)
-                                .extension<AppColorsExtension>()!
-                                .softShadow,
-                            border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withAlpha(10)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Work description",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.2)),
-                              const SizedBox(height: 10),
-                              TextField(
-                                controller: descriptionCtrl,
-                                maxLines: 4,
-                                textInputAction: TextInputAction.newline,
-                                decoration: InputDecoration(
-                                  hintText:
-                                      "What work update do you want to submit?",
-                                  hintStyle: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withAlpha(100)),
-                                  filled: true,
-                                  fillColor: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withAlpha(12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.all(16),
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              const Text("Activity type",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.2)),
-                              const SizedBox(height: 10),
-                              DropdownButtonFormField<String>(
-                                value: activityType,
-                                items: activityTypes
-                                    .map((t) => DropdownMenuItem<String>(
-                                        value: t,
-                                        child: Text(t,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w700))))
-                                    .toList(),
-                                onChanged: isSubmitting
-                                    ? null
-                                    : (v) => setState(() => activityType =
-                                        v ?? activityTypes.first),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withAlpha(12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 14),
-                                ),
-                                icon: const Icon(
-                                    Icons.keyboard_arrow_down_rounded),
-                                dropdownColor: Colors.white,
-                              ),
-                              const SizedBox(height: 18),
-                              Row(
-                                children: [
-                                  const Expanded(
-                                    child: Text("Hours",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: -0.2)),
-                                  ),
-                                  FilledButton.tonal(
-                                    onPressed: isSubmitting
-                                        ? null
-                                        : () {
-                                            final raw = hoursCtrl.text.trim();
-                                            final v = double.tryParse(raw) ?? 0;
-                                            final next = (v - 0.5).clamp(0, 24);
-                                            setState(() => hoursCtrl.text =
-                                                next == next.roundToDouble()
-                                                    ? next.toInt().toString()
-                                                    : next.toStringAsFixed(1));
-                                          },
-                                    style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12))),
-                                    child: const Text("-0.5h",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w800)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  FilledButton.tonal(
-                                    onPressed: isSubmitting
-                                        ? null
-                                        : () {
-                                            final raw = hoursCtrl.text.trim();
-                                            final v = double.tryParse(raw) ?? 0;
-                                            final next = (v + 0.5).clamp(0, 24);
-                                            setState(() => hoursCtrl.text =
-                                                next == next.roundToDouble()
-                                                    ? next.toInt().toString()
-                                                    : next.toStringAsFixed(1));
-                                          },
-                                    style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12))),
-                                    child: const Text("+0.5h",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w800)),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: hoursCtrl,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                textInputAction: TextInputAction.next,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w800, fontSize: 16),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withAlpha(12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 14),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const SectionHeader(title: "Photo"),
-                        const SizedBox(height: 10),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Expanded(
-                                      child: Text("Upload photo",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: -0.2)),
-                                    ),
-                                    TextButton(
-                                        onPressed:
-                                            isSubmitting ? null : _pickPhoto,
-                                        child: const Text("Capture")),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                if (photo == null)
-                                  uploadedPhotoUrl == null
-                                      ? Text("No photo selected",
-                                          style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                              fontWeight: FontWeight.w600))
-                                      : ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          child: Image.network(
-                                              uploadedPhotoUrl!,
-                                              height: 180,
-                                              width: double.infinity,
-                                              fit: BoxFit.cover),
-                                        )
-                                else
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Stack(
-                                      children: [
-                                        Image.file(photo!,
-                                            height: 180,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover),
-                                        Positioned(
-                                          left: 10,
-                                          right: 10,
-                                          bottom: 10,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 10, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.black.withAlpha(153),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: DefaultTextStyle(
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w700),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                      "${pn.isEmpty ? "-" : pn} | ${sn.isEmpty ? "-" : sn}"),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    "Date: ${AppFormatters.formatDate(DateTime.now())}    Time: ${AppFormatters.formatTimeWithSeconds(DateTime.now())}",
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w600),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                      "Emp: ${widget.engineerEmpCode.trim().isEmpty ? "-" : widget.engineerEmpCode.trim()}",
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w600)),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        PrimaryButton(
-                          label: "Submit Work Update",
-                          onPressed: isSubmitting ? null : submit,
-                          isLoading: isSubmitting,
-                          icon: Icons.send,
-                        ),
-                        const SizedBox(height: 18),
-                      ],
-                    ),
+                    child: _buildWorkDetailsList(context, isSubmitting, isLoading, pn, sn),
                   ),
                 ],
               ),
+              )
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildWorkDetailsList(BuildContext context, bool isSubmitting, bool isLoading, String pn, String sn) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 40),
+      children: [
+        Text(
+          "Work Description",
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: descriptionCtrl,
+          maxLines: 4,
+          textInputAction: TextInputAction.newline,
+          onChanged: (_) => setState(() => descError = null),
+          decoration: InputDecoration(
+            hintText: "What work did you complete?",
+            errorText: descError,
+            filled: true,
+            fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(color: cs.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.all(20),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Activity Type",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: activityType,
+                    items: activityTypes
+                        .map((t) => DropdownMenuItem<String>(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600))))
+                        .toList(),
+                    onChanged: isSubmitting ? null : (v) => setState(() => activityType = v ?? activityTypes.first),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    ),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: cs.onSurfaceVariant),
+                    dropdownColor: cs.surface,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Hours",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: isSubmitting
+                            ? null
+                            : () {
+                                final raw = hoursCtrl.text.trim();
+                                final v = double.tryParse(raw) ?? 0;
+                                final next = (v - 0.5).clamp(0, 24);
+                                setState(() => hoursCtrl.text =
+                                    next == next.roundToDouble()
+                                        ? next.toInt().toString()
+                                        : next.toStringAsFixed(1));
+                              },
+                        icon: const Icon(Icons.remove_rounded),
+                        style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: hoursCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          textInputAction: TextInputAction.next,
+                          onChanged: (_) => setState(() => hoursError = null),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: cs.primary),
+                          decoration: InputDecoration(
+                            filled: true,
+                            errorText: hoursError,
+                            fillColor: cs.primaryContainer.withOpacity(0.3),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filledTonal(
+                        onPressed: isSubmitting
+                            ? null
+                            : () {
+                                final raw = hoursCtrl.text.trim();
+                                final v = double.tryParse(raw) ?? 0;
+                                final next = (v + 0.5).clamp(0, 24);
+                                setState(() => hoursCtrl.text =
+                                    next == next.roundToDouble()
+                                        ? next.toInt().toString()
+                                        : next.toStringAsFixed(1));
+                              },
+                        icon: const Icon(Icons.add_rounded),
+                        style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Text(
+          "Site Photo",
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (photo == null && uploadedPhotoUrl == null)
+                Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.add_a_photo_rounded, size: 48, color: cs.primary.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No photo selected",
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton.tonalIcon(
+                          onPressed: isSubmitting ? null : _pickPhoto,
+                          icon: const Icon(Icons.camera_alt_rounded),
+                          label: const Text("Capture Photo"),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  child: Stack(
+                    children: [
+                      if (photo != null)
+                        Image.file(photo!, height: 240, width: double.infinity, fit: BoxFit.cover)
+                      else if (uploadedPhotoUrl != null)
+                        Image.network(uploadedPhotoUrl!, height: 240, width: double.infinity, fit: BoxFit.cover),
+                      
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "${pn.isEmpty ? "-" : pn} | ${sn.isEmpty ? "-" : sn}",
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Time: ${AppFormatters.formatTimeWithSeconds(DateTime.now())}",
+                                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
+                              ),
+                              Text(
+                                "Emp: ${widget.engineerEmpCode.trim().isEmpty ? "-" : widget.engineerEmpCode.trim()}",
+                                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 12,
+                        right: 12,
+                        child: IconButton.filled(
+                          onPressed: isSubmitting ? null : _pickPhoto,
+                          icon: const Icon(Icons.refresh_rounded, size: 20),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withOpacity(0.5),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (photoError != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline_rounded, size: 16, color: cs.error),
+                      const SizedBox(width: 8),
+                      Text(
+                        photoError!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          height: 56,
+          child: FilledButton.icon(
+            onPressed: isSubmitting ? null : submit,
+            icon: isSubmitting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
+            label: Text(isSubmitting ? "Submitting..." : "Submit Work Update", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

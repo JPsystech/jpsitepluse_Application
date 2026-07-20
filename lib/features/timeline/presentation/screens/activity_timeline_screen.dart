@@ -303,16 +303,6 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                                       month: state.month));
                             },
                       icon: const Icon(Icons.download_outlined)),
-                  IconButton(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              context.read<TimelineBloc>().add(
-                                  LoadTimelineRequested(
-                                      sessionToken: widget.sessionToken,
-                                      month: state.month));
-                            },
-                      icon: const Icon(Icons.refresh)),
                 ],
               );
             },
@@ -345,9 +335,17 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                 state.data?.items ?? const <EngineerHistoryRow>[],
                 state.statusFilter);
 
-            return Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<TimelineBloc>().add(
+                    LoadTimelineRequested(
+                        sessionToken: widget.sessionToken,
+                        month: state.month));
+                await Future.delayed(const Duration(milliseconds: 600));
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -696,6 +694,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                   ],
                 ],
               ),
+              )
             );
           },
         ),

@@ -41,16 +41,22 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final placeholder = (hint ?? label).trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showLabel) ...[
-          Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: -0.1)),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
+                  ),
+            ),
+          ),
           const SizedBox(height: 8),
         ],
         TextField(
@@ -64,11 +70,40 @@ class AppTextField extends StatelessWidget {
           onChanged: onChanged,
           inputFormatters: inputFormatters,
           textCapitalization: textCapitalization,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
           decoration: InputDecoration(
             hintText: placeholder.isEmpty ? null : placeholder,
-            prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 20),
+            hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant.withOpacity(0.6),
+                ),
+            prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 22, color: cs.onSurfaceVariant),
             suffixIcon: suffixIcon,
             helperText: helperText,
+            helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+            filled: true,
+            fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4), width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: cs.primary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: cs.error, width: 1),
+            ),
           ),
         ),
       ],

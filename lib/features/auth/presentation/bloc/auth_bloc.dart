@@ -21,10 +21,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       LoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
+      final deviceId = await SessionStore.getDeviceId();
       final session = await _repository.login(
-        companyCode: event.companyCode,
+        companyCode: event.vendorCode,
         empCode: event.empCode,
         password: event.password,
+        rememberMe: event.rememberMe,
+        deviceId: deviceId,
       );
       await SessionStore.set(session);
       emit(AuthSuccess(session: session));

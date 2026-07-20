@@ -41,7 +41,7 @@ class _TermsViewState extends State<_TermsView> {
               BlocConsumer<TermsBloc, TermsState>(listener: (context, state) {
             if (state is TermsSuccess) {
               Navigator.of(context)
-                  .pushNamedAndRemoveUntil(AppRoutes.app, (_) => false);
+                  .pushNamedAndRemoveUntil(AppRoutes.mpinSetup, (_) => false);
             }
           }, builder: (context, state) {
             final isSaving = state is TermsSaving;
