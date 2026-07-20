@@ -28,3 +28,12 @@ class SplashError extends SplashState {
   @override
   List<Object> get props => [errorMessage];
 }
+
+class SplashSecurityBlocked extends SplashState {
+  final String message;
+
+  const SplashSecurityBlocked(this.message);
+
+  @override
+  List<Object> get props => [message];
+}

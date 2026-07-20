@@ -13,8 +13,11 @@ class SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
           ),
         ),
         if (trailing != null) trailing!,

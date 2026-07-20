@@ -3,6 +3,8 @@ import 'package:equatable/equatable.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sitepulse_engineer/features/attendance/data/models/punch_response_model.dart';
 import 'package:sitepulse_engineer/features/attendance/data/repositories/attendance_repository.dart';
+import 'package:safe_device/safe_device.dart';
+import 'package:flutter/foundation.dart';
 
 part 'attendance_event.dart';
 part 'attendance_state.dart';
@@ -35,6 +37,22 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     final pos = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
+
+    if (pos.isMocked) {
+      throw "Fake GPS detected. Please disable mock locations to punch in.";
+    }
+
+    try {
+      if (!kDebugMode) {
+        final isDevMode = await SafeDevice.isDevelopmentModeEnable;
+        if (isDevMode) {
+          throw "Developer Options must be disabled to punch in. Please turn off Developer Options in your phone settings to ensure location integrity.";
+        }
+      }
+    } catch (_) {
+      // SafeDevice might throw on unsupported platforms, ignore
+    }
+
     return (lat: pos.latitude, lng: pos.longitude, accuracyM: pos.accuracy);
   }
 

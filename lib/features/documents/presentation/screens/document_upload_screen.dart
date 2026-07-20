@@ -406,6 +406,7 @@ class _DocumentUploadView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return BlocConsumer<DocumentsBloc, DocumentsState>(
       listenWhen: (previous, current) =>
           current.snackbarMessage != previous.snackbarMessage ||
@@ -436,119 +437,163 @@ class _DocumentUploadView extends StatelessWidget {
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text("Documents"),
-            actions: [
-              IconButton(
-                onPressed: isLoading
-                    ? null
-                    : () => context.read<DocumentsBloc>().add(
-                        LoadDocumentsRequested(
-                            sessionToken: _token, showLoader: true)),
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            ],
-          ),
+          backgroundColor: cs.surface,
           body: SafeArea(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: ListView(
-                      children: [
-                        _InfoCard(
-                            loadError: state.status == DocumentsStatus.error
-                                ? state.errorMessage
-                                : null),
-                        const SizedBox(height: 18),
-                        const SectionHeader(title: "Required Documents"),
-                        const SizedBox(height: 12),
-                        ..._defaultDefinitions.map((definition) {
-                          final doc = latestByType[definition.type];
-                          final busyKey = "upload::${definition.type}";
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: _DocumentCard(
-                              title: definition.displayName,
-                              requiredLabel: _requiredLabel(definition, doc),
-                              requiredColor:
-                                  _requiredColor(context, definition, doc),
-                              statusLabel: _statusLabel(doc),
-                              statusColor: _statusColor(context, doc),
-                              remarks: doc?.adminRemarks,
-                              helperText: definition.type == "ndt"
-                                  ? _ndtReminderText(state.ndtExpiryDate)
-                                  : null,
-                              helperColor: definition.type == "ndt"
-                                  ? _ndtReminderColor(
-                                      context, state.ndtExpiryDate)
-                                  : null,
-                              isUploading: state.busyKeys.contains(busyKey),
-                              isViewing: doc != null &&
-                                  state.busyKeys.contains("view::${doc.id}"),
-                              onUpload: () => _handleUpload(
-                                  context: context,
-                                  definition: definition,
-                                  busyKey: busyKey,
-                                  state: state),
-                              onView:
-                                  doc != null && doc.fileUrl.trim().isNotEmpty
-                                      ? () => _viewDocument(context, doc, state)
-                                      : null,
-                              uploadLabel: doc == null ? "Upload" : "Re-upload",
+            child: RefreshIndicator(
+              onRefresh: () async {
+                context.read<DocumentsBloc>().add(
+                    LoadDocumentsRequested(
+                        sessionToken: _token, showLoader: true));
+                await Future.delayed(const Duration(milliseconds: 600));
+              },
+              child: CustomScrollView(
+                slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  backgroundColor: cs.surface,
+                  scrolledUnderElevation: 1,
+                  title: Row(
+                    children: [
+                      Icon(Icons.folder_shared_rounded, color: cs.primary),
+                      const SizedBox(width: 12),
+                      Text(
+                        "My Documents",
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        }),
-                        const SizedBox(height: 10),
-                        SectionHeader(
-                          title: "Custom Documents",
-                          trailing: OutlinedButton.icon(
-                            onPressed: () => _addCustomDocument(context, state),
-                            icon: const Icon(Icons.add),
-                            label: const Text("Add More Document"),
+                      ),
+                    ],
+                  ),
+                  actions: const [],
+                ),
+                if (isLoading)
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _InfoCard(
+                              loadError: state.status == DocumentsStatus.error
+                                  ? state.errorMessage
+                                  : null),
+                          const SizedBox(height: 24),
+                          
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 12),
+                            child: Text(
+                              "Required Documents",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: cs.primary,
+                                  ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (customDocuments.isEmpty)
-                          const _EmptyCustomCard()
-                        else
-                          ...customDocuments.map((doc) {
-                            final busyKey = "custom::${doc.documentName}";
+                          ..._defaultDefinitions.map((definition) {
+                            final doc = latestByType[definition.type];
+                            final busyKey = "upload::${definition.type}";
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
+                              padding: const EdgeInsets.only(bottom: 16),
                               child: _DocumentCard(
-                                title: doc.documentName,
-                                requiredLabel:
-                                    _requiredLabel(_customDefinition, doc),
-                                requiredColor: _requiredColor(
-                                    context, _customDefinition, doc),
+                                title: definition.displayName,
+                                requiredLabel: _requiredLabel(definition, doc),
+                                requiredColor: _requiredColor(context, definition, doc),
                                 statusLabel: _statusLabel(doc),
                                 statusColor: _statusColor(context, doc),
-                                remarks: doc.adminRemarks,
-                                helperText: null,
-                                helperColor: null,
+                                remarks: doc?.adminRemarks,
+                                helperText: definition.type == "ndt"
+                                    ? _ndtReminderText(state.ndtExpiryDate)
+                                    : null,
+                                helperColor: definition.type == "ndt"
+                                    ? _ndtReminderColor(context, state.ndtExpiryDate)
+                                    : null,
                                 isUploading: state.busyKeys.contains(busyKey),
-                                isViewing:
+                                isViewing: doc != null &&
                                     state.busyKeys.contains("view::${doc.id}"),
                                 onUpload: () => _handleUpload(
-                                  context: context,
-                                  definition: _customDefinition,
-                                  customDocumentName: doc.documentName,
-                                  busyKey: busyKey,
-                                  state: state,
-                                ),
-                                onView: doc.fileUrl.trim().isNotEmpty
+                                    context: context,
+                                    definition: definition,
+                                    busyKey: busyKey,
+                                    state: state),
+                                onView: doc != null && doc.fileUrl.trim().isNotEmpty
                                     ? () => _viewDocument(context, doc, state)
                                     : null,
-                                uploadLabel: "Re-upload",
+                                uploadLabel: doc == null ? "Upload" : "Re-upload",
                               ),
                             );
                           }),
-                        const SizedBox(height: 24),
-                      ],
+                          
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Text(
+                                  "Custom Documents",
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: cs.primary,
+                                      ),
+                                ),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: () => _addCustomDocument(context, state),
+                                icon: const Icon(Icons.add_rounded, size: 18),
+                                label: const Text("Add New"),
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (customDocuments.isEmpty)
+                            const _EmptyCustomCard()
+                          else
+                            ...customDocuments.map((doc) {
+                              final busyKey = "custom::${doc.documentName}";
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: _DocumentCard(
+                                  title: doc.documentName,
+                                  requiredLabel: _requiredLabel(_customDefinition, doc),
+                                  requiredColor: _requiredColor(context, _customDefinition, doc),
+                                  statusLabel: _statusLabel(doc),
+                                  statusColor: _statusColor(context, doc),
+                                  remarks: doc.adminRemarks,
+                                  helperText: null,
+                                  helperColor: null,
+                                  isUploading: state.busyKeys.contains(busyKey),
+                                  isViewing: state.busyKeys.contains("view::${doc.id}"),
+                                  onUpload: () => _handleUpload(
+                                    context: context,
+                                    definition: _customDefinition,
+                                    customDocumentName: doc.documentName,
+                                    busyKey: busyKey,
+                                    state: state,
+                                  ),
+                                  onView: doc.fileUrl.trim().isNotEmpty
+                                      ? () => _viewDocument(context, doc, state)
+                                      : null,
+                                  uploadLabel: "Re-upload",
+                                ),
+                              );
+                            }),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
                     ),
                   ),
+              ],
+            ),
           ),
+          )
         );
       },
     );
@@ -629,127 +674,170 @@ class _DocumentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final displayRemarks = (remarks ?? "").trim();
     final displayHelper = (helperText ?? "").trim();
+    
+    final hasFile = statusLabel != "Not Uploaded";
+    final mainIcon = hasFile ? Icons.insert_drive_file_rounded : Icons.file_upload_outlined;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: cs.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        boxShadow:
-            Theme.of(context).extension<AppColorsExtension>()!.cardShadow,
-        border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
+        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(20),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.description_rounded, color: Theme.of(context).colorScheme.primary),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: -0.3),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              StatusChip(
-                  label: requiredLabel,
-                  color: requiredColor,
-                  textColor: Colors.white),
-              StatusChip(
-                  label: statusLabel,
-                  color: statusColor,
-                  textColor: Colors.white),
-            ],
-          ),
-          if (displayHelper.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(
-              displayHelper,
-              style: TextStyle(
-                color: helperColor ??
-                    Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-          if (displayRemarks.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.error.withAlpha(20),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.feedback_outlined, size: 20, color: Theme.of(context).colorScheme.error),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Remarks: $displayRemarks",
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontWeight: FontWeight.w700),
-                    ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: hasFile ? cs.primaryContainer : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: isUploading ? null : onUpload,
-                  icon: isUploading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.upload_file_rounded),
-                  label: Text(uploadLabel),
+                  child: Icon(mainIcon, color: hasFile ? cs.primary : cs.onSurfaceVariant, size: 28),
                 ),
-              ),
-              if (onView != null) ...[
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: isViewing ? null : onView,
-                    icon: isViewing
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Theme.of(context).colorScheme.primary),
-                          )
-                        : const Icon(Icons.visibility_rounded),
-                    label: const Text("View File"),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: cs.onSurface,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          StatusChip(
+                              label: requiredLabel,
+                              color: requiredColor,
+                              textColor: Colors.white),
+                          StatusChip(
+                              label: statusLabel,
+                              color: statusColor,
+                              textColor: Colors.white),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ],
+            ),
+          ),
+          
+          if (displayHelper.isNotEmpty || displayRemarks.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withOpacity(0.3),
+                border: Border(
+                  top: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                  bottom: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (displayHelper.isNotEmpty)
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 16, color: helperColor ?? cs.onSurfaceVariant),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            displayHelper,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: helperColor ?? cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (displayHelper.isNotEmpty && displayRemarks.isNotEmpty)
+                    const SizedBox(height: 8),
+                  if (displayRemarks.isNotEmpty)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.feedback_rounded, size: 16, color: cs.error),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "Remarks: $displayRemarks",
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: cs.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                if (onView != null) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: isViewing ? null : onView,
+                      icon: isViewing
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: cs.primary),
+                            )
+                          : const Icon(Icons.visibility_rounded, size: 18),
+                      label: const Text("View"),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        minimumSize: const Size(0, 48),
+                        side: BorderSide(color: cs.outlineVariant),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: isUploading ? null : onUpload,
+                    icon: isUploading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : Icon(hasFile ? Icons.refresh_rounded : Icons.upload_file_rounded, size: 18),
+                    label: Text(uploadLabel),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      minimumSize: const Size(0, 48),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -764,47 +852,64 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withAlpha(15),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withAlpha(40)),
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: cs.primaryContainer.withOpacity(0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: cs.primary.withOpacity(0.2)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "CV supports PDF, DOC, and DOCX. Other documents support PDF or image files based on document type. Maximum file size is 15 MB.",
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "NDT upload requires an expiry date. Selfie and signature support camera, gallery, or file selection.",
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600, fontSize: 13, height: 1.4),
-                ),
-                if ((loadError ?? "").trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.lightbulb_outline_rounded, color: cs.primary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    "API warning: $loadError",
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w700, fontSize: 13),
+                    "CV supports PDF, DOC, and DOCX. Other documents support PDF or image files. Max size is 15 MB.",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w600,
+                          height: 1.5,
+                        ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "NDT upload requires an expiry date. Selfie & signature support camera, gallery, or files.",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                  ),
+                  if ((loadError ?? "").trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.errorContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "API warning: $loadError",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.onErrorContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -815,36 +920,46 @@ class _EmptyCustomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurface.withAlpha(5),
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(50),
-            style: BorderStyle.solid),
+        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
       ),
-      child: Column(
-        children: [
-          Icon(Icons.folder_open_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(100)),
-          const SizedBox(height: 16),
-          Text(
-            "No custom documents uploaded",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 16,
-                fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Use 'Add More Document' to upload an extra file.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.folder_open_rounded, size: 40, color: cs.primary),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "No custom documents",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Use 'Add New' to upload an extra file.",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -137,100 +137,83 @@ class _AppShellViewState extends State<_AppShellView> {
                   ),
                   bottomNavigationBar: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withAlpha(15),
-                          blurRadius: 20,
-                          offset: const Offset(0, -4),
+                          color: Theme.of(context).colorScheme.shadow.withOpacity(0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, -8),
                         ),
                       ],
                     ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withAlpha(40),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                      child: NavigationBarTheme(
+                        data: NavigationBarThemeData(
+                          backgroundColor: Theme.of(context).colorScheme.surface,
+                          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+                          indicatorShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: NavigationBarTheme(
-                              data: NavigationBarThemeData(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.onSurface,
-                                indicatorColor: Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withAlpha(40),
-                                labelTextStyle: const WidgetStatePropertyAll(
-                                  TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800),
-                                ),
-                                iconTheme: const WidgetStatePropertyAll(
-                                  IconThemeData(color: Colors.white70),
-                                ),
-                              ),
-                              child: NavigationBar(
-                                selectedIndex: currentIndex,
-                                height: 64,
-                                elevation: 0,
-                                onDestinationSelected: (idx) => context
-                                    .read<ShellBloc>()
-                                    .add(ShellTabChanged(idx)),
-                                destinations: [
-                                  NavigationDestination(
-                                    icon: const Icon(Icons.today_outlined),
-                                    selectedIcon: Icon(Icons.today,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary),
-                                    label: "Today",
-                                  ),
-                                  NavigationDestination(
-                                    icon: const Icon(Icons.timeline),
-                                    selectedIcon: Icon(Icons.timeline,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary),
-                                    label: "Timeline",
-                                  ),
-                                  NavigationDestination(
-                                    icon: const Icon(Icons.edit_note),
-                                    selectedIcon: Icon(Icons.edit_note,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary),
-                                    label: "Work Update",
-                                  ),
-                                  NavigationDestination(
-                                    icon: const Icon(Icons.person_outline),
-                                    selectedIcon: Icon(Icons.person,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary),
-                                    label: "Profile",
-                                  ),
-                                ],
-                              ),
+                          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              );
+                            }
+                            return TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            );
+                          }),
+                          iconTheme: WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return IconThemeData(
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 26,
+                              );
+                            }
+                            return IconThemeData(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              size: 24,
+                            );
+                          }),
+                        ),
+                        child: NavigationBar(
+                          selectedIndex: currentIndex,
+                          height: 80, // slightly taller for premium feel
+                          elevation: 0, // shadow provided by container
+                          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                          animationDuration: const Duration(milliseconds: 400),
+                          onDestinationSelected: (idx) => context
+                              .read<ShellBloc>()
+                              .add(ShellTabChanged(idx)),
+                          destinations: const [
+                            NavigationDestination(
+                              icon: Icon(Icons.today_outlined),
+                              selectedIcon: Icon(Icons.today_rounded),
+                              label: "Today",
                             ),
-                          ),
+                            NavigationDestination(
+                              icon: Icon(Icons.timeline_rounded),
+                              selectedIcon: Icon(Icons.timeline_rounded),
+                              label: "Timeline",
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.edit_note_rounded),
+                              selectedIcon: Icon(Icons.edit_note_rounded),
+                              label: "Work Update",
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.person_outline_rounded),
+                              selectedIcon: Icon(Icons.person_rounded),
+                              label: "Profile",
+                            ),
+                          ],
                         ),
                       ),
                     ),
