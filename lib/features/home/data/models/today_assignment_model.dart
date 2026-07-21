@@ -7,6 +7,9 @@ class TodayAssignmentModel {
   final double latitude;
   final double longitude;
   final int allowedRadiusM;
+  final String? todayActiveHours;
+  final String? todayPunchInTime;
+  final String? todayPunchOutTime;
   final String? todayStatus;
 
   TodayAssignmentModel({
@@ -18,6 +21,9 @@ class TodayAssignmentModel {
     required this.latitude,
     required this.longitude,
     required this.allowedRadiusM,
+    this.todayActiveHours,
+    this.todayPunchInTime,
+    this.todayPunchOutTime,
     required this.todayStatus,
   });
 
@@ -31,7 +37,47 @@ class TodayAssignmentModel {
       latitude: (json["latitude"] as num?)?.toDouble() ?? 0,
       longitude: (json["longitude"] as num?)?.toDouble() ?? 0,
       allowedRadiusM: (json["allowed_radius_m"] as num?)?.toInt() ?? 0,
+      todayActiveHours: json["today_active_hours"] as String?,
+      todayPunchInTime: json["today_punch_in_time"] as String?,
+      todayPunchOutTime: json["today_punch_out_time"] as String?,
       todayStatus: json["today_status"] as String?,
+    );
+  }
+}
+
+class AttendanceOverviewModel {
+  final String currentStatus;
+  final String? firstPunchIn;
+  final String activeHours;
+
+  AttendanceOverviewModel({
+    required this.currentStatus,
+    this.firstPunchIn,
+    required this.activeHours,
+  });
+
+  factory AttendanceOverviewModel.fromJson(Map<String, dynamic> json) {
+    return AttendanceOverviewModel(
+      currentStatus: json['current_status'] as String? ?? "OFF SITE",
+      firstPunchIn: json['first_punch_in'] as String?,
+      activeHours: json['active_hours'] as String? ?? "0m",
+    );
+  }
+}
+
+class WeeklySummaryModel {
+  final String totalHours;
+  final int daysActive;
+
+  WeeklySummaryModel({
+    required this.totalHours,
+    required this.daysActive,
+  });
+
+  factory WeeklySummaryModel.fromJson(Map<String, dynamic> json) {
+    return WeeklySummaryModel(
+      totalHours: json['total_hours'] as String? ?? "0m",
+      daysActive: json['days_active'] as int? ?? 0,
     );
   }
 }
@@ -43,6 +89,8 @@ class TodayAssignmentResponseModel {
   final String? message;
   final String? activeAttendanceLogId;
   final String? activeProjectId;
+  final AttendanceOverviewModel? attendanceOverview;
+  final WeeklySummaryModel? weeklySummary;
 
   TodayAssignmentResponseModel({
     required this.hasAssignment,
@@ -51,6 +99,8 @@ class TodayAssignmentResponseModel {
     required this.message,
     required this.activeAttendanceLogId,
     required this.activeProjectId,
+    this.attendanceOverview,
+    this.weeklySummary,
   });
 
   factory TodayAssignmentResponseModel.fromJson(Map<String, dynamic> json) {
@@ -73,6 +123,12 @@ class TodayAssignmentResponseModel {
       message: json["message"] as String?,
       activeAttendanceLogId: json["active_attendance_log_id"] as String?,
       activeProjectId: json["active_project_id"] as String?,
+      attendanceOverview: json["attendance_overview"] != null
+          ? AttendanceOverviewModel.fromJson(json["attendance_overview"])
+          : null,
+      weeklySummary: json["weekly_summary"] != null
+          ? WeeklySummaryModel.fromJson(json["weekly_summary"])
+          : null,
     );
   }
 }

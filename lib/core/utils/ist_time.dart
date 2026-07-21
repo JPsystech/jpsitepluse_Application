@@ -1,3 +1,6 @@
+import 'package:intl/intl.dart';
+import 'package:sitepulse_engineer/core/config/app_config.dart';
+
 class IstTime {
   static const Duration _offset = Duration(hours: 5, minutes: 30);
 
@@ -11,10 +14,8 @@ class IstTime {
 
   static String formatDate(DateTime dt) {
     final v = toIst(dt);
-    final y = v.year.toString().padLeft(4, "0");
-    final m = v.month.toString().padLeft(2, "0");
-    final d = v.day.toString().padLeft(2, "0");
-    return "$y-$m-$d";
+    final formatter = DateFormat(AppConfig.dateFormat);
+    return formatter.format(v);
   }
 
   static String formatTime(DateTime dt) {
@@ -26,11 +27,7 @@ class IstTime {
 
   static String formatDateTime(DateTime dt) {
     final v = toIst(dt);
-    final y = v.year.toString().padLeft(4, "0");
-    final mon = v.month.toString().padLeft(2, "0");
-    final d = v.day.toString().padLeft(2, "0");
-    final h = v.hour.toString().padLeft(2, "0");
-    final m = v.minute.toString().padLeft(2, "0");
-    return "$y-$mon-$d $h:$m";
+    final formatter = DateFormat("${AppConfig.dateFormat} HH:mm");
+    return formatter.format(v);
   }
 }

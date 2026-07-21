@@ -687,7 +687,7 @@ class _DocumentCard extends StatelessWidget {
       color: cs.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -744,10 +744,10 @@ class _DocumentCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withOpacity(0.3),
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: Border(
-                  top: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
-                  bottom: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                  top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                  bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
                 ),
               ),
               child: Column(
@@ -856,10 +856,10 @@ class _InfoCard extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.primaryContainer.withOpacity(0.3),
+      color: cs.primaryContainer.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: cs.primary.withOpacity(0.2)),
+        side: BorderSide(color: cs.primary.withValues(alpha: 0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -924,10 +924,10 @@ class _EmptyCustomCard extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),

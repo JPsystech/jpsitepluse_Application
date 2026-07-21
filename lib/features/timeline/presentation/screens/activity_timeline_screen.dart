@@ -267,7 +267,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
   Color _chipColor(BuildContext context, ColorScheme cs, String status) {
     final s = status.trim().toUpperCase();
     if (s == "COMPLETED" || s == "PUNCHED_OUT") {
-      return Theme.of(context).extension<AppColorsExtension>()!.successBg;
+      return Theme.of(context).extension<AppColorsExtension>()!.success;
     }
     if (s == "PUNCHED_IN") return cs.primary.withAlpha(26);
     return cs.primaryContainer;

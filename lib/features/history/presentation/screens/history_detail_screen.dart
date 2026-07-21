@@ -35,22 +35,22 @@ class _HistoryDetailView extends StatelessWidget {
 
   Color _chipColor(BuildContext context, ColorScheme cs, String label) {
     final v = label.trim().toUpperCase();
-    if (v == "P") {
-      return Theme.of(context).extension<AppColorsExtension>()?.successBg ?? const Color(0xFFD1FAE5);
+    if (v == "COMPLETED") {
+      return Theme.of(context).extension<AppColorsExtension>()?.success ?? Colors.green;
     }
     if (v == "PUNCHED_IN") {
       return cs.primary.withAlpha(26);
     }
     if (v == "PUNCHED_OUT") {
-      return Theme.of(context).extension<AppColorsExtension>()?.successBg ?? const Color(0xFFD1FAE5);
+      return Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFFD1FAE5);
     }
     return cs.primaryContainer;
   }
   
   Color _chipTextColor(BuildContext context, ColorScheme cs, String label) {
     final v = label.trim().toUpperCase();
-    if (v == "P" || v == "PUNCHED_OUT") {
-      return Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981);
+    if (v == "COMPLETED" || v == "PUNCHED_OUT") {
+      return Theme.of(context).extension<AppColorsExtension>()?.success ?? Colors.green;
     }
     return cs.primary;
   }
@@ -160,10 +160,10 @@ class _HistoryDetailView extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -249,7 +249,7 @@ class _HistoryDetailView extends StatelessWidget {
       color: cs.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -260,7 +260,7 @@ class _HistoryDetailView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: cs.primaryContainer.withOpacity(0.5),
+                  color: cs.primaryContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -328,7 +328,7 @@ class _HistoryDetailView extends StatelessWidget {
       color: cs.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -392,9 +392,9 @@ class _HistoryDetailView extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withOpacity(0.3),
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+                  border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,7 +464,7 @@ class _HistoryDetailView extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.6)),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),

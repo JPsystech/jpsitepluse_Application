@@ -119,7 +119,7 @@ class _ProfileView extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: cs.primary.withOpacity(0.3),
+              color: cs.primary.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 10),
             )
@@ -135,11 +135,11 @@ class _ProfileView extends StatelessWidget {
                   height: 96,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2),
-                    border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                    color: Colors.white.withValues(alpha: 0.2),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 3),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -178,7 +178,7 @@ class _ProfileView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -214,21 +214,21 @@ class _ProfileView extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
           if (mobile.isNotEmpty)
             _buildInfoRow(context, Icons.phone_rounded, "Mobile Number", mobile),
           if (mobile.isNotEmpty && (email.isNotEmpty || emp.isNotEmpty))
-            Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+            Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           if (email.isNotEmpty)
             _buildInfoRow(context, Icons.email_rounded, "Email Address", email),
           if (email.isNotEmpty && emp.isNotEmpty)
-            Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+            Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           if (emp.isNotEmpty)
             _buildInfoRow(context, Icons.badge_rounded, "Employee Code", emp),
         ],
@@ -245,7 +245,7 @@ class _ProfileView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: cs.primaryContainer.withOpacity(0.5),
+              color: cs.primaryContainer.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: cs.primary, size: 20),
@@ -286,7 +286,7 @@ class _ProfileView extends StatelessWidget {
       color: cs.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -301,27 +301,27 @@ class _ProfileView extends StatelessWidget {
               );
             },
           ),
-          Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _ProfileMenuTile(
             icon: Icons.analytics_rounded,
             title: "Attendance Dashboard",
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => AttendanceScreen(sessionToken: sessionToken))),
           ),
-          Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _ProfileMenuTile(
             icon: Icons.settings_rounded,
             title: "App Settings",
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
-          Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _ProfileMenuTile(
             icon: Icons.folder_open_rounded,
             title: "Documents",
             onTap: () => Navigator.of(context).pushNamed(AppRoutes.documents),
           ),
-          Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _ProfileMenuTile(
             icon: Icons.support_agent_rounded,
             title: "Help & Support",
@@ -393,7 +393,7 @@ class _ProfileMenuTile extends StatelessWidget {
                       ),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withOpacity(0.5)),
+              Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
             ],
           ),
         ),

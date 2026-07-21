@@ -77,7 +77,7 @@ class AppTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: placeholder.isEmpty ? null : placeholder,
             hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: cs.onSurfaceVariant.withOpacity(0.6),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
             prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 22, color: cs.onSurfaceVariant),
             suffixIcon: suffixIcon,
@@ -86,7 +86,7 @@ class AppTextField extends StatelessWidget {
                   color: cs.onSurfaceVariant,
                 ),
             filled: true,
-            fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
+            fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -94,7 +94,7 @@ class AppTextField extends StatelessWidget {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.4), width: 1),
+              borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4), width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),

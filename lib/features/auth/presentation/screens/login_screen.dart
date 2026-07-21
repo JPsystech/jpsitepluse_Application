@@ -116,7 +116,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       hintText: hint,
       prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
       filled: true,
-      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -124,7 +124,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
         ),
       ),
       focusedBorder: OutlineInputBorder(
@@ -179,7 +179,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                     end: Alignment.bottomRight,
                     colors: [
                       cs.surface,
-                      cs.primaryContainer.withOpacity(0.3),
+                      cs.primaryContainer.withValues(alpha: 0.3),
                       cs.surface,
                     ],
                     stops: const [0.0, 0.5, 1.0],
@@ -196,7 +196,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                 height: 300,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: cs.primary.withOpacity(0.05),
+                  color: cs.primary.withValues(alpha: 0.05),
                 ),
               ),
             ),
@@ -208,7 +208,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                 height: 250,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: cs.tertiary.withOpacity(0.05),
+                  color: cs.tertiary.withValues(alpha: 0.05),
                 ),
               ),
             ),
@@ -225,7 +225,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                         side: BorderSide(
-                          color: cs.outlineVariant.withOpacity(0.5),
+                          color: cs.outlineVariant.withValues(alpha: 0.5),
                         ),
                       ),
                       child: Padding(
@@ -371,10 +371,10 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: cs.errorContainer.withOpacity(0.5),
+                                  color: cs.errorContainer.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: cs.error.withOpacity(0.3),
+                                    color: cs.error.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 child: Row(

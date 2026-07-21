@@ -7,6 +7,8 @@ import 'package:sitepulse_engineer/core/storage/mpin_store.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sitepulse_engineer/core/network/api_client.dart';
+import 'package:sitepulse_engineer/core/config/app_config.dart';
 
 part 'splash_event.dart';
 part 'splash_state.dart';
@@ -42,6 +44,19 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       await SessionStore.load();
       final accepted = await TermsStore.isAccepted();
       final hasMpin = await MpinStore.hasMpin();
+
+      try {
+        final client = await ApiClient.instance.dio;
+        final response = await client.get('/api/v1/public/ui-config');
+        if (response.data != null && response.data['localization'] != null) {
+          final loc = response.data['localization'];
+          if (loc['date_format'] != null) {
+            AppConfig.setDateFormat(loc['date_format']);
+          }
+        }
+      } catch (e) {
+        debugPrint("Failed to fetch ui-config: $e");
+      }
 
       String nextRoute = AppRoutes.login;
       

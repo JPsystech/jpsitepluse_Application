@@ -22,6 +22,12 @@ class AppFormatters {
   static String formatDateString(String s) {
     final t = s.trim();
     if (t.isEmpty) return "-";
+    
+    final parsed = DateTime.tryParse(t);
+    if (parsed != null) {
+      return IstTime.formatDate(parsed);
+    }
+    
     if (t.length >= 10) return t.substring(0, 10);
     return t;
   }
