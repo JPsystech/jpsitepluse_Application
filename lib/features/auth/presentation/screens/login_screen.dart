@@ -116,7 +116,10 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       hintText: hint,
       prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
       filled: true,
-      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      fillColor: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -284,6 +287,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                             TextField(
                               controller: vendorCodeCtrl,
                               textInputAction: TextInputAction.next,
+                              clipBehavior: Clip.none,
                               decoration: _buildInputDecoration(
                                 context,
                                 "Vendor Code",
@@ -295,6 +299,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                             TextField(
                               controller: empCodeCtrl,
                               textInputAction: TextInputAction.next,
+                              clipBehavior: Clip.none,
                               textCapitalization: TextCapitalization.characters,
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
@@ -313,6 +318,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                               controller: passwordCtrl,
                               obscureText: obscurePassword,
                               textInputAction: TextInputAction.done,
+                              clipBehavior: Clip.none,
                               onSubmitted: (_) => submit(),
                               decoration: _buildInputDecoration(
                                 context,
@@ -371,7 +377,8 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: cs.errorContainer.withValues(alpha: 0.5),
+                                  color:
+                                      cs.errorContainer.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: cs.error.withValues(alpha: 0.3),
@@ -421,8 +428,8 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                           )
                                         : Text(
                                             "Log In",
-                                            style: textTheme.titleMedium
-                                                ?.copyWith(
+                                            style:
+                                                textTheme.titleMedium?.copyWith(
                                               color: cs.onPrimary,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -439,6 +446,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                               TextField(
                                 controller: serverUrlCtrl,
                                 textInputAction: TextInputAction.done,
+                                clipBehavior: Clip.none,
                                 decoration: _buildInputDecoration(
                                   context,
                                   "Server URL",
@@ -464,8 +472,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                           isSubmitting ? null : saveServer,
                                       child: Text(
                                         "Save Server",
-                                        style:
-                                            textTheme.titleMedium?.copyWith(
+                                        style: textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),

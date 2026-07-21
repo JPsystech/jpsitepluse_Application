@@ -61,6 +61,7 @@ class AppTextField extends StatelessWidget {
         ],
         TextField(
           controller: controller,
+          clipBehavior: Clip.none,
           keyboardType: keyboardType,
           obscureText: obscureText,
           textInputAction: textInputAction,
