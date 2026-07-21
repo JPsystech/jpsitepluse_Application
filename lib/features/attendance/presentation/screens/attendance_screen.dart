@@ -197,7 +197,7 @@ class _AttendanceView extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Card(
       elevation: 0,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
@@ -329,11 +329,11 @@ class _SummaryCard extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: cs.outlineVariant.withOpacity(0.5),
+          color: cs.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Padding(
@@ -362,7 +362,7 @@ class _SummaryCard extends StatelessWidget {
             Text(
               subtitle,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant.withOpacity(0.7),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
             ),
           ],
@@ -390,7 +390,7 @@ class _WeeklyProgressCard extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.4),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
@@ -424,7 +424,7 @@ class _WeeklyProgressCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: progressColor.withOpacity(0.15),
+                    color: progressColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -443,7 +443,7 @@ class _WeeklyProgressCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 12,
-                backgroundColor: cs.outlineVariant.withOpacity(0.3),
+                backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
                 valueColor: AlwaysStoppedAnimation<Color>(progressColor),
               ),
             ),
@@ -477,7 +477,7 @@ class _PunchRow extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: cs.outlineVariant.withOpacity(0.5),
+          color: cs.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Padding(
@@ -487,7 +487,7 @@ class _PunchRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

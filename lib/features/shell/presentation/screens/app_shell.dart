@@ -141,7 +141,7 @@ class _AppShellViewState extends State<_AppShellView> {
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.shadow.withOpacity(0.08),
+                          color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.08),
                           blurRadius: 24,
                           offset: const Offset(0, -8),
                         ),

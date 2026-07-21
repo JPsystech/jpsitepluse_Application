@@ -89,7 +89,7 @@ class HelpSupportScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: cs.primary.withOpacity(0.3),
+            color: cs.primary.withValues(alpha: 0.3),
             blurRadius: 16,
             offset: const Offset(0, 8),
           )
@@ -100,7 +100,7 @@ class HelpSupportScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.live_help_rounded, color: Colors.white, size: 32),
@@ -121,7 +121,7 @@ class HelpSupportScreen extends StatelessWidget {
                 Text(
                   "Find answers, report issues, or contact your administrator.",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         height: 1.3,
                       ),
                 ),
@@ -164,7 +164,7 @@ class HelpSupportScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: cs.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.6)),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
             boxShadow: Theme.of(context).extension<AppColorsExtension>()?.cardShadow,
           ),
           child: Column(
@@ -172,7 +172,7 @@ class HelpSupportScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 28),
@@ -197,10 +197,10 @@ class HelpSupportScreen extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
@@ -211,7 +211,7 @@ class HelpSupportScreen extends StatelessWidget {
             subtitle: "info@jpsystech.in",
             onTap: () {},
           ),
-          Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _buildContactRow(
             context: context,
             icon: Icons.phone_rounded,
@@ -219,7 +219,7 @@ class HelpSupportScreen extends StatelessWidget {
             subtitle: "+91 1800-123-4567",
             onTap: () {},
           ),
-          Divider(height: 1, indent: 56, color: cs.outlineVariant.withOpacity(0.5)),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _buildContactRow(
             context: context,
             icon: Icons.access_time_filled_rounded,
@@ -280,7 +280,7 @@ class HelpSupportScreen extends StatelessWidget {
                 ),
               ),
               if (onTap != null)
-                Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withOpacity(0.5)),
+                Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
             ],
           ),
         ),
@@ -318,7 +318,7 @@ class HelpSupportScreen extends StatelessWidget {
       color: cs.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -352,7 +352,7 @@ class HelpSupportScreen extends StatelessWidget {
                 ),
               ),
               if (!isLast)
-                Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withOpacity(0.5)),
+                Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withValues(alpha: 0.5)),
             ],
           );
         }).toList(),

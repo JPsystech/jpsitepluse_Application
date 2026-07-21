@@ -276,9 +276,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withOpacity(0.4),
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+                      border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,14 +357,14 @@ class _TimesheetViewState extends State<_TimesheetView> {
             hintText: "What work did you complete?",
             errorText: descError,
             filled: true,
-            fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
+            fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
@@ -395,14 +395,14 @@ class _TimesheetViewState extends State<_TimesheetView> {
                     onChanged: isSubmitting ? null : (v) => setState(() => activityType = v ?? activityTypes.first),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: cs.surfaceContainerHighest.withOpacity(0.3),
+                      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+                        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                     ),
@@ -452,7 +452,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                           decoration: InputDecoration(
                             filled: true,
                             errorText: hoursError,
-                            fillColor: cs.primaryContainer.withOpacity(0.3),
+                            fillColor: cs.primaryContainer.withValues(alpha: 0.3),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -493,9 +493,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withOpacity(0.3),
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,7 +506,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.add_a_photo_rounded, size: 48, color: cs.primary.withOpacity(0.5)),
+                        Icon(Icons.add_a_photo_rounded, size: 48, color: cs.primary.withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         Text(
                           "No photo selected",
@@ -543,9 +543,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
+                            color: Colors.black.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,11 +559,11 @@ class _TimesheetViewState extends State<_TimesheetView> {
                               const SizedBox(height: 4),
                               Text(
                                 "Time: ${AppFormatters.formatTimeWithSeconds(DateTime.now())}",
-                                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
                               ),
                               Text(
                                 "Emp: ${widget.engineerEmpCode.trim().isEmpty ? "-" : widget.engineerEmpCode.trim()}",
-                                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
                               ),
                             ],
                           ),
@@ -576,7 +576,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                           onPressed: isSubmitting ? null : _pickPhoto,
                           icon: const Icon(Icons.refresh_rounded, size: 20),
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withOpacity(0.5),
+                            backgroundColor: Colors.black.withValues(alpha: 0.5),
                             foregroundColor: Colors.white,
                           ),
                         ),

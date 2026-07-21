@@ -10,7 +10,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _locationTracking = true;
   bool _darkMode = false;
 
   @override
@@ -47,15 +46,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _notificationsEnabled,
                     onChanged: (v) => setState(() => _notificationsEnabled = v),
                     iconColor: cs.primary,
-                  ),
-                  _buildDivider(context),
-                  _SettingsSwitchTile(
-                    icon: Icons.location_on_rounded,
-                    title: "Location Tracking",
-                    subtitle: "Required for punch-in validation",
-                    value: _locationTracking,
-                    onChanged: (v) => setState(() => _locationTracking = v),
-                    iconColor: const Color(0xFF10B981),
                   ),
                   _buildDivider(context),
                   _SettingsSwitchTile(
@@ -145,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       color: cs.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -158,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Divider(
       height: 1,
       indent: 64,
-      color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
     );
   }
 }
@@ -190,7 +180,7 @@ class _SettingsSwitchTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
+              color: iconColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, size: 20, color: iconColor),
@@ -260,7 +250,7 @@ class _SettingsActionTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.15),
+                  color: iconColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, size: 20, color: iconColor),
@@ -289,7 +279,7 @@ class _SettingsActionTile extends StatelessWidget {
                 ),
               ),
               if (!hideChevron)
-                Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withOpacity(0.5)),
+                Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
             ],
           ),
         ),

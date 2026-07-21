@@ -303,14 +303,14 @@ class _HistoryViewState extends State<_HistoryView> {
     final inputDecoration = InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: cs.surfaceContainerHighest.withOpacity(0.4),
+      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -472,7 +472,7 @@ class _HistoryViewState extends State<_HistoryView> {
           ),
           boxShadow: [
             BoxShadow(
-              color: cs.primary.withOpacity(0.3),
+              color: cs.primary.withValues(alpha: 0.3),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -493,7 +493,7 @@ class _HistoryViewState extends State<_HistoryView> {
                 Container(
                   width: 1,
                   height: 48,
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -523,7 +523,7 @@ class _HistoryViewState extends State<_HistoryView> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -544,7 +544,7 @@ class _HistoryViewState extends State<_HistoryView> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -556,7 +556,7 @@ class _HistoryViewState extends State<_HistoryView> {
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
                   ),
             ),
@@ -585,10 +585,10 @@ class _HistoryViewState extends State<_HistoryView> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -825,7 +825,7 @@ class _HistoryViewState extends State<_HistoryView> {
   Widget _buildErrorState(BuildContext context, ColorScheme cs, String error) {
     return Card(
       elevation: 0,
-      color: cs.errorContainer.withOpacity(0.5),
+      color: cs.errorContainer.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -844,7 +844,7 @@ class _HistoryViewState extends State<_HistoryView> {
             Text(
               error,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cs.onErrorContainer.withOpacity(0.8),
+                    color: cs.onErrorContainer.withValues(alpha: 0.8),
                   ),
               textAlign: TextAlign.center,
             ),
@@ -867,7 +867,7 @@ class _HistoryViewState extends State<_HistoryView> {
   Widget _buildEmptyState(BuildContext context, ColorScheme cs) {
     return Card(
       elevation: 0,
-      color: cs.surfaceContainerHighest.withOpacity(0.3),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
@@ -928,7 +928,7 @@ class _HistoryViewState extends State<_HistoryView> {
           color: cs.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: cs.outlineVariant.withOpacity(0.6)),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -1033,7 +1033,7 @@ class _HistoryViewState extends State<_HistoryView> {
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color:
-                                  cs.surfaceContainerHighest.withOpacity(0.4),
+                                  cs.surfaceContainerHighest.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
@@ -1118,10 +1118,10 @@ class _HistoryViewState extends State<_HistoryView> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color:
-                                    cs.surfaceContainerHighest.withOpacity(0.3),
+                                    cs.surfaceContainerHighest.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                    color: cs.outlineVariant.withOpacity(0.5)),
+                                    color: cs.outlineVariant.withValues(alpha: 0.5)),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
