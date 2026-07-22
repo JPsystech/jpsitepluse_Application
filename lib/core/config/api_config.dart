@@ -13,7 +13,7 @@ void _log(String message) {
 String? _inMemoryStore;
 const String _prefsKey = "sitepulse_engineer_api_base_url";
 
-const String productionApiBaseUrl = "https://jpsitepluse-backend.onrender.com";
+const String productionApiBaseUrl = "https://siteplus-api.jpsystech.in";
 
 Future<String?> getStoredApiBaseUrl() async {
   if (_inMemoryStore != null && _inMemoryStore!.trim().isNotEmpty) {
