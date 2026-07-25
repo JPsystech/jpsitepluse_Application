@@ -117,18 +117,29 @@ class SitePhotoService {
     final timeStr =
         "${ist.hour.toString().padLeft(2, "0")}:${ist.minute.toString().padLeft(2, "0")}:${ist.second.toString().padLeft(2, "0")}";
 
-    final originalBytes = await file.readAsBytes();
-    final stampedBytes = await _stampToPng(
-      originalBytes: originalBytes,
-      line1: "${projectName.trim()} | ${siteName.trim()}",
-      line2: "Date: $dateStr    Time: $timeStr",
-      line3: "Lat: ${lat.toStringAsFixed(6)}    Lng: ${lng.toStringAsFixed(6)}",
-      line4: "Emp: ${empCode.trim().isEmpty ? "-" : empCode.trim()}",
-    );
+    final isPdf = file.path.toLowerCase().endsWith(".pdf");
+    final Uint8List uploadBytes;
+    final String contentType;
+    final String fileExtension;
 
-    const contentType = "image/png";
-    const fileExtension = ".png";
-    final sizeBytes = stampedBytes.length;
+    if (isPdf) {
+      uploadBytes = await file.readAsBytes();
+      contentType = "application/pdf";
+      fileExtension = ".pdf";
+    } else {
+      final originalBytes = await file.readAsBytes();
+      uploadBytes = await _stampToPng(
+        originalBytes: originalBytes,
+        line1: "${projectName.trim()} | ${siteName.trim()}",
+        line2: "Date: $dateStr    Time: $timeStr",
+        line3: "Lat: ${lat.toStringAsFixed(6)}    Lng: ${lng.toStringAsFixed(6)}",
+        line4: "Emp: ${empCode.trim().isEmpty ? "-" : empCode.trim()}",
+      );
+      contentType = "image/png";
+      fileExtension = ".png";
+    }
+
+    final sizeBytes = uploadBytes.length;
 
     final presignUri = await api.url("/api/v1/engineer/site-photos/presign");
     final presignJson = await api.postJson(
@@ -185,14 +196,14 @@ class SitePhotoService {
       http.Response resp;
       try {
         resp =
-            await api.client.put(primary, headers: headers, body: stampedBytes);
+            await api.client.put(primary, headers: headers, body: uploadBytes);
       } on HandshakeException {
         final alt = (uploadUrlAlt is String) ? uploadUrlAlt.trim() : "";
         if (alt.isEmpty) {
           rethrow;
         }
         resp = await api.client
-            .put(Uri.parse(alt), headers: headers, body: stampedBytes);
+            .put(Uri.parse(alt), headers: headers, body: uploadBytes);
       }
 
       if (resp.statusCode != 200 &&

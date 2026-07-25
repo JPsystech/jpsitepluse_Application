@@ -36,6 +36,11 @@ class AttendanceService {
         if (data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
           throw 'OUT_OF_RADIUS_REASON_REQUIRED';
         }
+        
+        if (data['error'] is Map<String, dynamic> && data['error']['message'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        
         throw Exception(data['detail'] ?? 'Punch In failed');
       }
       throw Exception(e.message ?? 'Punch In failed');
@@ -75,6 +80,11 @@ class AttendanceService {
         if (data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
           throw 'OUT_OF_RADIUS_REASON_REQUIRED';
         }
+        
+        if (data['error'] is Map<String, dynamic> && data['error']['message'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        
         throw Exception(data['detail'] ?? 'Punch Out failed');
       }
       throw Exception(e.message ?? 'Punch Out failed');
