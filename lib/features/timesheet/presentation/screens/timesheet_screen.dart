@@ -1,5 +1,6 @@
 import "dart:io";
 
+import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:geolocator/geolocator.dart";
@@ -101,6 +102,62 @@ class _TimesheetViewState extends State<_TimesheetView> {
     }
   }
 
+  Future<void> _pickPdf() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ["pdf"],
+      );
+      if (result == null || result.files.isEmpty) return;
+      final path = result.files.single.path;
+      if (path == null) return;
+      setState(() {
+        photo = File(path);
+        uploadedPhotoUrl = null;
+        photoError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _showAttachmentSourceOptions() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.camera_alt_rounded, color: cs.primary),
+                title: const Text("Capture Site Photo"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickPhoto();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.picture_as_pdf_rounded, color: cs.error),
+                title: const Text("Upload PDF Report"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickPdf();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<({double lat, double lng})> _resolveLocation() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) throw "Location services are disabled";
@@ -138,7 +195,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
         descError = desc.isEmpty ? "Work description is required" : null;
         hoursError = mins <= 0 ? "Hours must be greater than 0" : null;
         photoError = photo == null && uploadedPhotoUrl == null
-            ? "Please upload a photo"
+            ? "Please capture a photo or upload a PDF report"
             : null;
       });
 
@@ -486,7 +543,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
         ),
         const SizedBox(height: 32),
         Text(
-          "Site Photo",
+          "Site Photo / PDF Report",
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
@@ -502,25 +559,40 @@ class _TimesheetViewState extends State<_TimesheetView> {
             children: [
               if (photo == null && uploadedPhotoUrl == null)
                 Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(24),
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.add_a_photo_rounded, size: 48, color: cs.primary.withValues(alpha: 0.5)),
+                        Icon(Icons.add_photo_alternate_rounded, size: 48, color: cs.primary.withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         Text(
-                          "No photo selected",
+                          "No photo or PDF report selected",
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 24),
-                        FilledButton.tonalIcon(
-                          onPressed: isSubmitting ? null : _pickPhoto,
-                          icon: const Icon(Icons.camera_alt_rounded),
-                          label: const Text("Capture Photo"),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            FilledButton.tonalIcon(
+                              onPressed: isSubmitting ? null : _pickPhoto,
+                              icon: const Icon(Icons.camera_alt_rounded),
+                              label: const Text("Capture Photo"),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            FilledButton.tonalIcon(
+                              onPressed: isSubmitting ? null : _pickPdf,
+                              icon: const Icon(Icons.picture_as_pdf_rounded),
+                              label: const Text("Upload PDF"),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -531,7 +603,77 @@ class _TimesheetViewState extends State<_TimesheetView> {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   child: Stack(
                     children: [
-                      if (photo != null)
+                      if (photo != null && photo!.path.toLowerCase().endsWith('.pdf'))
+                        Container(
+                          height: 240,
+                          width: double.infinity,
+                          color: cs.errorContainer.withValues(alpha: 0.2),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.picture_as_pdf_rounded, size: 64, color: cs.error),
+                                const SizedBox(height: 16),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Text(
+                                    photo!.path.split(Platform.pathSeparator).last,
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: cs.onErrorContainer,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "PDF Document Selected",
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else if (uploadedPhotoUrl != null && uploadedPhotoUrl!.toLowerCase().split('?').first.endsWith('.pdf'))
+                        Container(
+                          height: 240,
+                          width: double.infinity,
+                          color: cs.errorContainer.withValues(alpha: 0.2),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.picture_as_pdf_rounded, size: 64, color: cs.error),
+                                const SizedBox(height: 16),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Text(
+                                    "PDF Report",
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: cs.onErrorContainer,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "PDF Document Submitted",
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else if (photo != null)
                         Image.file(photo!, height: 240, width: double.infinity, fit: BoxFit.cover)
                       else if (uploadedPhotoUrl != null)
                         Image.network(uploadedPhotoUrl!, height: 240, width: double.infinity, fit: BoxFit.cover),
@@ -573,7 +715,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                         top: 12,
                         right: 12,
                         child: IconButton.filled(
-                          onPressed: isSubmitting ? null : _pickPhoto,
+                          onPressed: isSubmitting ? null : _showAttachmentSourceOptions,
                           icon: const Icon(Icons.refresh_rounded, size: 20),
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black.withValues(alpha: 0.5),

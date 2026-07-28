@@ -280,7 +280,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text("Timeline"),
+        title: const Text("Activity Timeline"),
         actions: [
           BlocBuilder<TimelineBloc, TimelineState>(
             builder: (context, state) {
