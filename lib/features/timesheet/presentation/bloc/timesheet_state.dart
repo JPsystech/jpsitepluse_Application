@@ -13,6 +13,8 @@ class TimesheetState extends Equatable {
   final TimesheetStatus status;
   final String projectName;
   final String siteName;
+  final String projectId;
+  final String attendanceLogId;
   final String uploadedPhotoUrl;
   final String errorMessage;
 
@@ -20,6 +22,8 @@ class TimesheetState extends Equatable {
     this.status = TimesheetStatus.initial,
     this.projectName = "",
     this.siteName = "",
+    this.projectId = "",
+    this.attendanceLogId = "",
     this.uploadedPhotoUrl = "",
     this.errorMessage = "",
   });
@@ -28,6 +32,8 @@ class TimesheetState extends Equatable {
     TimesheetStatus? status,
     String? projectName,
     String? siteName,
+    String? projectId,
+    String? attendanceLogId,
     String? uploadedPhotoUrl,
     String? errorMessage,
   }) {
@@ -35,6 +41,8 @@ class TimesheetState extends Equatable {
       status: status ?? this.status,
       projectName: projectName ?? this.projectName,
       siteName: siteName ?? this.siteName,
+      projectId: projectId ?? this.projectId,
+      attendanceLogId: attendanceLogId ?? this.attendanceLogId,
       uploadedPhotoUrl: uploadedPhotoUrl ?? this.uploadedPhotoUrl,
       errorMessage: errorMessage ?? this.errorMessage,
     );
@@ -42,5 +50,5 @@ class TimesheetState extends Equatable {
 
   @override
   List<Object?> get props =>
-      [status, projectName, siteName, uploadedPhotoUrl, errorMessage];
+      [status, projectName, siteName, projectId, attendanceLogId, uploadedPhotoUrl, errorMessage];
 }

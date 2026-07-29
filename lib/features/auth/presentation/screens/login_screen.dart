@@ -163,7 +163,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             );
           } else {
             final accepted = await TermsStore.isAccepted();
-            if (!mounted) return;
+            if (!context.mounted) return;
             Navigator.of(context).pushReplacementNamed(
                 accepted ? AppRoutes.mpinSetup : AppRoutes.terms);
           }
@@ -607,7 +607,7 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
         } else if (state is AuthInitial) {
           // Success case for ChangePassword
           final accepted = await TermsStore.isAccepted();
-          if (!mounted) return;
+          if (!context.mounted) return;
           Navigator.of(context)
               .pushReplacementNamed(accepted ? AppRoutes.app : AppRoutes.terms);
         }

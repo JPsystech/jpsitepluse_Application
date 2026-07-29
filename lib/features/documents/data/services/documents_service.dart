@@ -73,7 +73,7 @@ class DocumentsService {
         "document_type": documentType,
         if (documentName != null) "document_name": documentName,
         "key": key,
-        "public_url": publicUrl,
+        "download_url": publicUrl,
         "content_type": contentType,
         "size_bytes": sizeBytes,
         "original_filename": originalFileName,
@@ -121,7 +121,7 @@ class DocumentsService {
     headers.addAll(presigned.requiredHeaders);
 
     try {
-      final primary = Uri.parse(presigned.uploadUrl.trim());
+      final primary = await api.url(presigned.uploadUrl.trim());
       http.Response resp;
       try {
         resp = await api.client.put(primary, headers: headers, body: bytes);
@@ -130,8 +130,9 @@ class DocumentsService {
         if (alt.isEmpty) {
           rethrow;
         }
+        final altUri = await api.url(alt);
         resp =
-            await api.client.put(Uri.parse(alt), headers: headers, body: bytes);
+            await api.client.put(altUri, headers: headers, body: bytes);
       }
 
       if (resp.statusCode != 200 &&

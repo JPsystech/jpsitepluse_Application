@@ -43,6 +43,8 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
         status: TimesheetStatus.loaded,
         projectName: a?.projectName ?? "-",
         siteName: a?.siteName ?? "-",
+        projectId: a?.projectId ?? "",
+        attendanceLogId: resp.activeAttendanceLogId ?? "",
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -69,6 +71,8 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
         addressText: addressText,
         projectName: state.projectName.trim().isEmpty ? "-" : state.projectName,
         siteName: state.siteName.trim().isEmpty ? "-" : state.siteName,
+        projectId: state.projectId.trim().isEmpty ? null : state.projectId,
+        attendanceLogId: state.attendanceLogId.trim().isEmpty ? null : state.attendanceLogId,
         empCode:
             event.engineerEmpCode.trim().isEmpty ? "-" : event.engineerEmpCode,
         capturedAt: DateTime.now(),

@@ -68,7 +68,7 @@ class EngineerDocument {
       engineerId: (json["engineer_id"] as String?) ?? "",
       documentType: (json["document_type"] as String?) ?? "",
       documentName: (json["document_name"] as String?) ?? "",
-      fileUrl: (json["file_url"] as String?) ?? (json["url"] as String?) ?? "",
+      fileUrl: (json["download_url"] as String?) ?? (json["file_url"] as String?) ?? (json["url"] as String?) ?? "",
       originalFilename: json["original_filename"] as String?,
       contentType:
           (json["content_type"] as String?) ?? "application/octet-stream",
@@ -132,7 +132,7 @@ class EngineerDocumentPresignResponse {
       uploadUrl: (json["upload_url"] as String?) ?? "",
       uploadUrlAlt: json["upload_url_alt"] as String?,
       key: (json["key"] as String?) ?? "",
-      publicUrl: (json["public_url"] as String?) ?? "",
+      publicUrl: (json["public_url"] as String?) ?? (json["download_url"] as String?) ?? "",
       requiredHeaders: rh,
       expiresIn: (json["expires_in"] as num?)?.toInt() ?? 0,
     );

@@ -18,16 +18,21 @@ class TimesheetService {
     int? limit,
   }) async {
     final params = <String, String>{};
-    if (month != null && month.trim().isNotEmpty)
+    if (month != null && month.trim().isNotEmpty) {
       params["month"] = month.trim();
-    if (startDate != null && startDate.trim().isNotEmpty)
+    }
+    if (startDate != null && startDate.trim().isNotEmpty) {
       params["start_date"] = startDate.trim();
-    if (endDate != null && endDate.trim().isNotEmpty)
+    }
+    if (endDate != null && endDate.trim().isNotEmpty) {
       params["end_date"] = endDate.trim();
-    if (client != null && client.trim().isNotEmpty)
+    }
+    if (client != null && client.trim().isNotEmpty) {
       params["client"] = client.trim();
-    if (project != null && project.trim().isNotEmpty)
+    }
+    if (project != null && project.trim().isNotEmpty) {
       params["project"] = project.trim();
+    }
     if (site != null && site.trim().isNotEmpty) params["site"] = site.trim();
     if (limit != null && limit > 0) params["limit"] = "$limit";
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
@@ -50,16 +55,21 @@ class TimesheetService {
     String? project,
   }) async {
     final params = <String, String>{};
-    if (month != null && month.trim().isNotEmpty)
+    if (month != null && month.trim().isNotEmpty) {
       params["month"] = month.trim();
-    if (startDate != null && startDate.trim().isNotEmpty)
+    }
+    if (startDate != null && startDate.trim().isNotEmpty) {
       params["start_date"] = startDate.trim();
-    if (endDate != null && endDate.trim().isNotEmpty)
+    }
+    if (endDate != null && endDate.trim().isNotEmpty) {
       params["end_date"] = endDate.trim();
-    if (client != null && client.trim().isNotEmpty)
+    }
+    if (client != null && client.trim().isNotEmpty) {
       params["client"] = client.trim();
-    if (project != null && project.trim().isNotEmpty)
+    }
+    if (project != null && project.trim().isNotEmpty) {
       params["project"] = project.trim();
+    }
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
 
     final uri = await api.url("/api/v1/engineer/timesheets/filters$qs");
@@ -105,16 +115,21 @@ class TimesheetService {
     String? site,
   }) async {
     final params = <String, String>{};
-    if (month != null && month.trim().isNotEmpty)
+    if (month != null && month.trim().isNotEmpty) {
       params["month"] = month.trim();
-    if (startDate != null && startDate.trim().isNotEmpty)
+    }
+    if (startDate != null && startDate.trim().isNotEmpty) {
       params["start_date"] = startDate.trim();
-    if (endDate != null && endDate.trim().isNotEmpty)
+    }
+    if (endDate != null && endDate.trim().isNotEmpty) {
       params["end_date"] = endDate.trim();
-    if (client != null && client.trim().isNotEmpty)
+    }
+    if (client != null && client.trim().isNotEmpty) {
       params["client"] = client.trim();
-    if (project != null && project.trim().isNotEmpty)
+    }
+    if (project != null && project.trim().isNotEmpty) {
       params["project"] = project.trim();
+    }
     if (site != null && site.trim().isNotEmpty) params["site"] = site.trim();
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
 

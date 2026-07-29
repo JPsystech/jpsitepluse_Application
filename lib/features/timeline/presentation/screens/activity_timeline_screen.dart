@@ -505,7 +505,7 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                                                     .trim()
                                                     .isNotEmpty)
                                                   StatusChip(
-                                                      label: row.status,
+                                                      label: row.status.replaceAll('_', ' '),
                                                       color: chip),
                                                 if (isAutoClosed) ...[
                                                   const SizedBox(width: 8),

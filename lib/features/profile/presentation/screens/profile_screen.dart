@@ -1,6 +1,5 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
-import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";

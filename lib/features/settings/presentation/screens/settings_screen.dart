@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
-
+import "package:sitepulse_engineer/core/storage/session_store.dart";
+import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
+import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -69,7 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: "Privacy Policy",
                     subtitle: "Read our data policies",
                     iconColor: const Color(0xFFF59E0B),
-                    onTap: () {},
+                    onTap: () => _showPrivacyPolicy(context),
                   ),
                   _buildDivider(context),
                   _SettingsActionTile(
@@ -77,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: "Sync Offline Data",
                     subtitle: "Manually sync pending records",
                     iconColor: const Color(0xFF3B82F6),
-                    onTap: () {},
+                    onTap: () => _showSyncOfflineData(context),
                   ),
                 ],
               ),
@@ -111,6 +113,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showPrivacyPolicy(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Privacy Policy",
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "At JP SitePulse, we take your privacy and data security seriously. This app is designed for internal company use to streamline attendance and assignment tracking.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "1. Location Data",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "We collect your device's location data solely during the 'Punch In' and 'Punch Out' actions to verify your presence at the assigned project site radius. We do not track your location continuously in the background.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "2. Camera & Photo Access",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Camera permissions are required to capture daily work progress reports and verify site presence. Photos taken are securely uploaded to our servers and linked to your attendance logs.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "3. Data Security",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "All communication between this app and JP SysTech servers is encrypted. Your personal employee information is never shared with third parties.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text("I Understand", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSyncOfflineData(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (ctx) => const _SyncOfflineDataSheet(),
     );
   }
 
@@ -283,6 +372,133 @@ class _SettingsActionTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SyncOfflineDataSheet extends StatefulWidget {
+  const _SyncOfflineDataSheet();
+
+  @override
+  State<_SyncOfflineDataSheet> createState() => _SyncOfflineDataSheetState();
+}
+
+class _SyncOfflineDataSheetState extends State<_SyncOfflineDataSheet> {
+  int _pendingCount = 0;
+  bool _isLoading = true;
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCount();
+  }
+
+  Future<void> _loadCount() async {
+    final count = await OfflinePunchQueue().count();
+    if (mounted) {
+      setState(() {
+        _pendingCount = count;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _syncData() async {
+    setState(() => _isSyncing = true);
+    final token = SessionStore.current?.token;
+    if (token != null) {
+      final svc = OfflinePunchSyncService();
+      await svc.sync(token: token);
+    }
+    await _loadCount();
+    if (mounted) {
+      setState(() => _isSyncing = false);
+      if (_pendingCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("All offline data synced successfully!")),
+        );
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Sync Offline Data",
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 24),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_pendingCount == 0)
+            Column(
+              children: [
+                Icon(Icons.check_circle_rounded, size: 64, color: Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981)),
+                const SizedBox(height: 16),
+                Text(
+                  "You're all caught up!",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "There are no pending offline records to sync.",
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(height: 32),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text("Close", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                Icon(Icons.cloud_sync_rounded, size: 64, color: cs.primary),
+                const SizedBox(height: 16),
+                Text(
+                  "$_pendingCount Pending Record${_pendingCount > 1 ? 's' : ''}",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "You have offline punches waiting to be uploaded to the server.",
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(height: 32),
+                FilledButton.icon(
+                  onPressed: _isSyncing ? null : _syncData,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  icon: _isSyncing 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.sync_rounded),
+                  label: Text(_isSyncing ? "Syncing..." : "Sync Now", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

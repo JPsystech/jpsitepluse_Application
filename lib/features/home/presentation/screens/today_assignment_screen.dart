@@ -1,6 +1,7 @@
-import 'dart:ui';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/shared/widgets/primary_button.dart';
@@ -10,9 +11,10 @@ import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
-import 'package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart';
 import 'package:sitepulse_engineer/features/history/presentation/screens/history_screen.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart';
+import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
+import 'package:sitepulse_engineer/core/services/api_client.dart';
 
 class TodayAssignmentScreen extends StatelessWidget {
   const TodayAssignmentScreen({
@@ -132,65 +134,78 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         ));
   }
 
-  Future<void> _punchOut({String? remarks, String? exceptionReason}) async {
-    remarks ??= await _promptRemarks();
-    if (remarks == null) return;
-    _lastPunchOutRemarks = remarks;
+  Future<void> _punchOut({String? remarks, String? exceptionReason, bool isRetry = false}) async {
+    File? attachedFile;
+    if (!isRetry) {
+      final result = await _promptRemarks();
+      if (result == null) return;
+      
+      remarks ??= result.remarks;
+      _lastPunchOutRemarks = remarks;
+      attachedFile = result.attachedFile;
 
+      if (!mounted) return;
+
+      if (attachedFile != null) {
+      // Show loading overlay
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+
+      try {
+        final homeState = context.read<HomeBloc>().state;
+        String? activeProjectId;
+        String? attendanceLogId;
+        if (homeState is HomeSuccess) {
+          activeProjectId = homeState.response.activeProjectId;
+          attendanceLogId = homeState.response.activeAttendanceLogId;
+        }
+
+        final loc = await context.read<AttendanceBloc>().resolveLocationPublic();
+
+        await SitePhotoService(api: ApiClient()).uploadProgressPhoto(
+          token: widget.sessionToken,
+          file: attachedFile,
+          lat: loc.lat,
+          lng: loc.lng,
+          addressText: remarks,
+          projectName: "",
+          siteName: "",
+          projectId: activeProjectId,
+          attendanceLogId: attendanceLogId,
+          empCode: widget.engineerEmpCode,
+          submissionTypeOverride: "REPORT",
+          submissionContextOverride: "PUNCH_OUT_REPORT",
+        );
+      } catch (e) {
+        if (mounted) {
+          Navigator.of(context).pop(); // dismiss loading
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to upload report: $e")),
+          );
+        }
+        return; // Abort punch out if report upload fails
+      }
+
+      if (mounted) Navigator.of(context).pop(); // dismiss loading
+    }
+    } // Close if (!isRetry)
     if (!mounted) return;
     context.read<AttendanceBloc>().add(PunchOutRequested(
-          remarks: remarks,
+          remarks: remarks ?? _lastPunchOutRemarks ?? "",
           exceptionReason: exceptionReason,
         ));
   }
 
-  Future<String?> _promptRemarks() async {
-    return showModalBottomSheet<String>(
+  Future<({String remarks, File? attachedFile})?> _promptRemarks() async {
+    return showModalBottomSheet<({String remarks, File? attachedFile})>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (ctx) {
-        final controller = TextEditingController();
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-              24, 8, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                "Punch out",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Please provide a brief summary of the work completed.",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: "Remarks (required)",
-                  hintText: "What did you work on?",
-                  filled: true,
-                ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(controller.text),
-                child: const Text("Confirm Punch Out"),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => const _PunchOutBottomSheet(),
     );
   }
 
@@ -679,7 +694,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAttendanceOverviewCard(AttendanceOverviewModel? overview) {
+  Widget _buildAttendanceOverviewCard(AttendanceOverviewModel? overview, int projectCount) {
     if (overview == null) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
@@ -744,7 +759,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "First Punch-in",
+                            "Projects Assigned",
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: cs.onSurfaceVariant,
@@ -752,7 +767,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            overview.firstPunchIn ?? "--:--",
+                            "$projectCount",
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
@@ -923,7 +938,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 if (isPunchingOutForException) {
                   _punchOut(
                       remarks: _lastPunchOutRemarks,
-                      exceptionReason: reason.trim());
+                      exceptionReason: reason.trim(),
+                      isRetry: true);
                 } else {
                   _punchIn(selectedProjectIdForException!,
                       exceptionReason: reason.trim());
@@ -1016,7 +1032,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 final resp = state.response;
                 final assignments = resp.assignments;
                 final hasAssignment = resp.hasAssignment;
-                final isAnyProjectActive = (resp.activeProjectId != null);
 
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -1026,7 +1041,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     _buildGreeting(),
                     _buildOfflineBanner(),
                     const SizedBox(height: 24),
-                    _buildAttendanceOverviewCard(resp.attendanceOverview),
+                    _buildAttendanceOverviewCard(resp.attendanceOverview, assignments.length),
                     const SizedBox(height: 16),
                     _buildWeeklySummaryCard(resp.weeklySummary),
                     const SizedBox(height: 32),
@@ -1149,6 +1164,151 @@ class _PulsingActiveBadgeState extends State<_PulsingActiveBadge>
           ),
         );
       },
+    );
+  }
+}
+
+class _PunchOutBottomSheet extends StatefulWidget {
+  const _PunchOutBottomSheet();
+
+  @override
+  State<_PunchOutBottomSheet> createState() => _PunchOutBottomSheetState();
+}
+
+class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
+  final _controller = TextEditingController();
+  File? _selectedFile;
+  bool _isPickingFile = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    setState(() {
+      _isPickingFile = true;
+    });
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _selectedFile = File(result.files.single.path!);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error selecting file: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingFile = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          24, 8, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Punch out",
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Please provide a brief summary of the work completed.",
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: "Remarks (required)",
+              hintText: "What did you work on?",
+              filled: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_selectedFile == null)
+            OutlinedButton.icon(
+              onPressed: _isPickingFile ? null : _pickFile,
+              icon: _isPickingFile 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.attach_file_rounded),
+              label: Text(_isPickingFile ? "Opening File Picker..." : "Attach Work Report (Optional)"),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.description_rounded, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _selectedFile!.path.split('/').last,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _selectedFile = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: () {
+              if (_controller.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Remarks are required")));
+                return;
+              }
+              Navigator.of(context).pop((
+                remarks: _controller.text.trim(),
+                attachedFile: _selectedFile,
+              ));
+            },
+            child: const Text("Confirm Punch Out"),
+          ),
+        ],
+      ),
     );
   }
 }
