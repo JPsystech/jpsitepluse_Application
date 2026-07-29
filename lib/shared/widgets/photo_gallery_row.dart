@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:sitepulse_engineer/shared/widgets/image_viewer.dart';
+import 'package:sitepulse_engineer/features/timeline/presentation/screens/pdf_viewer_screen.dart';
+import 'package:sitepulse_engineer/core/config/api_config.dart';
 
 class PhotoGalleryRow extends StatelessWidget {
   const PhotoGalleryRow({
@@ -15,50 +17,80 @@ class PhotoGalleryRow extends StatelessWidget {
   final int maxThumbs;
 
   Widget _thumb(BuildContext context, String url) {
+    final absoluteUrl = resolveMaybeRelativeUrl(url);
+    final isPdf = absoluteUrl.toLowerCase().split('?').first.endsWith('.pdf');
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ImageViewer(url: url),
-            fullscreenDialog: true,
-          ),
-        );
+      onTap: () async {
+        if (isPdf) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PdfViewerScreen(url: absoluteUrl, title: "Document"),
+              fullscreenDialog: true,
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ImageViewer(url: absoluteUrl),
+              fullscreenDialog: true,
+            ),
+          );
+        }
       },
-      child: Hero(
-        tag: url,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.network(
-            url,
-            width: 84,
-            height: 84,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+      child: isPdf
+          ? Container(
               width: 84,
               height: 84,
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: Icon(Icons.broken_image_outlined,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                width: 84,
-                height: 84,
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: const Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer.withAlpha(80),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withAlpha(50),
                 ),
-              );
-            },
-          ),
-        ),
-      ),
+              ),
+              child: Icon(
+                Icons.picture_as_pdf_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 32,
+              ),
+            )
+          : Hero(
+              tag: absoluteUrl,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  absoluteUrl,
+                  width: 84,
+                  height: 84,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 84,
+                    height: 84,
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: Icon(Icons.broken_image_outlined,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      width: 84,
+                      height: 84,
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
     );
   }
 

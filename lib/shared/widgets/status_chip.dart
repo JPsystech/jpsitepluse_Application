@@ -19,10 +19,10 @@ class StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: bg.withAlpha(
-            bg.alpha == 255 ? 40 : bg.alpha), // Ensure soft background
+        color: bg.withValues(
+            alpha: (bg.a * 255.0).round() == 255 ? 40 / 255.0 : bg.a), // Ensure soft background
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: bg.withAlpha(60), width: 1.2),
+        border: Border.all(color: bg.withValues(alpha: 60 / 255.0), width: 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -32,7 +32,7 @@ class StatusChip extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: bg.alpha == 255 ? bg : fg,
+              color: (bg.a * 255.0).round() == 255 ? bg : fg,
             ),
           ),
           const SizedBox(width: 8),
@@ -40,7 +40,7 @@ class StatusChip extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: bg.alpha == 255 ? bg : fg,
+                  color: (bg.a * 255.0).round() == 255 ? bg : fg,
                   letterSpacing: -0.2,
                 ),
           ),

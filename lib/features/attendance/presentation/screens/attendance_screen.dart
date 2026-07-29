@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import 'package:sitepulse_engineer/features/attendance/presentation/bloc/stats/attendance_stats_bloc.dart';
 import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
-import 'package:sitepulse_engineer/shared/widgets/status_chip.dart';
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
 
@@ -25,10 +24,35 @@ class AttendanceScreen extends StatelessWidget {
   }
 }
 
-class _AttendanceView extends StatelessWidget {
+class _AttendanceView extends StatefulWidget {
   final String sessionToken;
 
   const _AttendanceView({required this.sessionToken});
+
+  @override
+  State<_AttendanceView> createState() => _AttendanceViewState();
+}
+
+class _AttendanceViewState extends State<_AttendanceView> {
+  late DateTime _selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month, 1);
+  }
+
+  void _changeMonth(int monthsToAdd) {
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + monthsToAdd, 1);
+    });
+    context.read<AttendanceStatsBloc>().add(
+          LoadAttendanceStatsRequested(
+              sessionToken: widget.sessionToken,
+              month: DateFormat('yyyy-MM').format(_selectedMonth)),
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,17 +89,27 @@ class _AttendanceView extends StatelessWidget {
               return _buildErrorState(context, "No data available");
             }
 
-            final totalDaysInMonth = DateUtils.getDaysInMonth(
-                DateTime.now().year, DateTime.now().month);
-            final daysPassed = DateTime.now().day;
-            final absentDays = (daysPassed - data.totalPresentDays).clamp(0, 31);
+            final now = DateTime.now();
+            final isCurrentMonth = _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+            final isPastMonth = _selectedMonth.isBefore(DateTime(now.year, now.month, 1));
+            
+            int daysToConsider;
+            if (isCurrentMonth) {
+              daysToConsider = now.day;
+            } else if (isPastMonth) {
+              daysToConsider = DateUtils.getDaysInMonth(_selectedMonth.year, _selectedMonth.month);
+            } else {
+              daysToConsider = 0;
+            }
+            
+            final absentDays = (daysToConsider - data.totalPresentDays).clamp(0, 31);
 
             return RefreshIndicator(
               onRefresh: () async {
                 context.read<AttendanceStatsBloc>().add(
                       LoadAttendanceStatsRequested(
-                          sessionToken: sessionToken,
-                          month: DateFormat('yyyy-MM').format(DateTime.now())),
+                          sessionToken: widget.sessionToken,
+                          month: DateFormat('yyyy-MM').format(_selectedMonth)),
                     );
               },
               child: SingleChildScrollView(
@@ -85,6 +119,34 @@ class _AttendanceView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildHeader(context),
+                    const SizedBox(height: 24),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left_rounded),
+                          onPressed: () => _changeMonth(-1),
+                        ),
+                        Text(
+                          DateFormat('MMMM yyyy').format(_selectedMonth),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right_rounded),
+                          onPressed: isCurrentMonth ? null : () => _changeMonth(1),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    _AttendanceCalendarGrid(
+                      items: data.items,
+                      viewMonth: _selectedMonth,
+                    ),
+                    
                     const SizedBox(height: 32),
                     
                     _buildSectionTitle(context, "Monthly Summary"),
@@ -123,20 +185,6 @@ class _AttendanceView extends StatelessWidget {
                       ],
                     ),
                     
-                    const SizedBox(height: 32),
-                    _buildSectionTitle(context, "Weekly Progress"),
-                    const SizedBox(height: 16),
-                    _WeeklyProgressCard(totalHours: data.totalHours),
-                    
-                    const SizedBox(height: 40),
-                    _buildSectionTitle(context, "Attendance Timeline"),
-                    const SizedBox(height: 16),
-                    
-                    if (data.items.isEmpty)
-                      _buildEmptyState(context)
-                    else
-                      ...data.items.take(10).map((item) => _PunchRow(item: item)),
-                      
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -193,50 +241,6 @@ class _AttendanceView extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.event_busy_rounded,
-                size: 40,
-                color: cs.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              "No Punches Found",
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "You haven't punched in yet this month.",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildErrorState(BuildContext context, String message) {
     final cs = Theme.of(context).colorScheme;
@@ -267,8 +271,8 @@ class _AttendanceView extends StatelessWidget {
               onPressed: () {
                 context.read<AttendanceStatsBloc>().add(
                       LoadAttendanceStatsRequested(
-                          sessionToken: sessionToken,
-                          month: DateFormat('yyyy-MM').format(DateTime.now())),
+                          sessionToken: widget.sessionToken,
+                          month: DateFormat('yyyy-MM').format(_selectedMonth)),
                     );
               },
               child: const Text("Retry"),
@@ -372,213 +376,322 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _WeeklyProgressCard extends StatelessWidget {
-  final double totalHours;
+class _AttendanceCalendarGrid extends StatelessWidget {
+  final List<dynamic> items;
+  final DateTime viewMonth;
 
-  const _WeeklyProgressCard({required this.totalHours});
+  const _AttendanceCalendarGrid({required this.items, required this.viewMonth});
 
   @override
   Widget build(BuildContext context) {
-    final double targetHours = 48.0;
-    final double progress = (totalHours / targetHours).clamp(0.0, 1.0);
-    final cs = Theme.of(context).colorScheme;
-    final isComplete = progress >= 1.0;
-    final progressColor = isComplete 
-        ? (Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981))
-        : cs.primary;
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
+    final daysInMonth = DateUtils.getDaysInMonth(viewMonth.year, viewMonth.month);
+    
+    // Weekday: 1=Mon, 7=Sun. Offset calendar to start on Monday
+    final firstWeekday = firstDayOfMonth.weekday;
+    final offset = firstWeekday - 1; 
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "This Week",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.onSurface,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Target: 48 hrs",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Map items by date string (yyyy-MM-dd)
+    final itemsByDate = <String, List<dynamic>>{};
+    for (final item in items) {
+      final list = itemsByDate.putIfAbsent(item.workDate, () => []);
+      list.add(item);
+    }
+
+    final cs = Theme.of(context).colorScheme;
+    final successColor = Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981);
+    final errorColor = cs.error;
+    final greyColor = cs.surfaceContainerHighest;
+
+    final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: weekDays.map((day) => Expanded(
+            child: Center(
+              child: Text(
+                day,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurfaceVariant,
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: progressColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    "${totalHours.toStringAsFixed(1)} hrs",
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: progressColor,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 12,
-                backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
-                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
               ),
             ),
-          ],
+          )).toList(),
         ),
-      ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: offset + daysInMonth,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 0.85,
+          ),
+          itemBuilder: (context, index) {
+            if (index < offset) {
+              return const SizedBox();
+            }
+            final day = index - offset + 1;
+            final currentCellDate = DateTime(viewMonth.year, viewMonth.month, day);
+            final dateStr = DateFormat('yyyy-MM-dd').format(currentCellDate);
+            final dayItems = itemsByDate[dateStr] ?? [];
+
+            bool isFuture = currentCellDate.isAfter(today);
+            bool isSunday = currentCellDate.weekday == DateTime.sunday;
+            
+            bool isOngoing = dayItems.any((item) => item.punchInTime.year > 2000 && item.punchOutTime == null);
+            double totalHours = dayItems.fold(0.0, (sum, item) => sum + (item.totalHours as num));
+            bool isPresent = dayItems.isNotEmpty && (dayItems.any((item) => item.mark == 'P') || totalHours > 0) && !isOngoing;
+            bool isAbsent = dayItems.any((item) => item.mark == 'A');
+            
+            // Mark red if it's a past weekday and there's no punch log
+            bool isMissing = !isFuture && !isPresent && !isOngoing && !isSunday; 
+            
+            Color bgColor = greyColor.withValues(alpha: 0.3);
+            Color textColor = cs.onSurfaceVariant;
+            Widget? extraInfo;
+            
+            if (isOngoing) {
+              final warningColor = Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B);
+              bgColor = warningColor.withValues(alpha: 0.15);
+              textColor = warningColor.withAlpha(220);
+              extraInfo = Text(
+                'Work',
+                style: TextStyle(
+                  color: warningColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10,
+                ),
+              );
+            } else if (isPresent) {
+              bgColor = successColor.withValues(alpha: 0.15);
+              textColor = successColor.withAlpha(220);
+              extraInfo = Text(
+                '${totalHours.toStringAsFixed(1)}h',
+                style: TextStyle(
+                  color: successColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10,
+                ),
+              );
+            } else if (isAbsent || isMissing) {
+              bgColor = errorColor.withValues(alpha: 0.1);
+              textColor = errorColor;
+              extraInfo = Text(
+                'Abs',
+                style: TextStyle(
+                  color: errorColor.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10,
+                ),
+              );
+            } else if (isFuture) {
+              bgColor = greyColor.withValues(alpha: 0.2);
+              textColor = cs.onSurfaceVariant.withValues(alpha: 0.5);
+            } else if (isSunday) {
+              bgColor = greyColor.withValues(alpha: 0.4);
+              textColor = cs.onSurfaceVariant.withValues(alpha: 0.7);
+              extraInfo = Text(
+                'Off',
+                style: TextStyle(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 9,
+                ),
+              );
+            }
+
+            return InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: dayItems.isEmpty ? null : () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  showDragHandle: true,
+                  builder: (ctx) => _DailyDetailsBottomSheet(
+                    date: currentCellDate,
+                    items: dayItems,
+                  ),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isOngoing 
+                        ? (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B)).withValues(alpha: 0.3)
+                        : isPresent ? successColor.withValues(alpha: 0.3) 
+                        : (isAbsent || isMissing ? errorColor.withValues(alpha: 0.3) : Colors.transparent),
+                    width: 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$day',
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (extraInfo != null) ...[
+                            const SizedBox(height: 4),
+                            extraInfo,
+                          ]
+                        ],
+                      ),
+                    ),
+                    if (dayItems.length > 1)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: cs.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${dayItems.length}',
+                            style: TextStyle(
+                              color: cs.onPrimary,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
-class _PunchRow extends StatelessWidget {
-  final dynamic item; // EngineerTimesheetRow
+class _DailyDetailsBottomSheet extends StatelessWidget {
+  final DateTime date;
+  final List<dynamic> items;
 
-  const _PunchRow({required this.item});
+  const _DailyDetailsBottomSheet({required this.date, required this.items});
 
   @override
   Widget build(BuildContext context) {
-    final formatTime =
-        (DateTime dt) => DateFormat.jm().format(IstTime.toIst(dt));
+    String formatTime(DateTime dt) => DateFormat.jm().format(IstTime.toIst(dt));
     final cs = Theme.of(context).colorScheme;
-    
-    final isPresent = item.mark == "P";
-    final statusColor = isPresent
-        ? (Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981))
-        : (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B));
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      color: cs.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: cs.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.history_toggle_off_rounded,
-                size: 24,
-                color: statusColor,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.workDate,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
-                        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            DateFormat('EEEE, MMM d, yyyy').format(date),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 24),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final isOngoing = item.punchInTime.year > 2000 && item.punchOutTime == null;
+                
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.projectName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.login_rounded,
-                                size: 14, color: Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981)),
-                            const SizedBox(width: 4),
-                            Text(
-                              formatTime(item.punchInTime),
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.projectName,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
-                          ],
-                        ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isOngoing 
+                                  ? (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B)).withValues(alpha: 0.15)
+                                  : cs.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isOngoing ? "Working" : "${item.totalHours.toStringAsFixed(1)} hrs",
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: isOngoing 
+                                        ? (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B))
+                                        : cs.primary,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.logout_rounded,
-                                size: 14, color: Theme.of(context).colorScheme.error),
-                            const SizedBox(width: 4),
-                            Text(
-                              item.punchOutTime != null
-                                  ? formatTime(item.punchOutTime!)
-                                  : "--:--",
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.login_rounded, size: 14, color: Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981)),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.punchInTime.year > 2000 ? formatTime(item.punchInTime) : "--:--",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(Icons.logout_rounded, size: 14, color: cs.error),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.punchOutTime != null ? formatTime(item.punchOutTime) : "--:--",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
-            Column(
-              children: [
-                StatusChip(
-                  label: isPresent ? "Present" : (item.mark ?? "N/A"),
-                  color: statusColor,
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
 }
+

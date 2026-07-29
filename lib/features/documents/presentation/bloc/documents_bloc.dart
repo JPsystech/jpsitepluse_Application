@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/features/documents/data/services/documents_service.dart';
 import 'package:sitepulse_engineer/shared/models/engineer_document_model.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/services/api_client.dart';
 
 part 'documents_event.dart';
 part 'documents_state.dart';
@@ -158,7 +159,8 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
 
     try {
       final url = event.document.fileUrl.trim();
-      final response = await http.get(Uri.parse(url));
+      final apiUri = await ApiClient().url(url);
+      final response = await http.get(apiUri);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw "Failed to download file";
       }

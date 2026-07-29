@@ -8,10 +8,9 @@ import "package:image_picker/image_picker.dart";
 
 import "package:sitepulse_engineer/core/utils/ist_time.dart";
 import "package:sitepulse_engineer/core/utils/formatters.dart";
-import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
-import "package:sitepulse_engineer/shared/widgets/section_header.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
+import "package:sitepulse_engineer/core/config/api_config.dart";
 
 import "package:sitepulse_engineer/features/timesheet/presentation/bloc/timesheet_bloc.dart";
 
@@ -53,30 +52,16 @@ class _TimesheetView extends StatefulWidget {
 
 class _TimesheetViewState extends State<_TimesheetView> {
   final descriptionCtrl = TextEditingController();
-  final hoursCtrl = TextEditingController(text: "8");
 
-  String activityType = "Work";
   File? photo;
   String? uploadedPhotoUrl;
 
-  static const activityTypes = <String>[
-    "Work",
-    "Inspection",
-    "Maintenance",
-    "Installation",
-    "Meeting",
-    "Travel",
-    "Other",
-  ];
-
   String? descError;
-  String? hoursError;
   String? photoError;
 
   @override
   void dispose() {
     descriptionCtrl.dispose();
-    hoursCtrl.dispose();
     super.dispose();
   }
 
@@ -166,8 +151,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    if (perm == LocationPermission.denied)
+    if (perm == LocationPermission.denied) {
       throw "Location permission is required";
+    }
     if (perm == LocationPermission.deniedForever) {
       throw "Location permission is denied permanently. Enable it in Settings.";
     }
@@ -178,28 +164,18 @@ class _TimesheetViewState extends State<_TimesheetView> {
     return (lat: pos.latitude, lng: pos.longitude);
   }
 
-  int _parseHours() {
-    final raw = hoursCtrl.text.trim();
-    if (raw.isEmpty) return 0;
-    final v = double.tryParse(raw);
-    if (v == null) return 0;
-    return (v * 60).round();
-  }
-
   Future<void> submit() async {
     try {
       final desc = descriptionCtrl.text.trim();
-      final mins = _parseHours();
 
       setState(() {
         descError = desc.isEmpty ? "Work description is required" : null;
-        hoursError = mins <= 0 ? "Hours must be greater than 0" : null;
         photoError = photo == null && uploadedPhotoUrl == null
             ? "Please capture a photo or upload a PDF report"
             : null;
       });
 
-      if (descError != null || hoursError != null || photoError != null) return;
+      if (descError != null || photoError != null) return;
 
       final loc = await _resolveLocation();
 
@@ -211,8 +187,8 @@ class _TimesheetViewState extends State<_TimesheetView> {
         engineerEmpCode: widget.engineerEmpCode,
         photo: photo!,
         description: desc,
-        minutes: mins,
-        activityType: activityType,
+        minutes: 0,
+        activityType: "Work",
         lat: loc.lat,
         lng: loc.lng,
       ));
@@ -261,12 +237,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
                   const SnackBar(content: Text("Work update submitted")));
               setState(() {
                 descriptionCtrl.text = "";
-                hoursCtrl.text = "8";
-                activityType = activityTypes.first;
                 photo = null;
-                uploadedPhotoUrl = state.uploadedPhotoUrl;
+                uploadedPhotoUrl = null;
                 descError = null;
-                hoursError = null;
                 photoError = null;
               });
             } else if (state.status == TimesheetStatus.error) {
@@ -430,117 +403,6 @@ class _TimesheetViewState extends State<_TimesheetView> {
             contentPadding: const EdgeInsets.all(20),
           ),
         ),
-        const SizedBox(height: 24),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Activity Type",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: activityType,
-                    items: activityTypes
-                        .map((t) => DropdownMenuItem<String>(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600))))
-                        .toList(),
-                    onChanged: isSubmitting ? null : (v) => setState(() => activityType = v ?? activityTypes.first),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    ),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: cs.onSurfaceVariant),
-                    dropdownColor: cs.surface,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Hours",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      IconButton.filledTonal(
-                        onPressed: isSubmitting
-                            ? null
-                            : () {
-                                final raw = hoursCtrl.text.trim();
-                                final v = double.tryParse(raw) ?? 0;
-                                final next = (v - 0.5).clamp(0, 24);
-                                setState(() => hoursCtrl.text =
-                                    next == next.roundToDouble()
-                                        ? next.toInt().toString()
-                                        : next.toStringAsFixed(1));
-                              },
-                        icon: const Icon(Icons.remove_rounded),
-                        style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: hoursCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          textInputAction: TextInputAction.next,
-                          onChanged: (_) => setState(() => hoursError = null),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: cs.primary),
-                          decoration: InputDecoration(
-                            filled: true,
-                            errorText: hoursError,
-                            fillColor: cs.primaryContainer.withValues(alpha: 0.3),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        onPressed: isSubmitting
-                            ? null
-                            : () {
-                                final raw = hoursCtrl.text.trim();
-                                final v = double.tryParse(raw) ?? 0;
-                                final next = (v + 0.5).clamp(0, 24);
-                                setState(() => hoursCtrl.text =
-                                    next == next.roundToDouble()
-                                        ? next.toInt().toString()
-                                        : next.toStringAsFixed(1));
-                              },
-                        icon: const Icon(Icons.add_rounded),
-                        style: IconButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 32),
         Text(
           "Site Photo / PDF Report",
@@ -676,7 +538,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                       else if (photo != null)
                         Image.file(photo!, height: 240, width: double.infinity, fit: BoxFit.cover)
                       else if (uploadedPhotoUrl != null)
-                        Image.network(uploadedPhotoUrl!, height: 240, width: double.infinity, fit: BoxFit.cover),
+                        Image.network(resolveMaybeRelativeUrl(uploadedPhotoUrl!), height: 240, width: double.infinity, fit: BoxFit.cover),
                       
                       Positioned(
                         left: 12,

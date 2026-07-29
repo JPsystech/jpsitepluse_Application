@@ -108,8 +108,12 @@ class SitePhotoService {
     required String addressText,
     required String projectName,
     required String siteName,
+    required String? projectId,
+    required String? attendanceLogId,
     required String empCode,
     DateTime? capturedAt,
+    String? submissionTypeOverride,
+    String? submissionContextOverride,
   }) async {
     final when = capturedAt ?? DateTime.now();
     final dateStr = IstTime.formatDate(when);
@@ -141,7 +145,7 @@ class SitePhotoService {
 
     final sizeBytes = uploadBytes.length;
 
-    final presignUri = await api.url("/api/v1/engineer/site-photos/presign");
+    final presignUri = await api.url("/api/v1/work-submissions/engineer/presign");
     final presignJson = await api.postJson(
       presignUri,
       headers: {
@@ -149,11 +153,14 @@ class SitePhotoService {
         HttpHeaders.contentTypeHeader: "application/json",
       },
       body: jsonEncode({
-        "photo_type": "progress",
+        "submission_type": submissionTypeOverride ?? (isPdf ? "DOCUMENT" : "PHOTO"),
+        "submission_context": submissionContextOverride ?? (isPdf ? "SITE_DOC" : "PROGRESS_PHOTO"),
         "latitude": lat,
         "longitude": lng,
         "address_text": addressText,
         "captured_at": when.toUtc().toIso8601String(),
+        if (projectId is String) "project_id": projectId,
+        if (attendanceLogId is String) "attendance_log_id": attendanceLogId,
         "content_type": contentType,
         "file_extension": fileExtension,
         "size_bytes": sizeBytes,
@@ -163,10 +170,10 @@ class SitePhotoService {
     final uploadUrl = presignJson?["upload_url"];
     final uploadUrlAlt = presignJson?["upload_url_alt"];
     final key = presignJson?["key"];
-    final publicUrl = presignJson?["public_url"];
+    final publicUrl = presignJson?["download_url"];
     final requiredHeaders = presignJson?["required_headers"];
-    final projectId = presignJson?["project_id"];
-    final attendanceLogId = presignJson?["attendance_log_id"];
+    final returnedProjectId = presignJson?["project_id"];
+    final returnedAttendanceLogId = presignJson?["attendance_log_id"];
 
     if (uploadUrl is! String || uploadUrl.trim().isEmpty) {
       throw ApiException("Presign failed: upload_url missing");
@@ -175,7 +182,7 @@ class SitePhotoService {
       throw ApiException("Presign failed: key missing");
     }
     if (publicUrl is! String || publicUrl.trim().isEmpty) {
-      throw ApiException("Presign failed: public_url missing");
+      throw ApiException("Presign failed: download_url missing");
     }
 
     final headers = <String, String>{
@@ -192,7 +199,7 @@ class SitePhotoService {
     }
 
     try {
-      final primary = Uri.parse(uploadUrl.trim());
+      final primary = await api.url(uploadUrl.trim());
       http.Response resp;
       try {
         resp =
@@ -202,8 +209,9 @@ class SitePhotoService {
         if (alt.isEmpty) {
           rethrow;
         }
+        final altUri = await api.url(alt);
         resp = await api.client
-            .put(Uri.parse(alt), headers: headers, body: uploadBytes);
+            .put(altUri, headers: headers, body: uploadBytes);
       }
 
       if (resp.statusCode != 200 &&
@@ -229,7 +237,7 @@ class SitePhotoService {
       throw ApiException("Upload failed: $e");
     }
 
-    final completeUri = await api.url("/api/v1/engineer/site-photos/complete");
+    final completeUri = await api.url("/api/v1/work-submissions/engineer/complete");
     final completeJson = await api.postJson(
       completeUri,
       headers: {
@@ -237,23 +245,24 @@ class SitePhotoService {
         HttpHeaders.contentTypeHeader: "application/json",
       },
       body: jsonEncode({
-        "photo_type": "progress",
+        "submission_type": submissionTypeOverride ?? (isPdf ? "DOCUMENT" : "PHOTO"),
+        "submission_context": submissionContextOverride ?? (isPdf ? "SITE_DOC" : "PROGRESS_PHOTO"),
         "latitude": lat,
         "longitude": lng,
         "address_text": addressText,
         "captured_at": when.toUtc().toIso8601String(),
-        if (projectId is String) "project_id": projectId,
-        if (attendanceLogId is String) "attendance_log_id": attendanceLogId,
+        if (returnedProjectId is String) "project_id": returnedProjectId,
+        if (returnedAttendanceLogId is String) "attendance_log_id": returnedAttendanceLogId,
         "key": key,
-        "file_url": publicUrl,
+        "download_url": publicUrl,
         "content_type": contentType,
         "size_bytes": sizeBytes,
       }),
     );
 
-    final url = completeJson?["file_url"];
+    final url = completeJson?["download_url"];
     if (url is! String || url.trim().isEmpty) {
-      throw ApiException("Save failed: file_url missing");
+      throw ApiException("Save failed: download_url missing");
     }
     return url.trim();
   }

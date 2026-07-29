@@ -11,7 +11,6 @@ import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
 import "package:sitepulse_engineer/features/documents/data/services/documents_service.dart";
 import "package:sitepulse_engineer/shared/widgets/image_viewer.dart";
-import "package:sitepulse_engineer/shared/widgets/section_header.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
 
@@ -186,6 +185,7 @@ class _DocumentUploadView extends StatelessWidget {
       );
 
       if (source == null) return null;
+      if (!context.mounted) return null;
       switch (source) {
         case _DocumentPickSource.camera:
           return _pickWithImagePicker(context, ImageSource.camera);

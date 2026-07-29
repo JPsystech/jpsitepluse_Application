@@ -39,12 +39,29 @@ const String _apiBaseUrlOverride =
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
 
 const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
-const String iosSimulatorApiBaseUrl = "http://192.168.1.3:8011";
+const String iosSimulatorApiBaseUrl = "http://192.168.1.15:8011";
 
 Future<String>? _resolvedApiBaseUrl;
+String? _syncBaseUrl;
 
-Future<String> resolveApiBaseUrl() {
-  return _resolvedApiBaseUrl ??= _resolveApiBaseUrlInner();
+Future<String> resolveApiBaseUrl() async {
+  if (_syncBaseUrl != null) return _syncBaseUrl!;
+  _resolvedApiBaseUrl ??= _resolveApiBaseUrlInner();
+  _syncBaseUrl = await _resolvedApiBaseUrl!;
+  return _syncBaseUrl!;
+}
+
+String get syncApiBaseUrl => _syncBaseUrl ?? productionApiBaseUrl;
+
+String resolveMaybeRelativeUrl(String url) {
+  final u = url.trim();
+  if (u.isEmpty) return "";
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  final base = syncApiBaseUrl;
+  if (u.startsWith("/")) {
+    return "$base$u";
+  }
+  return "$base/$u";
 }
 
 class ApiConfigException implements Exception {
@@ -104,14 +121,14 @@ Future<String> _resolveApiBaseUrlInner() async {
 
   if (Platform.isAndroid) {
     final okPhysical = await _canConnect(
-        host: "192.168.1.3",
+        host: "192.168.1.15",
         port: 8011,
         timeout: const Duration(milliseconds: 400));
     if (okPhysical) {
-      return "http://192.168.1.3:8011";
+      return "http://192.168.1.15:8011";
     }
     throw ApiConfigException(
-        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.3:8011)");
+        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.15:8011)");
   }
 
   if (Platform.isIOS) {
@@ -123,7 +140,7 @@ Future<String> _resolveApiBaseUrlInner() async {
       return iosSimulatorApiBaseUrl;
     }
     throw ApiConfigException(
-        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.3:8011)");
+        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.15:8011)");
   }
 
   throw ApiConfigException("API base URL is not configured");
