@@ -452,12 +452,15 @@ class _HistoryViewState extends State<_HistoryView> {
 
   Widget _buildSummaryCard(
       BuildContext context, ColorScheme cs, dynamic data, bool isExporting) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isSmallScreen = screenWidth < 380;
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
@@ -490,10 +493,10 @@ class _HistoryViewState extends State<_HistoryView> {
                 ),
                 Container(
                   width: 1,
-                  height: 48,
+                  height: isSmallScreen ? 40 : 48,
                   color: Colors.white.withValues(alpha: 0.2),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isSmallScreen ? 8 : 16),
                 Expanded(
                   child: _buildSummaryMetric(
                     context,
@@ -504,27 +507,32 @@ class _HistoryViewState extends State<_HistoryView> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isSmallScreen ? 16 : 24),
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: isSmallScreen ? 40 : 48,
               child: FilledButton.tonalIcon(
                 onPressed: isExporting ? null : _exportPdf,
                 icon: isExporting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.file_download_rounded, size: 20),
+                    ? SizedBox(
+                        width: isSmallScreen ? 14 : 16,
+                        height: isSmallScreen ? 14 : 16,
+                        child: const CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(Icons.file_download_rounded, size: isSmallScreen ? 16 : 20),
                 label: Text(
-                  isExporting ? "Generating PDF..." : "Export Report",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  isExporting ? "Generating..." : "Export Report",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isSmallScreen ? 12 : 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: 0.2),
                   foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 14),
                   ),
                 ),
               ),
@@ -537,35 +545,47 @@ class _HistoryViewState extends State<_HistoryView> {
 
   Widget _buildSummaryMetric(BuildContext context,
       {required String label, required String value, required IconData icon}) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isSmallScreen = screenWidth < 380;
+
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
+          child: Icon(icon, color: Colors.white, size: isSmallScreen ? 16 : 20),
         ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
+        SizedBox(width: isSmallScreen ? 8 : 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w600,
+                      fontSize: isSmallScreen ? 10 : null,
+                    ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: isSmallScreen ? 18 : null,
+                      ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1055,7 +1075,7 @@ class _HistoryViewState extends State<_HistoryView> {
                                     color: cs.outlineVariant),
                                 Expanded(
                                   child: Padding(
-                                    padding: const EdgeInsets.only(left: 16),
+                                    padding: const EdgeInsets.only(left: 8),
                                     child: _buildTimeColumn(
                                       context,
                                       label: "Punch Out",
@@ -1074,36 +1094,41 @@ class _HistoryViewState extends State<_HistoryView> {
                                     height: 32,
                                     color: cs.outlineVariant),
                                 Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 16),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "Hours",
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelSmall
-                                              ?.copyWith(
-                                                color: cs.onSurfaceVariant,
-                                                fontWeight: FontWeight.bold,
+                                  child: Builder(
+                                    builder: (context) {
+                                      final screenWidth = MediaQuery.sizeOf(context).width;
+                                      final isSmallScreen = screenWidth < 380;
+                                      
+                                      return Padding(
+                                        padding: const EdgeInsets.only(left: 8),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              "Hours",
+                                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                    color: cs.onSurfaceVariant,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: isSmallScreen ? 9 : null,
+                                                  ),
+                                            ),
+                                            SizedBox(height: isSmallScreen ? 2 : 4),
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                AppFormatters.formatHours(row.totalHours),
+                                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                                      color: cs.primary,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: isSmallScreen ? 12 : null,
+                                                    ),
                                               ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          AppFormatters.formatHours(
-                                              row.totalHours),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall
-                                              ?.copyWith(
-                                                color: cs.primary,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
+                                      );
+                                    }
                                   ),
                                 ),
                               ],
@@ -1163,28 +1188,41 @@ class _HistoryViewState extends State<_HistoryView> {
       required String time,
       required IconData icon,
       required Color color}) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isSmallScreen = screenWidth < 380;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
-                  ),
+            Icon(icon, size: isSmallScreen ? 10 : 12, color: color),
+            SizedBox(width: isSmallScreen ? 2 : 4),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                      fontSize: isSmallScreen ? 9 : null,
+                      letterSpacing: isSmallScreen ? -0.5 : null,
+                    ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          time,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+        SizedBox(height: isSmallScreen ? 2 : 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            time,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: isSmallScreen ? 12 : null,
+                ),
+          ),
         ),
       ],
     );

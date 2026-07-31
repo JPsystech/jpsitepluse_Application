@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 import 'package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart';
 import 'package:sitepulse_engineer/features/auth/data/repositories/auth_repository.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/storage/credential_store.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -30,6 +31,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         deviceId: deviceId,
       );
       await SessionStore.set(session);
+      await CredentialStore.saveCredentials(
+        vendorCode: event.vendorCode,
+        empCode: event.empCode,
+        password: event.password,
+        engineerName: session.engineer.fullName,
+      );
       emit(AuthSuccess(session: session));
     } catch (e) {
       emit(AuthError(message: e.toString()));

@@ -154,14 +154,6 @@ class _ProfileView extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.camera_alt_rounded, size: 16, color: cs.primary),
-                ),
               ],
             ),
             const SizedBox(height: 16),

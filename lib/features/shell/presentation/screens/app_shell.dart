@@ -157,17 +157,19 @@ class _AppShellViewState extends State<_AppShellView> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                           labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              );
-                            }
+                            final screenWidth = MediaQuery.sizeOf(context).width;
+                            final isSelected = states.contains(WidgetState.selected);
+                            // Scale font dynamically based on screen width to prevent wrapping
+                            final baseSize = screenWidth < 380 ? 10.0 : 12.0;
+                            
                             return TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              color: isSelected 
+                                ? Theme.of(context).colorScheme.primary 
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: baseSize,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              letterSpacing: -0.5, // Tighter letter spacing to fit
+                              overflow: TextOverflow.visible,
                             );
                           }),
                           iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -185,6 +187,8 @@ class _AppShellViewState extends State<_AppShellView> {
                         ),
                         child: NavigationBar(
                           selectedIndex: currentIndex,
+                          backgroundColor: Colors.transparent,
+                          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
                           height: 80, // slightly taller for premium feel
                           elevation: 0, // shadow provided by container
                           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
