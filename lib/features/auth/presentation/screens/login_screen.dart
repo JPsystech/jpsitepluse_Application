@@ -1,13 +1,20 @@
+import "dart:convert";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:http/http.dart" as http;
+import "package:shared_preferences/shared_preferences.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 import "package:sitepulse_engineer/core/config/api_config.dart";
 import "package:sitepulse_engineer/core/storage/terms_store.dart";
+import "package:sitepulse_engineer/core/storage/mpin_store.dart";
+import "package:sitepulse_engineer/core/storage/credential_store.dart";
+import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
+import "package:pinput/pinput.dart";
 
 import "package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart";
 import "package:sitepulse_engineer/features/auth/presentation/bloc/auth_bloc.dart";
@@ -40,11 +47,193 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   bool rememberMe = false;
   bool obscurePassword = true;
   String? error;
+  int _currentStep = 0;
+  bool isFetchingBranding = false;
+  String? vendorLogoUrl;
+  String? vendorName;
+
+  // MPIN State
+  bool isMpinMode = false;
+  String _pin = "";
+  String _engineerName = "";
+  bool isAutoLoggingIn = false;
 
   @override
   void initState() {
     super.initState();
     serverUrlCtrl.text = productionApiBaseUrl;
+    _loadSavedVendorCode();
+  }
+
+  Future<void> _loadSavedVendorCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedCode = prefs.getString("sitepulse_engineer_vendor_code");
+    if (savedCode != null && savedCode.trim().isNotEmpty) {
+      setState(() {
+        vendorCodeCtrl.text = savedCode.trim();
+      });
+
+      final hasMpin = await MpinStore.hasMpin();
+      final creds = await CredentialStore.getCredentials();
+
+      if (hasMpin && creds != null) {
+        setState(() {
+          isMpinMode = true;
+          _engineerName = creds['engineerName'] ?? "Engineer";
+        });
+      }
+
+      // Automatically proceed to fetch branding and show Step 2
+      _nextStep();
+    }
+  }
+
+  Future<void> _nextStep() async {
+    setState(() {
+      error = null;
+    });
+    final vendor = vendorCodeCtrl.text.trim();
+    if (vendor.isEmpty) {
+      setState(() {
+        error = "Enter Vendor Code to continue";
+      });
+      return;
+    }
+
+    setState(() {
+      isFetchingBranding = true;
+    });
+
+    try {
+      final baseUrl = await resolveApiBaseUrl();
+      final uri = Uri.parse("$baseUrl/api/v1/public/branding/$vendor");
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          vendorName = data['company_name'];
+          if (data['logo_url'] != null &&
+              data['logo_url'].toString().isNotEmpty) {
+            vendorLogoUrl = "$baseUrl${data['logo_url']}";
+          } else {
+            vendorLogoUrl = null;
+          }
+        });
+      } else {
+        setState(() {
+          vendorName = null;
+          vendorLogoUrl = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        vendorName = null;
+        vendorLogoUrl = null;
+      });
+    }
+
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("sitepulse_engineer_vendor_code", vendor);
+
+    final hasMpin = await MpinStore.hasMpin();
+    final creds = await CredentialStore.getCredentials();
+
+    if (!mounted) return;
+
+    setState(() {
+      if (hasMpin && creds != null && creds['vendorCode'] == vendor) {
+        isMpinMode = true;
+        _engineerName = creds['engineerName'] ?? "Engineer";
+      } else {
+        isMpinMode = false;
+      }
+      isFetchingBranding = false;
+      _currentStep = 1;
+    });
+  }
+
+  void _previousStep() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("sitepulse_engineer_vendor_code");
+
+    setState(() {
+      error = null;
+      _currentStep = 0;
+      vendorCodeCtrl.clear();
+      vendorName = null;
+      vendorLogoUrl = null;
+    });
+  }
+
+  Future<void> _verifyMpinAndLogin() async {
+    setState(() => isAutoLoggingIn = true);
+    final isValid = await MpinStore.verifyMpin(_pin);
+    if (isValid) {
+      if (SessionStore.current != null) {
+        if (mounted) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+        }
+        return;
+      }
+
+      final creds = await CredentialStore.getCredentials();
+      if (creds != null) {
+        // We simulate a form submission for the bloc
+        empCodeCtrl.text = creds['empCode']!;
+        passwordCtrl.text = creds['password']!;
+        rememberMe = true;
+        submit();
+      } else {
+        setState(() {
+          error = "No saved credentials found. Please sign in with password.";
+          _pin = "";
+          isAutoLoggingIn = false;
+        });
+      }
+    } else {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        error = "Incorrect MPIN";
+        _pin = "";
+        isAutoLoggingIn = false;
+      });
+    }
+  }
+
+  Future<void> _handleForgotMpin() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Reset MPIN"),
+        content: const Text(
+            "To reset your MPIN, you must sign in with your password. Do you want to continue?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Continue"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await MpinStore.clearMpin();
+      await CredentialStore.clearCredentials();
+      setState(() {
+        isMpinMode = false;
+        _pin = "";
+        empCodeCtrl.clear();
+        passwordCtrl.clear();
+      });
+    }
   }
 
   @override
@@ -145,6 +334,9 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    
+    // Dynamically calculate logo size (e.g. 35% of screen width), constrained between 100 and 160
+    final logoSize = (MediaQuery.sizeOf(context).width * 0.35).clamp(100.0, 160.0);
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
@@ -163,9 +355,15 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             );
           } else {
             final accepted = await TermsStore.isAccepted();
+            final hasMpin = await MpinStore.hasMpin();
             if (!context.mounted) return;
-            Navigator.of(context).pushReplacementNamed(
-                accepted ? AppRoutes.mpinSetup : AppRoutes.terms);
+            if (!accepted) {
+              Navigator.of(context).pushReplacementNamed(AppRoutes.terms);
+            } else if (!hasMpin) {
+              Navigator.of(context).pushReplacementNamed(AppRoutes.mpinSetup);
+            } else {
+              Navigator.of(context).pushReplacementNamed(AppRoutes.app);
+            }
           }
         }
       },
@@ -232,211 +430,86 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                         ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(40),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 20),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             // Logo and Branding
-                            Hero(
-                              tag: "logo",
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: cs.primary,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Icon(
-                                    Icons.business_center_rounded,
-                                    color: cs.onPrimary,
-                                    size: 48,
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Hero(
+                                  tag: "logo",
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: _currentStep == 1 &&
+                                                vendorLogoUrl != null
+                                            ? Colors.white
+                                            : cs.primary,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: _currentStep == 1 &&
+                                              vendorLogoUrl != null
+                                          ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.network(
+                                                vendorLogoUrl!,
+                                                width: logoSize,
+                                                height: logoSize,
+                                                fit: BoxFit.contain, // Safely bounds any aspect ratio dynamically
+                                                errorBuilder: (_, __, ___) =>
+                                                    Icon(
+                                                  Icons.business_center_rounded,
+                                                  color: cs.onPrimary,
+                                                  size: logoSize,
+                                                ),
+                                              ),
+                                            )
+                                          : Icon(
+                                              Icons.business_center_rounded,
+                                              color: cs.onPrimary,
+                                              size: logoSize,
+                                            ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              "SitePulse",
-                              textAlign: TextAlign.center,
-                              style: textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: cs.primary,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            Text(
-                              "Welcome Back",
-                              textAlign: TextAlign.center,
-                              style: textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "Sign in to continue to your workspace",
-                              textAlign: TextAlign.center,
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-                            // Login Form
-                            TextField(
-                              controller: vendorCodeCtrl,
-                              textInputAction: TextInputAction.next,
-                              clipBehavior: Clip.none,
-                              decoration: _buildInputDecoration(
-                                context,
-                                "Vendor Code",
-                                "Enter vendor code",
-                                Icons.domain_outlined,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              controller: empCodeCtrl,
-                              textInputAction: TextInputAction.next,
-                              clipBehavior: Clip.none,
-                              textCapitalization: TextCapitalization.characters,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r"[A-Za-z0-9\-_/]")),
-                                UpperCaseTextFormatter(),
                               ],
-                              decoration: _buildInputDecoration(
-                                context,
-                                "Employee Code",
-                                "Enter your code",
-                                Icons.badge_outlined,
-                              ),
                             ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              controller: passwordCtrl,
-                              obscureText: obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              clipBehavior: Clip.none,
-                              onSubmitted: (_) => submit(),
-                              decoration: _buildInputDecoration(
-                                context,
-                                "Password",
-                                "••••••••",
-                                Icons.lock_outline,
-                              ).copyWith(
-                                suffixIcon: IconButton(
-                                  onPressed: () => setState(
-                                      () => obscurePassword = !obscurePassword),
-                                  icon: Icon(
-                                    obscurePassword
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    color: cs.onSurfaceVariant,
-                                  ),
+                            if (!isMpinMode && _currentStep == 0) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                "SitePulse",
+                                textAlign: TextAlign.center,
+                                style: textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: cs.primary,
+                                  letterSpacing: 1.2,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                final isSubmitting = state is AuthLoading;
-                                return Row(
-                                  children: [
-                                    SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: Checkbox(
-                                        value: rememberMe,
-                                        onChanged: isSubmitting
-                                            ? null
-                                            : (v) => setState(
-                                                () => rememberMe = v ?? false),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      "Remember me",
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: cs.onSurface,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 32),
-                            // Error State
-                            if (error != null) ...[
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color:
-                                      cs.errorContainer.withValues(alpha: 0.5),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: cs.error.withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.error_outline,
-                                        color: cs.error, size: 20),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        error!,
-                                        style: textTheme.bodyMedium?.copyWith(
-                                          color: cs.error,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
                             ],
-                            // Submit Button
-                            BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                final isSubmitting = state is AuthLoading;
-                                return SizedBox(
-                                  height: 56,
-                                  width: double.infinity,
-                                  child: FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                    ),
-                                    onPressed: isSubmitting ? null : submit,
-                                    child: isSubmitting
-                                        ? SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: cs.onPrimary,
-                                            ),
-                                          )
-                                        : Text(
-                                            "Log In",
-                                            style:
-                                                textTheme.titleMedium?.copyWith(
-                                              color: cs.onPrimary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                            const SizedBox(height: 12),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.05, 0),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
                                   ),
                                 );
                               },
+                              child: _currentStep == 0
+                                  ? _buildStep1(context, cs, textTheme)
+                                  : _buildStep2(context, cs, textTheme),
                             ),
                             // Server Config Fallback
                             if (_needsServerConfig) ...[
@@ -492,6 +565,364 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStep1(
+      BuildContext context, ColorScheme cs, TextTheme textTheme) {
+    return Column(
+      key: const ValueKey(0),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          "Enter your Vendor Code to connect to your workspace",
+          textAlign: TextAlign.center,
+          style: textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 40),
+        TextField(
+          controller: vendorCodeCtrl,
+          textInputAction: TextInputAction.done,
+          clipBehavior: Clip.none,
+          onSubmitted: (_) => _nextStep(),
+          decoration: _buildInputDecoration(
+            context,
+            "Vendor Code",
+            "Enter vendor code",
+            Icons.domain_outlined,
+          ),
+        ),
+        const SizedBox(height: 32),
+        if (error != null) _buildError(cs, textTheme),
+        SizedBox(
+          height: 56,
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            onPressed: isFetchingBranding ? null : _nextStep,
+            child: isFetchingBranding
+                ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cs.onPrimary,
+                    ),
+                  )
+                : Text(
+                    "Next",
+                    style: textTheme.titleMedium?.copyWith(
+                      color: cs.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep2(
+      BuildContext context, ColorScheme cs, TextTheme textTheme) {
+    if (isMpinMode) {
+      return Column(
+        key: const ValueKey("mpin"),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Welcome back,",
+            textAlign: TextAlign.center,
+            style: textTheme.titleMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              colors: [cs.primary, cs.tertiary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ).createShader(bounds),
+            child: Text(
+              _engineerName,
+              textAlign: TextAlign.center,
+              style: textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (isAutoLoggingIn)
+            const Center(child: CircularProgressIndicator())
+          else
+            Center(
+              child: Pinput(
+                length: 4,
+                autofocus: true,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onCompleted: (pin) {
+                  setState(() => _pin = pin);
+                  _verifyMpinAndLogin();
+                },
+                defaultPinTheme: PinTheme(
+                  width: 56,
+                  height: 64,
+                  textStyle: textTheme.headlineMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: cs.outline.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                focusedPinTheme: PinTheme(
+                  width: 56,
+                  height: 64,
+                  textStyle: textTheme.headlineMedium?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: cs.primary,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+                errorPinTheme: PinTheme(
+                  width: 56,
+                  height: 64,
+                  textStyle: textTheme.headlineMedium?.copyWith(
+                    color: cs.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.errorContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: cs.error,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: cs.error,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: isAutoLoggingIn ? null : _handleForgotMpin,
+            child: Text(
+              "Forgot MPIN? Sign in with password",
+              style: textTheme.bodyMedium?.copyWith(
+                color: cs.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      key: const ValueKey(1),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: empCodeCtrl,
+          textInputAction: TextInputAction.next,
+          clipBehavior: Clip.none,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z0-9\-_/]")),
+            UpperCaseTextFormatter(),
+          ],
+          decoration: _buildInputDecoration(
+            context,
+            "Employee Code",
+            "Enter your code",
+            Icons.badge_outlined,
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: passwordCtrl,
+          obscureText: obscurePassword,
+          textInputAction: TextInputAction.done,
+          clipBehavior: Clip.none,
+          onSubmitted: (_) => submit(),
+          decoration: _buildInputDecoration(
+            context,
+            "Password",
+            "••••••••",
+            Icons.lock_outline,
+          ).copyWith(
+            suffixIcon: IconButton(
+              onPressed: () =>
+                  setState(() => obscurePassword = !obscurePassword),
+              icon: Icon(
+                obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, state) {
+            final isSubmitting = state is AuthLoading;
+            return Row(
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Checkbox(
+                    value: rememberMe,
+                    onChanged: isSubmitting
+                        ? null
+                        : (v) => setState(() => rememberMe = v ?? false),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  "Remember me",
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 32),
+        if (error != null) _buildError(cs, textTheme),
+        BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, state) {
+            final isSubmitting = state is AuthLoading;
+            return SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                onPressed: isSubmitting ? null : submit,
+                child: isSubmitting
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onPrimary,
+                        ),
+                      )
+                    : Text(
+                        "Log In",
+                        style: textTheme.titleMedium?.copyWith(
+                          color: cs.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, state) {
+            final isSubmitting = state is AuthLoading;
+            return TextButton(
+              onPressed: isSubmitting ? null : _previousStep,
+              child: Text(
+                "Change Workspace",
+                style: textTheme.bodyMedium?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError(ColorScheme cs, TextTheme textTheme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.errorContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.error.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: cs.error, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  error!,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: cs.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
     );
   }
 }

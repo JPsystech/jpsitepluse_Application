@@ -64,7 +64,7 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
         if (!accepted) {
           nextRoute = AppRoutes.terms;
         } else if (hasMpin) {
-          nextRoute = AppRoutes.mpinUnlock;
+          nextRoute = AppRoutes.login;
         } else {
           nextRoute = AppRoutes.mpinSetup;
         }

@@ -329,6 +329,8 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isSmallScreen = screenWidth < 380;
     
     return Card(
       elevation: 0,
@@ -341,33 +343,42 @@ class _SummaryCard extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 16),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: cs.onSurface,
-                    letterSpacing: -0.5,
-                  ),
+            Icon(icon, color: color, size: isSmallScreen ? 20 : 24),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: cs.onSurface,
+                      letterSpacing: -0.5,
+                      fontSize: isSmallScreen ? 20 : null,
+                    ),
+              ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: isSmallScreen ? 2 : 4),
             Text(
               title,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: cs.onSurfaceVariant,
+                    fontSize: isSmallScreen ? 10 : null,
                   ),
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               subtitle,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    fontSize: isSmallScreen ? 9 : null,
                   ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -539,22 +550,25 @@ class _AttendanceCalendarGrid extends StatelessWidget {
                 child: Stack(
                   children: [
                     Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '$day',
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$day',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          if (extraInfo != null) ...[
-                            const SizedBox(height: 4),
-                            extraInfo,
-                          ]
-                        ],
+                            if (extraInfo != null) ...[
+                              const SizedBox(height: 2), // Slightly tighter spacing
+                              extraInfo,
+                            ]
+                          ],
+                        ),
                       ),
                     ),
                     if (dayItems.length > 1)

@@ -531,16 +531,20 @@ class _DocumentUploadView extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.only(left: 4),
-                                child: Text(
-                                  "Custom Documents",
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: cs.primary,
-                                      ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Text(
+                                    "Custom Documents",
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: cs.primary,
+                                        ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 12),
                               FilledButton.tonalIcon(
                                 onPressed: () => _addCustomDocument(context, state),
                                 icon: const Icon(Icons.add_rounded, size: 18),

@@ -432,8 +432,10 @@ class _TimesheetViewState extends State<_TimesheetView> {
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 12,
+                          runSpacing: 12,
                           children: [
                             FilledButton.tonalIcon(
                               onPressed: isSubmitting ? null : _pickPhoto,
@@ -444,7 +446,6 @@ class _TimesheetViewState extends State<_TimesheetView> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
-                            const SizedBox(width: 12),
                             FilledButton.tonalIcon(
                               onPressed: isSubmitting ? null : _pickPdf,
                               icon: const Icon(Icons.picture_as_pdf_rounded),

@@ -29,6 +29,7 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_pdfview: ^1.4.4
   syncfusion_flutter_pdfviewer: ^31.1.19
+  pinput: ^6.0.2
 
 dev_dependencies:
   flutter_test:
