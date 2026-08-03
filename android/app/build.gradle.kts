@@ -37,12 +37,10 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-            }
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
         }
     }
 
@@ -53,9 +51,7 @@ android {
             resValue("string", "app_name", "JP SitePlus Debug")
         }
         release {
-            applicationIdSuffix = ".internal"
-            versionNameSuffix = "-internal"
-            resValue("string", "app_name", "JP SitePlus Internal")
+            resValue("string", "app_name", "JP Site Plus")
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
