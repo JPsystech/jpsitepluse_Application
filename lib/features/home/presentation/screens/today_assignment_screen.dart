@@ -15,6 +15,8 @@ import 'package:sitepulse_engineer/features/history/presentation/screens/history
 import 'package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
 import 'package:sitepulse_engineer/core/services/api_client.dart';
+import 'package:uuid/uuid.dart';
+import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 
 class TodayAssignmentScreen extends StatelessWidget {
   const TodayAssignmentScreen({
@@ -180,13 +182,41 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           submissionContextOverride: "PUNCH_OUT_REPORT",
         );
       } catch (e) {
-        if (mounted) {
-          Navigator.of(context).pop(); // dismiss loading
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to upload report: $e")),
-          );
+        final err = e.toString().toLowerCase();
+        final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+        if (isOffline) {
+          final homeState = context.read<HomeBloc>().state;
+          String? activeProjectId;
+          String? attendanceLogId;
+          if (homeState is HomeSuccess) {
+            activeProjectId = homeState.response.activeProjectId;
+            attendanceLogId = homeState.response.activeAttendanceLogId;
+          }
+          final loc = await context.read<AttendanceBloc>().resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
+          await OfflineTimesheetQueue().add(OfflineTimesheet(
+            id: const Uuid().v4(),
+            photoPath: attachedFile.path,
+            lat: loc.lat,
+            lng: loc.lng,
+            addressText: remarks,
+            projectName: "-",
+            siteName: "-",
+            projectId: activeProjectId,
+            attendanceLogId: attendanceLogId,
+            empCode: widget.engineerEmpCode,
+            capturedAtIso: DateTime.now().toIso8601String(),
+            submissionType: "REPORT",
+            submissionContext: "PUNCH_OUT_REPORT",
+          ));
+        } else {
+          if (mounted) {
+            Navigator.of(context).pop(); // dismiss loading
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Failed to upload report: $e")),
+            );
+          }
+          return;
         }
-        return; // Abort punch out if report upload fails
       }
 
       if (mounted) Navigator.of(context).pop(); // dismiss loading
@@ -958,6 +988,10 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Punch Out Successful")));
           context.read<HomeBloc>().add(LoadAssignmentsRequested());
+        } else if (state is PunchOfflineQueued) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)));
+          setState(() {});
         }
       },
       child: Scaffold(
@@ -1312,3 +1346,5 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
     );
   }
 }
+
+

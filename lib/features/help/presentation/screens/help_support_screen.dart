@@ -1,8 +1,30 @@
 import "package:flutter/material.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
+import "package:url_launcher/url_launcher.dart";
 
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
+
+  Future<void> _launchEmail(String email) async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=Support Request - JP SitePulse',
+    );
+    if (await canLaunchUrl(emailUri)) {
+      await launchUrl(emailUri);
+    }
+  }
+
+  Future<void> _launchPhone(String phone) async {
+    final Uri phoneUri = Uri(
+      scheme: 'tel',
+      path: phone,
+    );
+    if (await canLaunchUrl(phoneUri)) {
+      await launchUrl(phoneUri);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,33 +50,6 @@ class HelpSupportScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildHeaderBanner(context, cs),
-              const SizedBox(height: 24),
-              
-              _buildSectionTitle(context, "Quick Actions"),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionCard(
-                      context: context,
-                      icon: Icons.support_agent_rounded,
-                      title: "Contact Admin",
-                      color: cs.primary,
-                      onTap: () {},
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildActionCard(
-                      context: context,
-                      icon: Icons.bug_report_rounded,
-                      title: "Report Issue",
-                      color: Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B),
-                      onTap: () {},
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 24),
 
               _buildSectionTitle(context, "Contact Information"),
@@ -146,53 +141,6 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionCard({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
-            boxShadow: Theme.of(context).extension<AppColorsExtension>()?.cardShadow,
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 28),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: cs.onSurface,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildContactCard(BuildContext context, ColorScheme cs) {
     return Card(
       elevation: 0,
@@ -209,22 +157,22 @@ class HelpSupportScreen extends StatelessWidget {
             icon: Icons.email_rounded,
             title: "Support Email",
             subtitle: "info@jpsystech.in",
-            onTap: () {},
+            onTap: () => _launchEmail("info@jpsystech.in"),
           ),
           Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _buildContactRow(
             context: context,
             icon: Icons.phone_rounded,
             title: "Helpline",
-            subtitle: "+91 1800-123-4567",
-            onTap: () {},
+            subtitle: "+91 93133 61114",
+            onTap: () => _launchPhone("+919313361114"),
           ),
           Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _buildContactRow(
             context: context,
             icon: Icons.access_time_filled_rounded,
             title: "Office Hours",
-            subtitle: "Mon - Sat, 9:00 AM to 6:00 PM",
+            subtitle: "Mon - Sat, 9:30 AM to 6:30 PM",
             onTap: null,
           ),
         ],

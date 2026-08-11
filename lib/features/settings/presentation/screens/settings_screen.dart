@@ -3,6 +3,10 @@ import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
+import "package:sitepulse_engineer/core/services/offline_timesheet_queue.dart";
+import "package:sitepulse_engineer/core/services/offline_timesheet_sync_service.dart";
+
+import "../../../../core/router/app_routes.dart";
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -11,9 +15,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = true;
-  bool _darkMode = false;
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -37,37 +38,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionTitle(context, "Preferences"),
-              _buildSettingsCard(
-                context,
-                children: [
-                  _SettingsSwitchTile(
-                    icon: Icons.notifications_active_rounded,
-                    title: "Push Notifications",
-                    subtitle: "Receive alerts for new assignments",
-                    value: _notificationsEnabled,
-                    onChanged: (v) => setState(() => _notificationsEnabled = v),
-                    iconColor: cs.primary,
-                  ),
-                  _buildDivider(context),
-                  _SettingsSwitchTile(
-                    icon: Icons.dark_mode_rounded,
-                    title: "Dark Mode",
-                    subtitle: "Switch to dark theme",
-                    value: _darkMode,
-                    onChanged: (v) => setState(() => _darkMode = v),
-                    iconColor: const Color(0xFF6366F1),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
               _buildSectionTitle(context, "Security & Data"),
               _buildSettingsCard(
                 context,
                 children: [
                   _SettingsActionTile(
-                    icon: Icons.lock_rounded,
+                    icon: Icons.lock_reset_rounded,
+                    title: "Change MPIN",
+                    subtitle: "Update your 4-digit security pin",
+                    iconColor: const Color(0xFF8B5CF6),
+                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.changeMpin),
+                  ),
+                  _buildDivider(context),
+                  _SettingsActionTile(
+                    icon: Icons.security_rounded,
                     title: "Privacy Policy",
                     subtitle: "Read our data policies",
                     iconColor: const Color(0xFFF59E0B),
@@ -101,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     icon: Icons.corporate_fare_rounded,
                     title: "Developer",
-                    subtitle: "JP SysTech Solutions",
+                    subtitle: "JPsystech",
                     iconColor: cs.onSurfaceVariant,
                     hideChevron: true,
                     onTap: () {},
@@ -242,71 +226,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _SettingsSwitchTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final Color iconColor;
-
-  const _SettingsSwitchTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: cs.primary,
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SettingsActionTile extends StatelessWidget {
   final IconData icon;
@@ -397,9 +316,10 @@ class _SyncOfflineDataSheetState extends State<_SyncOfflineDataSheet> {
 
   Future<void> _loadCount() async {
     final count = await OfflinePunchQueue().count();
+    final tsCount = await OfflineTimesheetQueue().count();
     if (mounted) {
       setState(() {
-        _pendingCount = count;
+        _pendingCount = count + tsCount;
         _isLoading = false;
       });
     }
@@ -411,6 +331,8 @@ class _SyncOfflineDataSheetState extends State<_SyncOfflineDataSheet> {
     if (token != null) {
       final svc = OfflinePunchSyncService();
       await svc.sync(token: token);
+      final tsSvc = OfflineTimesheetSyncService();
+      await tsSvc.sync(token: token);
     }
     await _loadCount();
     if (mounted) {

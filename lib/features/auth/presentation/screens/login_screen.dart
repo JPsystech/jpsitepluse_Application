@@ -14,6 +14,7 @@ import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
+import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 import "package:pinput/pinput.dart";
 
 import "package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart";
@@ -52,8 +53,9 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   String? vendorLogoUrl;
   String? vendorName;
 
-  // MPIN State
   bool isMpinMode = false;
+  bool isResettingMpin = false;
+  bool isLoadingInitialState = true;
   String _pin = "";
   String _engineerName = "";
   bool isAutoLoggingIn = false;
@@ -85,6 +87,10 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
       // Automatically proceed to fetch branding and show Step 2
       _nextStep();
+    } else {
+      setState(() {
+        isLoadingInitialState = false;
+      });
     }
   }
 
@@ -120,17 +126,25 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             vendorLogoUrl = null;
           }
         });
+      } else if (response.statusCode == 404) {
+        setState(() {
+          error = "Invalid Vendor Code. Please try again.";
+          isFetchingBranding = false;
+        });
+        return;
       } else {
         setState(() {
-          vendorName = null;
-          vendorLogoUrl = null;
+          error = "Failed to verify Vendor Code.";
+          isFetchingBranding = false;
         });
+        return;
       }
     } catch (e) {
       setState(() {
-        vendorName = null;
-        vendorLogoUrl = null;
+        error = "Network error. Please check your connection.";
+        isFetchingBranding = false;
       });
+      return;
     }
 
     if (!mounted) return;
@@ -151,6 +165,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         isMpinMode = false;
       }
       isFetchingBranding = false;
+      isLoadingInitialState = false;
       _currentStep = 1;
     });
   }
@@ -229,6 +244,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       await CredentialStore.clearCredentials();
       setState(() {
         isMpinMode = false;
+        isResettingMpin = true;
         _pin = "";
         empCodeCtrl.clear();
         passwordCtrl.clear();
@@ -334,238 +350,283 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    
+
     // Dynamically calculate logo size (e.g. 35% of screen width), constrained between 100 and 160
-    final logoSize = (MediaQuery.sizeOf(context).width * 0.35).clamp(100.0, 160.0);
+    final logoSize =
+        (MediaQuery.sizeOf(context).width * 0.35).clamp(100.0, 160.0);
 
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) async {
-        if (state is AuthError) {
-          setState(() {
-            error = state.message;
-          });
-        } else if (state is AuthSuccess) {
-          final session = state.session;
-          if (session.mustChangePassword) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                  builder: (_) => ChangePasswordScreen(
-                      session: session,
-                      currentPassword: passwordCtrl.text.trim())),
-            );
-          } else {
-            final accepted = await TermsStore.isAccepted();
-            final hasMpin = await MpinStore.hasMpin();
-            if (!context.mounted) return;
-            if (!accepted) {
-              Navigator.of(context).pushReplacementNamed(AppRoutes.terms);
-            } else if (!hasMpin) {
-              Navigator.of(context).pushReplacementNamed(AppRoutes.mpinSetup);
+        listener: (context, state) async {
+          if (state is AuthError) {
+            setState(() {
+              error = state.message;
+            });
+          } else if (state is AuthSuccess) {
+            final session = state.session;
+            if (session.mustChangePassword) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (_) => ChangePasswordScreen(
+                        session: session,
+                        currentPassword: passwordCtrl.text.trim())),
+              );
             } else {
-              Navigator.of(context).pushReplacementNamed(AppRoutes.app);
+              final accepted = await TermsStore.isAccepted();
+              final hasMpinLocal = await MpinStore.hasMpin();
+              if (!context.mounted) return;
+              if (!accepted) {
+                Navigator.of(context).pushReplacementNamed(
+                  AppRoutes.terms,
+                  arguments: {
+                    'isServerMpinSet': session.hasMpin,
+                    'isResetMode': isResettingMpin
+                  },
+                );
+              } else if (!hasMpinLocal) {
+                Navigator.of(context).pushReplacementNamed(
+                  AppRoutes.mpinSetup,
+                  arguments: {
+                    'isServerMpinSet': session.hasMpin,
+                    'isResetMode': isResettingMpin
+                  },
+                );
+              } else {
+                Navigator.of(context).pushReplacementNamed(AppRoutes.app);
+              }
             }
           }
-        }
-      },
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        body: Stack(
-          children: [
-            // Soft Gradient Background
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cs.surface,
-                      cs.primaryContainer.withValues(alpha: 0.3),
-                      cs.surface,
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
+        },
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            if (_currentStep > 0) {
+              _previousStep();
+              return;
+            }
+            final bool shouldPop = await showExitConfirmationDialog(context);
+            if (shouldPop) {
+              SystemNavigator.pop();
+            }
+          },
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            body: Stack(
+              children: [
+                // Soft Gradient Background
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          cs.surface,
+                          cs.primaryContainer.withValues(alpha: 0.3),
+                          cs.surface,
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            // Decorative Abstract Shapes
-            Positioned(
-              top: -100,
-              right: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: cs.primary.withValues(alpha: 0.05),
+                // Decorative Abstract Shapes
+                Positioned(
+                  top: -100,
+                  right: -50,
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: cs.primary.withValues(alpha: 0.05),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Positioned(
-              bottom: -50,
-              left: -100,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: cs.tertiary.withValues(alpha: 0.05),
+                Positioned(
+                  bottom: -50,
+                  left: -100,
+                  child: Container(
+                    width: 250,
+                    height: 250,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: cs.tertiary.withValues(alpha: 0.05),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Card(
-                      elevation: 0,
-                      color: cs.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        side: BorderSide(
-                          color: cs.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 20),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Logo and Branding
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Hero(
-                                  tag: "logo",
-                                  child: Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: _currentStep == 1 &&
-                                                vendorLogoUrl != null
-                                            ? Colors.white
-                                            : cs.primary,
-                                        borderRadius: BorderRadius.circular(16),
+                SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 32),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: Card(
+                          elevation: 0,
+                          color: cs.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            side: BorderSide(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 20),
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (isLoadingInitialState)
+                                    const SizedBox(
+                                      height: 300,
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
                                       ),
-                                      child: _currentStep == 1 &&
-                                              vendorLogoUrl != null
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.network(
-                                                vendorLogoUrl!,
-                                                width: logoSize,
-                                                height: logoSize,
-                                                fit: BoxFit.contain, // Safely bounds any aspect ratio dynamically
-                                                errorBuilder: (_, __, ___) =>
-                                                    Icon(
-                                                  Icons.business_center_rounded,
-                                                  color: cs.onPrimary,
-                                                  size: logoSize,
+                                    )
+                                  else ...[
+                                    // Logo and Branding
+                                    Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Hero(
+                                          tag: "logo",
+                                          child: Center(
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: _currentStep == 1 &&
+                                                        vendorLogoUrl != null
+                                                    ? Colors.white
+                                                    : cs.primary,
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                              ),
+                                              child: _currentStep == 1 &&
+                                                      vendorLogoUrl != null
+                                                  ? ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                      child: Image.network(
+                                                        vendorLogoUrl!,
+                                                        width: logoSize,
+                                                        height: logoSize,
+                                                        fit: BoxFit
+                                                            .contain, // Safely bounds any aspect ratio dynamically
+                                                        errorBuilder:
+                                                            (_, __, ___) =>
+                                                                Icon(
+                                                          Icons
+                                                              .business_center_rounded,
+                                                          color: cs.onPrimary,
+                                                          size: logoSize,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : Icon(
+                                                      Icons
+                                                          .business_center_rounded,
+                                                      color: cs.onPrimary,
+                                                      size: logoSize,
+                                                    ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (!isMpinMode && _currentStep == 0) ...[
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "SitePulse",
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            textTheme.headlineSmall?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          color: cs.primary,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      transitionBuilder: (child, animation) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(0.05, 0),
+                                              end: Offset.zero,
+                                            ).animate(animation),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: _currentStep == 0
+                                          ? _buildStep1(context, cs, textTheme)
+                                          : _buildStep2(context, cs, textTheme),
+                                    ),
+                                    // Server Config Fallback
+                                    if (_needsServerConfig) ...[
+                                      const SizedBox(height: 32),
+                                      Divider(color: cs.outlineVariant),
+                                      const SizedBox(height: 32),
+                                      TextField(
+                                        controller: serverUrlCtrl,
+                                        textInputAction: TextInputAction.done,
+                                        clipBehavior: Clip.none,
+                                        decoration: _buildInputDecoration(
+                                          context,
+                                          "Server URL",
+                                          "Enter API URL",
+                                          Icons.public,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      BlocBuilder<AuthBloc, AuthState>(
+                                        builder: (context, state) {
+                                          final isSubmitting =
+                                              state is AuthLoading;
+                                          return SizedBox(
+                                            height: 56,
+                                            width: double.infinity,
+                                            child: FilledButton.tonal(
+                                              style: FilledButton.styleFrom(
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(18),
                                                 ),
                                               ),
-                                            )
-                                          : Icon(
-                                              Icons.business_center_rounded,
-                                              color: cs.onPrimary,
-                                              size: logoSize,
+                                              onPressed: isSubmitting
+                                                  ? null
+                                                  : saveServer,
+                                              child: Text(
+                                                "Save Server",
+                                                style: textTheme.titleMedium
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                             ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (!isMpinMode && _currentStep == 0) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                "SitePulse",
-                                textAlign: TextAlign.center,
-                                style: textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  color: cs.primary,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0.05, 0),
-                                      end: Offset.zero,
-                                    ).animate(animation),
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: _currentStep == 0
-                                  ? _buildStep1(context, cs, textTheme)
-                                  : _buildStep2(context, cs, textTheme),
-                            ),
-                            // Server Config Fallback
-                            if (_needsServerConfig) ...[
-                              const SizedBox(height: 32),
-                              Divider(color: cs.outlineVariant),
-                              const SizedBox(height: 32),
-                              TextField(
-                                controller: serverUrlCtrl,
-                                textInputAction: TextInputAction.done,
-                                clipBehavior: Clip.none,
-                                decoration: _buildInputDecoration(
-                                  context,
-                                  "Server URL",
-                                  "Enter API URL",
-                                  Icons.public,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              BlocBuilder<AuthBloc, AuthState>(
-                                builder: (context, state) {
-                                  final isSubmitting = state is AuthLoading;
-                                  return SizedBox(
-                                    height: 56,
-                                    width: double.infinity,
-                                    child: FilledButton.tonal(
-                                      style: FilledButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(18),
-                                        ),
+                                          );
+                                        },
                                       ),
-                                      onPressed:
-                                          isSubmitting ? null : saveServer,
-                                      child: Text(
-                                        "Save Server",
-                                        style: textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ],
+                                    ],
+                                  ],
+                                ]),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 
   Widget _buildStep1(

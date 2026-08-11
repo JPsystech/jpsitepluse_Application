@@ -5,6 +5,9 @@ import 'package:sitepulse_engineer/features/attendance/data/models/punch_respons
 import 'package:sitepulse_engineer/features/attendance/data/repositories/attendance_repository.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
+import 'package:uuid/uuid.dart';
+import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 
 part 'attendance_event.dart';
 part 'attendance_state.dart';
@@ -89,7 +92,24 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       );
       emit(PunchInSuccess(response: response));
     } catch (e) {
-      emit(AttendanceError(message: e.toString()));
+      final err = e.toString().toLowerCase();
+      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+      if (isOffline) {
+        final loc = await resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
+        await OfflinePunchQueue().add(OfflinePunch(
+          clientPunchId: event.clientPunchId ?? const Uuid().v4(),
+          type: OfflinePunchType.inPunch,
+          clientPunchTimeIso: event.clientPunchTimeIso ?? DateTime.now().toIso8601String(),
+          lat: event.lat ?? loc.lat,
+          lng: event.lng ?? loc.lng,
+          accuracyM: event.accuracyM ?? loc.accuracyM,
+          projectId: event.projectId,
+          exceptionReason: event.exceptionReason,
+        ));
+        emit(const PunchOfflineQueued());
+      } else {
+        emit(AttendanceError(message: e.toString()));
+      }
     }
   }
 
@@ -120,7 +140,25 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       );
       emit(PunchOutSuccess(response: response));
     } catch (e) {
-      emit(AttendanceError(message: e.toString()));
+      final err = e.toString().toLowerCase();
+      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+      if (isOffline) {
+        final loc = await resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
+        await OfflinePunchQueue().add(OfflinePunch(
+          clientPunchId: event.clientPunchId ?? const Uuid().v4(),
+          type: OfflinePunchType.outPunch,
+          clientPunchTimeIso: event.clientPunchTimeIso ?? DateTime.now().toIso8601String(),
+          lat: event.lat ?? loc.lat,
+          lng: event.lng ?? loc.lng,
+          accuracyM: event.accuracyM ?? loc.accuracyM,
+          remarks: event.remarks,
+          exceptionReason: event.exceptionReason,
+        ));
+        emit(const PunchOfflineQueued());
+      } else {
+        emit(AttendanceError(message: e.toString()));
+      }
     }
   }
 }
+

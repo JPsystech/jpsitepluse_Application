@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:in_app_update/in_app_update.dart";
 
 import "package:sitepulse_engineer/features/splash/presentation/bloc/splash_bloc.dart";
 
@@ -79,6 +80,19 @@ class _SplashViewState extends State<_SplashView>
     _revealCtrl.forward().then((_) {
       if (mounted) _pulseCtrl.repeat();
     });
+
+    _checkForUpdate();
+  }
+
+  Future<void> _checkForUpdate() async {
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+      if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+        await InAppUpdate.performImmediateUpdate();
+      }
+    } catch (e) {
+      debugPrint("InAppUpdate check failed: $e");
+    }
   }
 
   @override

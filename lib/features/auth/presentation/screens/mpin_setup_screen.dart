@@ -2,9 +2,17 @@ import "package:flutter/material.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import 'package:pinput/pinput.dart';
+import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart';
+import 'package:sitepulse_engineer/core/storage/session_store.dart';
 
 class MpinSetupScreen extends StatefulWidget {
-  const MpinSetupScreen({super.key});
+  final bool isServerMpinSet;
+  final bool isResetMode;
+  const MpinSetupScreen({
+    super.key,
+    this.isServerMpinSet = false,
+    this.isResetMode = false,
+  });
 
   @override
   State<MpinSetupScreen> createState() => _MpinSetupScreenState();
@@ -29,6 +37,11 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
       setState(() => _errorMessage = "");
     }
 
+    if (_isServerMpinSet) {
+      _verifyAgainstServer(pin);
+      return;
+    }
+
     if (!_isConfirming) {
       setState(() {
         _pin = pin;
@@ -49,11 +62,43 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
     }
   }
 
+  Future<void> _verifyAgainstServer(String pin) async {
+    setState(() => _errorMessage = "");
+    try {
+      final session = SessionStore.current;
+      if (session != null) {
+        await AuthService().verifyMpin(session.token, pin);
+        await MpinStore.setMpin(pin);
+        if (mounted) Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Invalid MPIN. Try again.";
+        _pin = "";
+        _pinController.clear();
+      });
+    }
+  }
+
   Future<void> _verifyAndSave() async {
     if (_pin == _confirmPin) {
-      await MpinStore.setMpin(_pin);
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+      try {
+        final session = SessionStore.current;
+        if (session != null) {
+          await AuthService().setMpin(session.token, _pin);
+        }
+        await MpinStore.setMpin(_pin);
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+        }
+      } catch (e) {
+        setState(() {
+          _errorMessage = "Failed to save MPIN to server.";
+          _pin = "";
+          _confirmPin = "";
+          _isConfirming = false;
+          _pinController.clear();
+        });
       }
     } else {
       setState(() {
@@ -66,12 +111,20 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
     }
   }
 
+  bool get _isServerMpinSet {
+    if (widget.isResetMode) return false;
+    if (widget.isServerMpinSet) return true;
+    return SessionStore.current?.hasMpin ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final title = _isConfirming ? "Confirm MPIN" : "Set MPIN";
-    final subtitle = _isConfirming
-        ? "Re-enter your 4-digit MPIN"
-        : "Create a 4-digit MPIN for quick access";
+    final title = _isServerMpinSet ? "Enter Existing MPIN" : (_isConfirming ? "Confirm MPIN" : "Set MPIN");
+    final subtitle = _isServerMpinSet
+        ? "Enter the MPIN you created previously"
+        : (_isConfirming
+            ? "Re-enter your 4-digit MPIN"
+            : "Create a 4-digit MPIN for quick access");
     final currentLength = _isConfirming ? _confirmPin.length : _pin.length;
 
     return Scaffold(
@@ -82,15 +135,19 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
             Text(
               title,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
+                ),
               ),
             ),
             const SizedBox(height: 60),

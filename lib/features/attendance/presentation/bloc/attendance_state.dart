@@ -30,3 +30,10 @@ class AttendanceError extends AttendanceState {
   @override
   List<Object?> get props => [message];
 }
+
+class PunchOfflineQueued extends AttendanceState {
+  final String message;
+  const PunchOfflineQueued({this.message = "Saved Offline. Will sync when online."});
+  @override
+  List<Object?> get props => [message];
+}

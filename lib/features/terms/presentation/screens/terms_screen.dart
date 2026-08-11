@@ -6,6 +6,8 @@ import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/features/terms/presentation/bloc/terms_bloc.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
+import "../../../../core/session_store.dart";
+
 class TermsScreen extends StatelessWidget {
   const TermsScreen({super.key});
 
@@ -40,8 +42,15 @@ class _TermsViewState extends State<_TermsView> {
           child:
               BlocConsumer<TermsBloc, TermsState>(listener: (context, state) {
             if (state is TermsSuccess) {
-              Navigator.of(context)
-                  .pushNamedAndRemoveUntil(AppRoutes.mpinSetup, (_) => false);
+              final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+              final bool isResetMode = args?['isResetMode'] as bool? ?? false;
+              final bool isServerMpinSet = SessionStore.current?.hasMpin ?? false;
+              
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutes.mpinSetup, 
+                (_) => false, 
+                arguments: {'isServerMpinSet': isServerMpinSet, 'isResetMode': isResetMode},
+              );
             }
           }, builder: (context, state) {
             final isSaving = state is TermsSaving;
@@ -176,3 +185,4 @@ class _TermsViewState extends State<_TermsView> {
     );
   }
 }
+

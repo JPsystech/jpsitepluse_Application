@@ -6,5 +6,7 @@ class AuthSessionModel extends AuthSession {
     required super.engineer,
     required super.mustChangePassword,
     required super.expiresAtMs,
+    super.hasMpin = false,
   });
 }
+
