@@ -5,12 +5,14 @@ class AuthSession {
   final Engineer engineer;
   final bool mustChangePassword;
   final int? expiresAtMs;
+  final bool hasMpin;
 
   AuthSession(
       {required this.token,
       required this.engineer,
       required this.mustChangePassword,
-      required this.expiresAtMs});
+      required this.expiresAtMs,
+      this.hasMpin = false});
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     return AuthSession(
@@ -20,6 +22,7 @@ class AuthSession {
               <String, dynamic>{}),
       mustChangePassword: (json["must_change_password"] as bool?) ?? false,
       expiresAtMs: (json["expires_at_ms"] as num?)?.toInt(),
+      hasMpin: (json["has_mpin"] as bool?) ?? false,
     );
   }
 
@@ -29,6 +32,8 @@ class AuthSession {
       "engineer": engineer.toJson(),
       "must_change_password": mustChangePassword,
       "expires_at_ms": expiresAtMs,
+      "has_mpin": hasMpin,
     };
   }
 }
+

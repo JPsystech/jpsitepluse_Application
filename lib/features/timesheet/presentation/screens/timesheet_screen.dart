@@ -233,8 +233,12 @@ class _TimesheetViewState extends State<_TimesheetView> {
         child: BlocConsumer<TimesheetBloc, TimesheetState>(
           listener: (context, state) {
             if (state.status == TimesheetStatus.submitSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Work update submitted")));
+              final isOffline = state.uploadedPhotoUrl == "offline_queued";
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(isOffline
+                    ? "Saved Offline. Will sync when online."
+                    : "Work update submitted"),
+              ));
               setState(() {
                 descriptionCtrl.text = "";
                 photo = null;

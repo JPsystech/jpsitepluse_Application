@@ -36,6 +36,7 @@ class AuthService {
           engineer: Engineer.fromJson(response.data['engineer']),
           mustChangePassword: response.data['must_change_password'] ?? false,
           expiresAtMs: response.data['expires_at_ms'],
+          hasMpin: response.data['has_mpin'] ?? false,
         );
       } else {
         throw AuthException(response.data['detail'] ?? 'Login failed');
@@ -86,4 +87,24 @@ class AuthService {
       throw AuthException('Password change failed: ${e.message}');
     }
   }
+  Future<void> setMpin(String token, String mpin) async {
+    final client = await ApiClient.instance.dio;
+    try {
+      await client.post('/api/v1/engineer/set-mpin', data: {'mpin': mpin}, options: Options(headers: {'Authorization': 'Bearer $token'}));
+    } on DioException catch (e) {
+      throw AuthException(e.response?.data?['detail'] ?? 'Failed to set MPIN on server');
+    }
+  }
+
+  Future<void> verifyMpin(String token, String mpin) async {
+    final client = await ApiClient.instance.dio;
+    try {
+      await client.post('/api/v1/engineer/verify-mpin', data: {'mpin': mpin}, options: Options(headers: {'Authorization': 'Bearer $token'}));
+    } on DioException catch (e) {
+      throw AuthException(e.response?.data?['detail'] ?? 'Failed to verify MPIN on server');
+    }
+  }
+
+
+
 }

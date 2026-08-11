@@ -8,10 +8,12 @@ import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
+import "package:sitepulse_engineer/core/services/offline_timesheet_sync_service.dart";
 import "package:sitepulse_engineer/features/home/presentation/screens/today_assignment_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/screens/profile_screen.dart";
 import "package:sitepulse_engineer/features/timeline/presentation/screens/activity_timeline_screen.dart";
 import "package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart";
+import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
 
@@ -68,8 +70,10 @@ class _AppShellViewState extends State<_AppShellView> {
     _offlineSyncTimer?.cancel();
     _offlineSyncToken = token;
     final svc = OfflinePunchSyncService();
+    final timesheetSvc = OfflineTimesheetSyncService();
     void runOnce() {
       svc.sync(token: token);
+      timesheetSvc.sync(token: token);
     }
 
     runOnce();
@@ -119,13 +123,16 @@ class _AppShellViewState extends State<_AppShellView> {
                   context.read<ShellBloc>().add(ShellTabChanged(idx)),
               child: PopScope(
                 canPop: false,
-                onPopInvokedWithResult: (didPop, result) {
+                onPopInvokedWithResult: (didPop, result) async {
                   if (didPop) return;
                   if (currentIndex != 0) {
                     context.read<ShellBloc>().add(const ShellTabChanged(0));
                     return;
                   }
-                  SystemNavigator.pop();
+                  final bool shouldPop = await showExitConfirmationDialog(context);
+                  if (shouldPop) {
+                    SystemNavigator.pop();
+                  }
                 },
                 child: Scaffold(
                   body: AnimatedSwitcher(

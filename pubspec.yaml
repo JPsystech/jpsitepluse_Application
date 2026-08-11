@@ -1,7 +1,7 @@
 name: sitepulse_engineer
 description: JP SitePulse Engineer App
 publish_to: none
-version: 1.0.1+7
+version: 1.0.2+10
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -30,6 +30,10 @@ dependencies:
   flutter_pdfview: ^1.4.4
   syncfusion_flutter_pdfviewer: ^31.1.19
   pinput: ^6.0.2
+  image_picker_android: ^0.8.13+1
+  image_picker_platform_interface: ^2.11.1
+  in_app_update: ^4.2.5
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
