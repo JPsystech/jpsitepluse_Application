@@ -33,13 +33,13 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
     try {
       final resp = await _homeService.getTodayAssignments();
       TodayAssignmentModel? a;
+      bool isPunchedIn = false;
       if (resp.assignments.isNotEmpty) {
         final activePid = (resp.activeProjectId ?? "").trim();
         if (activePid.isNotEmpty) {
+          isPunchedIn = true;
           a = resp.assignments.firstWhere((x) => x.projectId == activePid,
               orElse: () => resp.assignments.first);
-        } else {
-          a = resp.assignments.first;
         }
       }
       emit(state.copyWith(
@@ -48,6 +48,7 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
         siteName: a?.siteName ?? "-",
         projectId: a?.projectId ?? "",
         attendanceLogId: resp.activeAttendanceLogId ?? "",
+        isPunchedIn: isPunchedIn,
       ));
     } catch (e) {
       emit(state.copyWith(

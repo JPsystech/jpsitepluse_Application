@@ -105,6 +105,24 @@ class AuthService {
     }
   }
 
-
-
+  Future<void> forgotMpin(String vendorCode, String empCode) async {
+    final client = await ApiClient.instance.dio;
+    try {
+      await client.post('/api/v1/engineer/forgot-mpin', data: {
+        'vendor_code': vendorCode,
+        'emp_code': empCode,
+      });
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        final data = e.response?.data;
+        if (data is Map) {
+          final detail = data['error']?['message'] ?? data['detail'] ?? data['message'];
+          if (detail != null) {
+            throw AuthException(detail.toString());
+          }
+        }
+      }
+      throw AuthException('Failed to reset MPIN: ${e.message}');
+    }
+  }
 }

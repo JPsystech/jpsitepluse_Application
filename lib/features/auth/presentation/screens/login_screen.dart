@@ -19,6 +19,9 @@ import "package:pinput/pinput.dart";
 
 import "package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart";
 import "package:sitepulse_engineer/features/auth/presentation/bloc/auth_bloc.dart";
+import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_setup_screen.dart";
+
+import "../../data/services/auth_service.dart";
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -59,6 +62,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   String _pin = "";
   String _engineerName = "";
   bool isAutoLoggingIn = false;
+  bool _isVerifyingTempMpin = false;
 
   @override
   void initState() {
@@ -209,6 +213,51 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           isAutoLoggingIn = false;
         });
       }
+    } else if (_isVerifyingTempMpin) {
+      final creds = await CredentialStore.getCredentials();
+      if (creds != null) {
+        try {
+          final authService = AuthService();
+          final deviceId = await SessionStore.getDeviceId();
+          // Silently login with the stored credentials to get a fresh token
+          final loginData = await authService.login(
+            companyCode: creds['vendorCode']!,
+            empCode: creds['empCode']!,
+            password: creds['password']!,
+            rememberMe: true,
+            deviceId: deviceId,
+          );
+          
+          // Verify the temporary MPIN against the server
+          await authService.verifyMpin(loginData.token, _pin);
+          
+          // It was the correct temp MPIN! 
+          await SessionStore.set(loginData);
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const MpinSetupScreen(
+                  isServerMpinSet: true,
+                  isResetMode: true,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          HapticFeedback.heavyImpact();
+          setState(() {
+            error = "Incorrect Temporary MPIN or failed to login.";
+            _pin = "";
+            isAutoLoggingIn = false;
+          });
+        }
+      } else {
+        setState(() {
+          error = "No saved credentials found. Please sign in with password.";
+          _pin = "";
+          isAutoLoggingIn = false;
+        });
+      }
     } else {
       HapticFeedback.heavyImpact();
       setState(() {
@@ -220,26 +269,38 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   }
 
   Future<void> _handleForgotMpin() async {
-    final confirmed = await showDialog<bool>(
+    final option = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Reset MPIN"),
-        content: const Text(
-            "To reset your MPIN, you must sign in with your password. Do you want to continue?"),
+        title: const Text("Forgot MPIN?"),
+        content: const Text("How would you like to reset your MPIN?"),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        actionsPadding: const EdgeInsets.all(24),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text("Cancel"),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text("Continue"),
-          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop('email'),
+                child: const Text("Send Temp MPIN to Email"),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop('password'),
+                child: const Text("Sign in with Password"),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Cancel"),
+              ),
+            ],
+          )
         ],
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (option == 'password' && mounted) {
       await MpinStore.clearMpin();
       await CredentialStore.clearCredentials();
       setState(() {
@@ -249,6 +310,43 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         empCodeCtrl.clear();
         passwordCtrl.clear();
       });
+    } else if (option == 'email' && mounted) {
+      setState(() {
+        isAutoLoggingIn = true;
+      });
+      try {
+        final authService = AuthService();
+        final creds = await CredentialStore.getCredentials();
+        final empCode = empCodeCtrl.text.trim().isNotEmpty 
+            ? empCodeCtrl.text.trim() 
+            : creds?['empCode'] ?? '';
+
+        await authService.forgotMpin(
+          vendorCodeCtrl.text.trim(),
+          empCode,
+        );
+        
+        // We DO NOT clear the local MPIN or Credentials here anymore.
+        // We stay on this screen to let them enter the temp MPIN.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text("Temp MPIN sent! Enter it below to set a new MPIN."),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ));
+          setState(() {
+            _isVerifyingTempMpin = true;
+            _pin = "";
+          });
+        }
+      } on AuthException catch (e) {
+        setState(() {
+          error = e.message;
+        });
+      } finally {
+        setState(() {
+          isAutoLoggingIn = false;
+        });
+      }
     }
   }
 
@@ -812,7 +910,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           TextButton(
             onPressed: isAutoLoggingIn ? null : _handleForgotMpin,
             child: Text(
-              "Forgot MPIN? Sign in with password",
+              "Forgot MPIN?",
               style: textTheme.bodyMedium?.copyWith(
                 color: cs.primary,
                 fontWeight: FontWeight.w600,
@@ -874,26 +972,56 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           builder: (context, state) {
             final isSubmitting = state is AuthLoading;
             return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: Checkbox(
-                    value: rememberMe,
-                    onChanged: isSubmitting
-                        ? null
-                        : (v) => setState(() => rememberMe = v ?? false),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
+                Row(
+                  children: [
+                    SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: Checkbox(
+                        value: rememberMe,
+                        onChanged: isSubmitting
+                            ? null
+                            : (v) => setState(() => rememberMe = v ?? false),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Remember me",
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  "Remember me",
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
+                TextButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("Forgot Password?"),
+                        content: const Text(
+                            "For security reasons, field engineers cannot reset passwords directly from the app. Please contact your Vendor Administrator or Manager to issue a new password for your account."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text("Okay"),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: Text(
+                    "Forgot Password?",
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: cs.primary,
+                    ),
                   ),
                 ),
               ],

@@ -17,6 +17,7 @@ class TimesheetState extends Equatable {
   final String attendanceLogId;
   final String uploadedPhotoUrl;
   final String errorMessage;
+  final bool isPunchedIn;
 
   const TimesheetState({
     this.status = TimesheetStatus.initial,
@@ -26,6 +27,7 @@ class TimesheetState extends Equatable {
     this.attendanceLogId = "",
     this.uploadedPhotoUrl = "",
     this.errorMessage = "",
+    this.isPunchedIn = false,
   });
 
   TimesheetState copyWith({
@@ -36,6 +38,7 @@ class TimesheetState extends Equatable {
     String? attendanceLogId,
     String? uploadedPhotoUrl,
     String? errorMessage,
+    bool? isPunchedIn,
   }) {
     return TimesheetState(
       status: status ?? this.status,
@@ -45,10 +48,11 @@ class TimesheetState extends Equatable {
       attendanceLogId: attendanceLogId ?? this.attendanceLogId,
       uploadedPhotoUrl: uploadedPhotoUrl ?? this.uploadedPhotoUrl,
       errorMessage: errorMessage ?? this.errorMessage,
+      isPunchedIn: isPunchedIn ?? this.isPunchedIn,
     );
   }
 
   @override
   List<Object?> get props =>
-      [status, projectName, siteName, projectId, attendanceLogId, uploadedPhotoUrl, errorMessage];
+      [status, projectName, siteName, projectId, attendanceLogId, uploadedPhotoUrl, errorMessage, isPunchedIn];
 }
