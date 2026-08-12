@@ -5,6 +5,7 @@ import "package:pinput/pinput.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/storage/mpin_store.dart";
+import "package:sitepulse_engineer/core/storage/credential_store.dart";
 import "package:sitepulse_engineer/features/auth/data/services/auth_service.dart";
 
 class ChangeMpinScreen extends StatefulWidget {
@@ -80,6 +81,58 @@ class _ChangeMpinScreenState extends State<ChangeMpinScreen> {
         _pinController.clear();
       });
       HapticFeedback.heavyImpact();
+    }
+  }
+
+  Future<void> _handleForgotMpin() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Forgot MPIN?"),
+        content: const Text(
+            "We will send a temporary 4-digit MPIN to your registered email address. Do you want to continue?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Send Email"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        final authService = AuthService();
+        final creds = await CredentialStore.getCredentials();
+        final vendorCode = creds?['vendorCode'] ?? '';
+        final empCode = creds?['empCode'] ?? '';
+
+        await authService.forgotMpin(vendorCode, empCode);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text("Temporary MPIN sent! Enter it above as your current MPIN."),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ));
+        }
+      } catch (e) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -258,6 +311,20 @@ class _ChangeMpinScreenState extends State<ChangeMpinScreen> {
                     style: TextStyle(
                       color: cs.error,
                       fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                if (_currentStep == _ChangeMpinStep.verifyCurrent)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: TextButton(
+                      onPressed: _isLoading ? null : _handleForgotMpin,
+                      child: Text(
+                        "Forgot MPIN?",
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
               ],

@@ -4,6 +4,7 @@ import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import 'package:pinput/pinput.dart';
 import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/storage/credential_store.dart';
 
 class MpinSetupScreen extends StatefulWidget {
   final bool isServerMpinSet;
@@ -23,6 +24,9 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
   String _confirmPin = "";
   bool _isConfirming = false;
   String _errorMessage = "";
+  bool _isLoading = false;
+  bool _isResetMode = false;
+  bool _didRequestTempMpin = false;
 
   final _pinController = TextEditingController();
 
@@ -68,8 +72,22 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
       final session = SessionStore.current;
       if (session != null) {
         await AuthService().verifyMpin(session.token, pin);
-        await MpinStore.setMpin(pin);
-        if (mounted) Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+        
+        if (_didRequestTempMpin) {
+          // They verified the temp MPIN, now force them to set a new one
+          setState(() {
+            _isResetMode = true;
+            _pin = "";
+            _confirmPin = "";
+            _isConfirming = false;
+            _errorMessage = "";
+            _pinController.clear();
+          });
+        } else {
+          // Normal flow, they entered their existing MPIN
+          await MpinStore.setMpin(pin);
+          if (mounted) Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+        }
       }
     } catch (e) {
       setState(() {
@@ -112,9 +130,88 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
   }
 
   bool get _isServerMpinSet {
+    if (_isResetMode) return false;
     if (widget.isResetMode) return false;
     if (widget.isServerMpinSet) return true;
     return SessionStore.current?.hasMpin ?? false;
+  }
+
+  Future<void> _handleForgotMpin() async {
+    final option = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Forgot MPIN?"),
+        content: const Text("How would you like to reset your MPIN?"),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        actionsPadding: const EdgeInsets.all(24),
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop('email'),
+                child: const Text("Send Temp MPIN to Email"),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop('password'),
+                child: const Text("Reset & Set New MPIN"),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Cancel"),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+
+    if (option == 'password' && mounted) {
+      // User already authenticated with password to get here.
+      // Just switch the screen to "Set New MPIN" mode.
+      setState(() {
+        _isResetMode = true;
+        _pin = "";
+        _confirmPin = "";
+        _isConfirming = false;
+        _errorMessage = "";
+        _pinController.clear();
+      });
+    } else if (option == 'email' && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        final authService = AuthService();
+        final creds = await CredentialStore.getCredentials();
+        final vendorCode = creds?['vendorCode'] ?? '';
+        final empCode = creds?['empCode'] ?? '';
+
+        await authService.forgotMpin(vendorCode, empCode);
+        
+        if (mounted) {
+          setState(() {
+            _didRequestTempMpin = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text("Temporary MPIN sent! Enter it above as your existing MPIN."),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ));
+        }
+      } catch (e) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
   }
 
   @override
@@ -224,6 +321,20 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.error,
                   fontWeight: FontWeight.w500,
+                ),
+              ),
+            if (_isServerMpinSet)
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: TextButton(
+                  onPressed: _isLoading ? null : _handleForgotMpin,
+                  child: Text(
+                    "Forgot MPIN?",
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
                 ),
               ),
             const Spacer(),

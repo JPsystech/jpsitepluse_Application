@@ -359,7 +359,37 @@ class _TimesheetViewState extends State<_TimesheetView> {
                   ),
                   const SizedBox(height: 24),
                   Expanded(
-                    child: _buildWorkDetailsList(context, isSubmitting, isLoading, pn, sn),
+                    child: state.isPunchedIn
+                        ? _buildWorkDetailsList(context, isSubmitting, isLoading, pn, sn)
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.assignment_late_rounded,
+                                  size: 64,
+                                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "You are not punched in",
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                                  child: Text(
+                                    "Please punch in to an assignment from the Dashboard before submitting a work update.",
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 64), // extra space for bottom padding
+                              ],
+                            ),
+                          ),
                   ),
                 ],
               ),
