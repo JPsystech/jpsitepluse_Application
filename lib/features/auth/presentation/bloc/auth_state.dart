@@ -23,3 +23,18 @@ class AuthError extends AuthState {
   @override
   List<Object?> get props => [message];
 }
+
+class AuthMpinOtpSent extends AuthState {
+  final String vendorCode;
+  final String empCode;
+  const AuthMpinOtpSent({required this.vendorCode, required this.empCode});
+  @override
+  List<Object?> get props => [vendorCode, empCode];
+}
+
+class AuthMpinOtpVerified extends AuthState {
+  final String resetToken;
+  const AuthMpinOtpVerified({required this.resetToken});
+  @override
+  List<Object?> get props => [resetToken];
+}

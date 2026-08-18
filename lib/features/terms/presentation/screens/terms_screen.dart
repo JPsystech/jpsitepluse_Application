@@ -44,13 +44,17 @@ class _TermsViewState extends State<_TermsView> {
             if (state is TermsSuccess) {
               final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
               final bool isResetMode = args?['isResetMode'] as bool? ?? false;
-              final bool isServerMpinSet = SessionStore.current?.hasMpin ?? false;
+              final bool isServerMpinSet = (args?['isServerMpinSet'] as bool?) ?? SessionStore.current?.hasMpin ?? false;
               
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppRoutes.mpinSetup, 
-                (_) => false, 
-                arguments: {'isServerMpinSet': isServerMpinSet, 'isResetMode': isResetMode},
-              );
+              if (isServerMpinSet) {
+                Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (_) => false);
+              } else {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  AppRoutes.mpinSetup, 
+                  (_) => false, 
+                  arguments: {'isServerMpinSet': isServerMpinSet, 'isResetMode': isResetMode},
+                );
+              }
             }
           }, builder: (context, state) {
             final isSaving = state is TermsSaving;

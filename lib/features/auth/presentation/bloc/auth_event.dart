@@ -37,3 +37,33 @@ class ChangePasswordRequested extends AuthEvent {
   @override
   List<Object?> get props => [token, currentPassword, newPassword];
 }
+
+class SendMpinOtpEvent extends AuthEvent {
+  final String vendorCode;
+  final String empCode;
+  final String email;
+
+  const SendMpinOtpEvent({
+    required this.vendorCode,
+    required this.empCode,
+    required this.email,
+  });
+
+  @override
+  List<Object?> get props => [vendorCode, empCode, email];
+}
+
+class VerifyMpinOtpEvent extends AuthEvent {
+  final String vendorCode;
+  final String empCode;
+  final String otp;
+
+  const VerifyMpinOtpEvent({
+    required this.vendorCode,
+    required this.empCode,
+    required this.otp,
+  });
+
+  @override
+  List<Object?> get props => [vendorCode, empCode, otp];
+}

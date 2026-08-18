@@ -269,6 +269,9 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
     if (s == "COMPLETED" || s == "PUNCHED_OUT") {
       return Theme.of(context).extension<AppColorsExtension>()!.success;
     }
+    if (s == "PENDING_SYNC") {
+      return Theme.of(context).extension<AppColorsExtension>()!.warningBg;
+    }
     if (s == "PUNCHED_IN") return cs.primary.withAlpha(26);
     return cs.primaryContainer;
   }

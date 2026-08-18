@@ -10,12 +10,16 @@ import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
 import "package:sitepulse_engineer/core/services/offline_timesheet_sync_service.dart";
 import "package:sitepulse_engineer/features/home/presentation/screens/today_assignment_screen.dart";
+import "package:sitepulse_engineer/features/history/data/services/history_service.dart";
+import "package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart";
 import "package:sitepulse_engineer/features/profile/presentation/screens/profile_screen.dart";
+import "package:intl/intl.dart";
 import "package:sitepulse_engineer/features/timeline/presentation/screens/activity_timeline_screen.dart";
 import "package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart";
 import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
-
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
+import "../../../../core/services/offline_document_sync_service.dart";
+import "../../../home/presentation/bloc/home_bloc.dart";
 
 class AppShellScope extends InheritedWidget {
   const AppShellScope({
@@ -71,9 +75,22 @@ class _AppShellViewState extends State<_AppShellView> {
     _offlineSyncToken = token;
     final svc = OfflinePunchSyncService();
     final timesheetSvc = OfflineTimesheetSyncService();
-    void runOnce() {
-      svc.sync(token: token);
+    final documentSvc = OfflineDocumentSyncService();
+    
+    // Proactively cache timeline and timesheets on app load
+    HistoryService().history(token: token).catchError((_) => null);
+    TimesheetService().timesheets(
+      token: token, 
+      month: DateFormat('yyyy-MM').format(DateTime.now())
+    ).catchError((_) => null);
+    
+    void runOnce() async {
+      final syncedCount = await svc.sync(token: token);
+      if (syncedCount > 0 && mounted) {
+         context.read<HomeBloc>().add(LoadAssignmentsRequested());
+      }
       timesheetSvc.sync(token: token);
+      documentSvc.sync(token: token);
     }
 
     runOnce();

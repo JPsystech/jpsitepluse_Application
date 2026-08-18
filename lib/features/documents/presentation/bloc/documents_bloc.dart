@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/features/documents/data/services/documents_service.dart';
 import 'package:sitepulse_engineer/shared/models/engineer_document_model.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/storage/offline_sync_store.dart';
 import 'package:sitepulse_engineer/core/services/api_client.dart';
 
 part 'documents_event.dart';
@@ -60,8 +61,12 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         lower.contains("only png")) {
       return "Unsupported format. Please select an allowed document format.";
     }
-    if (lower.contains("network") || lower.contains("unreachable")) {
-      return "Internet/API error. Please check your connection and retry.";
+    if (lower.contains("network") || 
+        lower.contains("unreachable") || 
+        lower.contains("connection failed") || 
+        lower.contains("socketexception") || 
+        lower.contains("failed host lookup")) {
+      return "You must be online to perform this action.";
     }
     return cleaned.isEmpty ? "Upload failed. Please try again." : cleaned;
   }
@@ -79,6 +84,49 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       final ndtDate = await _loadNdtExpiryDate();
       final docs =
           await _documentService.listDocuments(token: event.sessionToken);
+
+      // Merge with offline queue
+      final offlineDocs = await OfflineSyncStore.getDocumentQueue();
+      for (var offlineDoc in offlineDocs) {
+        final docType = offlineDoc['document_type'];
+        final index = docs.indexWhere((d) => d.documentType == docType);
+        if (index != -1) {
+          final existing = docs[index];
+          docs[index] = EngineerDocument(
+            id: existing.id,
+            engineerId: existing.engineerId,
+            documentType: existing.documentType,
+            documentName: existing.documentName,
+            fileUrl: offlineDoc['local_file_path'], // trick UI into using local file path
+            originalFilename: offlineDoc['original_filename'],
+            contentType: existing.contentType,
+            sizeBytes: existing.sizeBytes,
+            verificationStatus: "pending",
+            adminRemarks: existing.adminRemarks,
+            isRequired: existing.isRequired,
+            requiredLabel: existing.requiredLabel,
+            uploadedAt: existing.uploadedAt,
+            updatedAt: existing.updatedAt,
+          );
+        } else {
+          docs.add(EngineerDocument(
+            id: "-1",
+            engineerId: "",
+            documentType: docType,
+            documentName: offlineDoc['document_name'] ?? docType,
+            fileUrl: offlineDoc['local_file_path'],
+            originalFilename: offlineDoc['original_filename'],
+            contentType: offlineDoc['content_type'] ?? "application/pdf",
+            sizeBytes: offlineDoc['size_bytes'] ?? 0,
+            verificationStatus: "pending",
+            adminRemarks: null,
+            isRequired: false,
+            requiredLabel: null,
+            uploadedAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
+        }
+      }
 
       emit(state.copyWith(
         status: DocumentsStatus.loaded,
@@ -137,8 +185,55 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         clearOneOffs: false,
       ));
     } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      final isOffline = errStr.contains('connection failed') || 
+                        errStr.contains('socketexception') || 
+                        errStr.contains('failed host lookup') || 
+                        errStr.contains('network is unreachable');
+      
       final updatedBusyKeys = Set<String>.from(state.busyKeys)
         ..remove(event.busyKey);
+
+      if (isOffline) {
+        try {
+          // Save file locally
+          final tempDir = await getApplicationDocumentsDirectory();
+          final safeName = "offline_upload_${DateTime.now().millisecondsSinceEpoch}_${event.originalFileName}";
+          final file = File("${tempDir.path}${Platform.pathSeparator}$safeName");
+          await file.writeAsBytes(event.bytes, flush: true);
+
+          // Queue upload
+          await OfflineSyncStore.queueDocumentUpload({
+            "document_type": event.documentType,
+            "document_name": event.documentName,
+            "original_filename": event.originalFileName,
+            "content_type": event.contentType,
+            "size_bytes": event.sizeBytes,
+            "file_extension": event.fileExtension,
+            "ndt_expiry_date": event.ndtExpiryDate?.toIso8601String(),
+            "local_file_path": file.path,
+          });
+
+          DateTime? newNdtDate = state.ndtExpiryDate;
+          if (event.documentType == "ndt" && event.ndtExpiryDate != null) {
+            await _saveNdtExpiryDate(event.ndtExpiryDate!);
+            newNdtDate = DateTime(event.ndtExpiryDate!.year,
+                event.ndtExpiryDate!.month, event.ndtExpiryDate!.day);
+          }
+
+          emit(state.copyWith(
+            busyKeys: updatedBusyKeys,
+            ndtExpiryDate: newNdtDate,
+            snackbarMessage: "Document queued for offline upload",
+            isErrorSnackbar: false,
+            clearOneOffs: false,
+          ));
+          return;
+        } catch (queueError) {
+          // If queueing fails, fallback to standard error handling
+        }
+      }
+
       final msg = _friendlyUploadError(e.toString());
 
       emit(state.copyWith(
@@ -159,15 +254,21 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
 
     try {
       final url = event.document.fileUrl.trim();
-      final apiUri = await ApiClient().url(url);
-      final response = await http.get(apiUri);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw "Failed to download file";
+      
+      // If it's an offline queued document, the URL is actually a local file path
+      if (File(url).existsSync()) {
+        final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
+        emit(state.copyWith(
+          busyKeys: updatedBusyKeys,
+          downloadedFilePath: url,
+          clearOneOffs: false,
+        ));
+        return;
       }
 
       final tempDir = await getTemporaryDirectory();
       final name = event.document.effectiveFileName.isEmpty
-          ? "document.pdf"
+          ? "document_${event.document.id}.pdf"
           : event.document.effectiveFileName;
       final safeName = name
           .replaceAll("\\", "_")
@@ -181,7 +282,16 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
           .replaceAll("|", "_");
 
       final file = File("${tempDir.path}${Platform.pathSeparator}$safeName");
-      await file.writeAsBytes(response.bodyBytes, flush: true);
+      
+      // If the file already exists locally, use the cached version directly
+      if (!(await file.exists())) {
+        final apiUri = await ApiClient().url(url);
+        final response = await http.get(apiUri);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw "Failed to download file";
+        }
+        await file.writeAsBytes(response.bodyBytes, flush: true);
+      }
 
       final updatedBusyKeys = Set<String>.from(state.busyKeys)
         ..remove(event.busyKey);

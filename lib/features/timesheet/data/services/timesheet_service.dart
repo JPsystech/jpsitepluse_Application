@@ -1,4 +1,6 @@
+import "dart:convert";
 import "dart:io";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:sitepulse_engineer/core/services/api_client.dart";
 import "package:sitepulse_engineer/shared/models/today_assignment.dart";
 
@@ -38,12 +40,41 @@ class TimesheetService {
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
 
     final uri = await api.url("/api/v1/engineer/timesheets$qs");
-    final json = await api.getJson(uri,
-        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
-    if (json == null) {
-      throw ApiException("Invalid response from server");
+    // Cache key based on month (or default if no month provided)
+    final cacheKey = "cached_timesheets_v1_${month?.trim() ?? 'default'}";
+
+    try {
+      final json = await api.getJson(uri,
+          headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+      if (json == null) {
+        throw ApiException("Invalid response from server");
+      }
+      
+      // Save to cache on success
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(cacheKey, jsonEncode(json));
+
+      return EngineerTimesheetListResponse.fromJson(json);
+    } catch (e) {
+      final err = e.toString().toLowerCase();
+      final isOffline = err.contains('connection failed') || 
+                        err.contains('socketexception') || 
+                        err.contains('failed host lookup') || 
+                        err.contains('network is unreachable');
+      
+      if (isOffline) {
+        // Try to load from cache
+        final prefs = await SharedPreferences.getInstance();
+        final cachedData = prefs.getString(cacheKey);
+        if (cachedData != null) {
+          final Map<String, dynamic> json = jsonDecode(cachedData);
+          return EngineerTimesheetListResponse.fromJson(json);
+        } else {
+          throw Exception("You are offline and no data is available for this month.");
+        }
+      }
+      rethrow;
     }
-    return EngineerTimesheetListResponse.fromJson(json);
   }
 
   Future<EngineerTimesheetFilterOptionsResponse> timesheetFilterOptions({
@@ -73,12 +104,41 @@ class TimesheetService {
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
 
     final uri = await api.url("/api/v1/engineer/timesheets/filters$qs");
-    final json = await api.getJson(uri,
-        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
-    if (json == null) {
-      throw ApiException("Invalid response from server");
+    // Cache key based on month (or default if no month provided)
+    final cacheKey = "cached_timesheet_filters_v1_${month?.trim() ?? 'default'}";
+
+    try {
+      final json = await api.getJson(uri,
+          headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+      if (json == null) {
+        throw ApiException("Invalid response from server");
+      }
+      
+      // Save to cache on success
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(cacheKey, jsonEncode(json));
+
+      return EngineerTimesheetFilterOptionsResponse.fromJson(json);
+    } catch (e) {
+      final err = e.toString().toLowerCase();
+      final isOffline = err.contains('connection failed') || 
+                        err.contains('socketexception') || 
+                        err.contains('failed host lookup') || 
+                        err.contains('network is unreachable');
+      
+      if (isOffline) {
+        // Try to load from cache
+        final prefs = await SharedPreferences.getInstance();
+        final cachedData = prefs.getString(cacheKey);
+        if (cachedData != null) {
+          final Map<String, dynamic> json = jsonDecode(cachedData);
+          return EngineerTimesheetFilterOptionsResponse.fromJson(json);
+        } else {
+          throw Exception("You are offline and no cached filters are available.");
+        }
+      }
+      rethrow;
     }
-    return EngineerTimesheetFilterOptionsResponse.fromJson(json);
   }
 
   Future<EngineerTimesheetDetailResponse> timesheetDetail(

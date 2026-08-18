@@ -9,10 +9,13 @@ import 'package:sitepulse_engineer/core/storage/credential_store.dart';
 class MpinSetupScreen extends StatefulWidget {
   final bool isServerMpinSet;
   final bool isResetMode;
+  final String? resetToken; // Added for OTP flow
+
   const MpinSetupScreen({
     super.key,
     this.isServerMpinSet = false,
     this.isResetMode = false,
+    this.resetToken,
   });
 
   @override
@@ -26,7 +29,6 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
   String _errorMessage = "";
   bool _isLoading = false;
   bool _isResetMode = false;
-  bool _didRequestTempMpin = false;
 
   final _pinController = TextEditingController();
 
@@ -72,22 +74,14 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
       final session = SessionStore.current;
       if (session != null) {
         await AuthService().verifyMpin(session.token, pin);
-        
-        if (_didRequestTempMpin) {
-          // They verified the temp MPIN, now force them to set a new one
-          setState(() {
-            _isResetMode = true;
-            _pin = "";
-            _confirmPin = "";
-            _isConfirming = false;
-            _errorMessage = "";
-            _pinController.clear();
-          });
-        } else {
-          // Normal flow, they entered their existing MPIN
-          await MpinStore.setMpin(pin);
-          if (mounted) Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
-        }
+
+        await AuthService().verifyMpin(session.token, pin);
+
+        // Normal flow, they entered their existing MPIN successfully
+        await MpinStore.setMpin(pin);
+        if (mounted)
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
       }
     } catch (e) {
       setState(() {
@@ -101,13 +95,20 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
   Future<void> _verifyAndSave() async {
     if (_pin == _confirmPin) {
       try {
-        final session = SessionStore.current;
-        if (session != null) {
-          await AuthService().setMpin(session.token, _pin);
+        if (widget.resetToken != null) {
+          // Setting new MPIN via OTP reset token
+          await AuthService().setMpinWithToken(widget.resetToken!, _pin);
+        } else {
+          final session = SessionStore.current;
+          if (session != null) {
+            // Standard MPIN setup for logged-in session
+            await AuthService().setMpin(session.token, _pin);
+          }
         }
         await MpinStore.setMpin(_pin);
         if (mounted) {
-          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
         }
       } catch (e) {
         setState(() {
@@ -136,87 +137,15 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
     return SessionStore.current?.hasMpin ?? false;
   }
 
-  Future<void> _handleForgotMpin() async {
-    final option = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Forgot MPIN?"),
-        content: const Text("How would you like to reset your MPIN?"),
-        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        actionsPadding: const EdgeInsets.all(24),
-        actions: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop('email'),
-                child: const Text("Send Temp MPIN to Email"),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop('password'),
-                child: const Text("Reset & Set New MPIN"),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Cancel"),
-              ),
-            ],
-          )
-        ],
-      ),
-    );
-
-    if (option == 'password' && mounted) {
-      // User already authenticated with password to get here.
-      // Just switch the screen to "Set New MPIN" mode.
-      setState(() {
-        _isResetMode = true;
-        _pin = "";
-        _confirmPin = "";
-        _isConfirming = false;
-        _errorMessage = "";
-        _pinController.clear();
-      });
-    } else if (option == 'email' && mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-      try {
-        final authService = AuthService();
-        final creds = await CredentialStore.getCredentials();
-        final vendorCode = creds?['vendorCode'] ?? '';
-        final empCode = creds?['empCode'] ?? '';
-
-        await authService.forgotMpin(vendorCode, empCode);
-        
-        if (mounted) {
-          setState(() {
-            _didRequestTempMpin = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: const Text("Temporary MPIN sent! Enter it above as your existing MPIN."),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ));
-        }
-      } catch (e) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    }
+  void _handleForgotMpin() {
+    Navigator.of(context).pushNamed(AppRoutes.mpinOtpRequest);
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = _isServerMpinSet ? "Enter Existing MPIN" : (_isConfirming ? "Confirm MPIN" : "Set MPIN");
+    final title = _isServerMpinSet
+        ? "Enter Existing MPIN"
+        : (_isConfirming ? "Confirm MPIN" : "Set MPIN");
     final subtitle = _isServerMpinSet
         ? "Enter the MPIN you created previously"
         : (_isConfirming
@@ -224,124 +153,149 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
             : "Create a 4-digit MPIN for quick access");
     final currentLength = _isConfirming ? _confirmPin.length : _pin.length;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 60),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
-                ),
-              ),
-            ),
-            const SizedBox(height: 60),
-            Center(
-              child: Pinput(
-                key: ValueKey(_isConfirming ? "confirm" : "set"),
-                controller: _pinController,
-                length: 4,
-                autofocus: true,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                onCompleted: _onPinCompleted,
-                defaultPinTheme: PinTheme(
-                  width: 56,
-                  height: 64,
-                  textStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                focusedPinTheme: PinTheme(
-                  width: 56,
-                  height: 64,
-                  textStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                ),
-                errorPinTheme: PinTheme(
-                  width: 56,
-                  height: 64,
-                  textStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.error,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            if (_errorMessage.isNotEmpty)
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 60),
               Text(
-                _errorMessage,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w500,
-                ),
+                title,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
-            if (_isServerMpinSet)
+              const SizedBox(height: 12),
               Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: TextButton(
-                  onPressed: _isLoading ? null : _handleForgotMpin,
-                  child: Text(
-                    "Forgot MPIN?",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color:
+                        Theme.of(context).colorScheme.onSurface.withAlpha(150),
                   ),
                 ),
               ),
-            const Spacer(),
-            const SizedBox(height: 60),
-          ],
+              const SizedBox(height: 60),
+              Center(
+                child: Pinput(
+                  key: ValueKey(_isConfirming ? "confirm" : "set"),
+                  controller: _pinController,
+                  length: 4,
+                  autofocus: true,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  onCompleted: _onPinCompleted,
+                  defaultPinTheme: PinTheme(
+                    width: 56,
+                    height: 64,
+                    textStyle:
+                        Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outline
+                            .withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  focusedPinTheme: PinTheme(
+                    width: 56,
+                    height: 64,
+                    textStyle:
+                        Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  errorPinTheme: PinTheme(
+                    width: 56,
+                    height: 64,
+                    textStyle:
+                        Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .errorContainer
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.error,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              if (_errorMessage.isNotEmpty)
+                Text(
+                  _errorMessage,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              if (_isServerMpinSet)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: TextButton(
+                    onPressed: _isLoading ? null : _handleForgotMpin,
+                    child: Text(
+                      "Forgot MPIN?",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              const SizedBox(height: 60),
+            ],
+          ),
         ),
       ),
-    );
+    ); // closes PopScope
   }
 }

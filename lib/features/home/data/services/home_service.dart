@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 
@@ -14,10 +15,9 @@ class HomeService {
 
       if (response.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
-        // Use a generic key, but if we wanted to be perfectly safe, we'd clear it on logout.
-        // For now, let's just save it.
         await prefs.setString(cacheKey, jsonEncode(response.data));
-        return TodayAssignmentResponseModel.fromJson(response.data);
+        final mergedData = await _applyOfflinePunches(response.data);
+        return TodayAssignmentResponseModel.fromJson(mergedData);
       } else {
         throw Exception(
             response.data['detail'] ?? 'Failed to load assignments');
@@ -34,10 +34,62 @@ class HomeService {
       if (raw != null && raw.trim().isNotEmpty) {
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, dynamic>) {
-          return TodayAssignmentResponseModel.fromJson(decoded);
+          final mergedData = await _applyOfflinePunches(decoded);
+          return TodayAssignmentResponseModel.fromJson(mergedData);
         }
       }
+      
+      final err = e.toString().toLowerCase();
+      final isOffline = err.contains('connection failed') || 
+                        err.contains('socketexception') || 
+                        err.contains('failed host lookup') || 
+                        err.contains('network is unreachable');
+      
+      if (isOffline) {
+        throw Exception("You are offline and no dashboard data is available.");
+      }
+      
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> _applyOfflinePunches(Map<String, dynamic> data) async {
+    final offlinePunches = await OfflinePunchQueue().list();
+    if (offlinePunches.isEmpty) return data;
+    
+    String? currentActiveProjectId = data['active_project_id'] as String?;
+    
+    for (final punch in offlinePunches) {
+      final isPunchIn = punch.type == OfflinePunchType.inPunch;
+      final targetProjectId = punch.projectId ?? currentActiveProjectId;
+      
+      if (isPunchIn) {
+        currentActiveProjectId = targetProjectId;
+        data['active_project_id'] = targetProjectId;
+        data['active_attendance_log_id'] = "offline_";
+        if (data['assignments'] is List && targetProjectId != null) {
+           for (var a in data['assignments']) {
+              if (a['project_id'] == targetProjectId) {
+                 a['today_punch_in_time'] = punch.clientPunchTimeIso;
+                 a['today_status'] = "PUNCHED_IN";
+                 a.remove('today_punch_out_time');
+              }
+           }
+        }
+      } else {
+        data['active_project_id'] = null;
+        data['active_attendance_log_id'] = null;
+        currentActiveProjectId = null;
+        if (data['assignments'] is List && targetProjectId != null) {
+           for (var a in data['assignments']) {
+              if (a['project_id'] == targetProjectId) {
+                 a['today_punch_out_time'] = punch.clientPunchTimeIso;
+                 a['today_status'] = "PUNCHED_OUT";
+              }
+           }
+        }
+      }
+    }
+    return data;
   }
 }

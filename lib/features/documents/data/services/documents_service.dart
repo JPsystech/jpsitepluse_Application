@@ -1,5 +1,6 @@
 import "dart:convert";
 import "dart:io";
+import "package:shared_preferences/shared_preferences.dart";
 
 import "package:http/http.dart" as http;
 
@@ -15,10 +16,41 @@ class DocumentsService {
 
   Future<List<EngineerDocument>> listDocuments({required String token}) async {
     final uri = await api.url("/api/v1/engineer/documents");
-    final json = await api.getJson(uri,
-        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
-    final resp = EngineerDocumentListResponse.fromUnknown(json);
-    return resp.items;
+    final cacheKey = "cached_documents_v1";
+
+    try {
+      final json = await api.getJson(uri,
+          headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+      
+      // Save to cache on success
+      if (json != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(cacheKey, jsonEncode(json));
+      }
+
+      final resp = EngineerDocumentListResponse.fromUnknown(json);
+      return resp.items;
+    } catch (e) {
+      final err = e.toString().toLowerCase();
+      final isOffline = err.contains('connection failed') || 
+                        err.contains('socketexception') || 
+                        err.contains('failed host lookup') || 
+                        err.contains('network is unreachable');
+      
+      if (isOffline) {
+        // Try to load from cache
+        final prefs = await SharedPreferences.getInstance();
+        final cachedData = prefs.getString(cacheKey);
+        if (cachedData != null) {
+          final json = jsonDecode(cachedData);
+          final resp = EngineerDocumentListResponse.fromUnknown(json);
+          return resp.items;
+        } else {
+          throw Exception("You are offline and no documents are available.");
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<EngineerDocumentPresignResponse> presign({
