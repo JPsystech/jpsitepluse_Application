@@ -11,6 +11,7 @@ import "package:sitepulse_engineer/core/storage/terms_store.dart";
 import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import "package:sitepulse_engineer/core/storage/credential_store.dart";
 import "package:sitepulse_engineer/core/storage/session_store.dart";
+import "package:sitepulse_engineer/core/storage/offline_session_cache.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
@@ -19,7 +20,6 @@ import "package:pinput/pinput.dart";
 
 import "package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart";
 import "package:sitepulse_engineer/features/auth/presentation/bloc/auth_bloc.dart";
-import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_setup_screen.dart";
 
 import "../../data/services/auth_service.dart";
 
@@ -62,7 +62,6 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   String _pin = "";
   String _engineerName = "";
   bool isAutoLoggingIn = false;
-  bool _isVerifyingTempMpin = false;
 
   @override
   void initState() {
@@ -81,11 +80,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
       final hasMpin = await MpinStore.hasMpin();
       final creds = await CredentialStore.getCredentials();
+      final session = SessionStore.current;
 
-      if (hasMpin && creds != null) {
+      if (hasMpin || (session?.hasMpin ?? false)) {
         setState(() {
           isMpinMode = true;
-          _engineerName = creds['engineerName'] ?? "Engineer";
+          _engineerName = creds?['engineerName'] ?? "Engineer";
         });
       }
 
@@ -117,7 +117,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     try {
       final baseUrl = await resolveApiBaseUrl();
       final uri = Uri.parse("$baseUrl/api/v1/public/branding/$vendor");
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -134,21 +134,22 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         setState(() {
           error = "Invalid Vendor Code. Please try again.";
           isFetchingBranding = false;
+          isLoadingInitialState = false;
         });
         return;
       } else {
         setState(() {
           error = "Failed to verify Vendor Code.";
           isFetchingBranding = false;
+          isLoadingInitialState = false;
         });
         return;
       }
     } catch (e) {
       setState(() {
-        error = "Network error. Please check your connection.";
-        isFetchingBranding = false;
+        error = "Network error. Proceeding offline.";
       });
-      return;
+      // Do not return here. Let the local session initialize so the user can use MPIN offline.
     }
 
     if (!mounted) return;
@@ -158,13 +159,18 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
     final hasMpin = await MpinStore.hasMpin();
     final creds = await CredentialStore.getCredentials();
+    final session = SessionStore.current;
 
     if (!mounted) return;
 
     setState(() {
-      if (hasMpin && creds != null && creds['vendorCode'] == vendor) {
+      if (hasMpin || (session?.hasMpin ?? false)) {
         isMpinMode = true;
-        _engineerName = creds['engineerName'] ?? "Engineer";
+        _engineerName = creds?['engineerName'] ?? "Engineer";
+        // Clear the network warning since we can proceed with offline MPIN
+        if (error == "Network error. Proceeding offline.") {
+          error = null;
+        }
       } else {
         isMpinMode = false;
       }
@@ -189,9 +195,29 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
   Future<void> _verifyMpinAndLogin() async {
     setState(() => isAutoLoggingIn = true);
-    final isValid = await MpinStore.verifyMpin(_pin);
+    bool isValid = await MpinStore.verifyMpin(_pin);
+    if (!isValid && SessionStore.current != null) {
+      try {
+        await AuthService().verifyMpin(SessionStore.current!.token, _pin);
+        isValid = true;
+        await MpinStore.setMpin(_pin); // Save locally for future use
+      } catch (e) {
+        isValid = false;
+      }
+    }
     if (isValid) {
       if (SessionStore.current != null) {
+        if (mounted) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+        }
+        return;
+      }
+
+      // Session is null (user logged out). Try to restore offline session.
+      final offlineSession = await OfflineSessionCache.get();
+      if (offlineSession != null) {
+        await SessionStore.set(offlineSession);
         if (mounted) {
           Navigator.of(context)
               .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
@@ -206,51 +232,6 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         passwordCtrl.text = creds['password']!;
         rememberMe = true;
         submit();
-      } else {
-        setState(() {
-          error = "No saved credentials found. Please sign in with password.";
-          _pin = "";
-          isAutoLoggingIn = false;
-        });
-      }
-    } else if (_isVerifyingTempMpin) {
-      final creds = await CredentialStore.getCredentials();
-      if (creds != null) {
-        try {
-          final authService = AuthService();
-          final deviceId = await SessionStore.getDeviceId();
-          // Silently login with the stored credentials to get a fresh token
-          final loginData = await authService.login(
-            companyCode: creds['vendorCode']!,
-            empCode: creds['empCode']!,
-            password: creds['password']!,
-            rememberMe: true,
-            deviceId: deviceId,
-          );
-          
-          // Verify the temporary MPIN against the server
-          await authService.verifyMpin(loginData.token, _pin);
-          
-          // It was the correct temp MPIN! 
-          await SessionStore.set(loginData);
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const MpinSetupScreen(
-                  isServerMpinSet: true,
-                  isResetMode: true,
-                ),
-              ),
-            );
-          }
-        } catch (e) {
-          HapticFeedback.heavyImpact();
-          setState(() {
-            error = "Incorrect Temporary MPIN or failed to login.";
-            _pin = "";
-            isAutoLoggingIn = false;
-          });
-        }
       } else {
         setState(() {
           error = "No saved credentials found. Please sign in with password.";
@@ -282,7 +263,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             children: [
               FilledButton(
                 onPressed: () => Navigator.of(context).pop('email'),
-                child: const Text("Send Temp MPIN to Email"),
+                child: const Text("Send Reset Code to Email"),
               ),
               const SizedBox(height: 8),
               OutlinedButton(
@@ -311,42 +292,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         passwordCtrl.clear();
       });
     } else if (option == 'email' && mounted) {
-      setState(() {
-        isAutoLoggingIn = true;
-      });
-      try {
-        final authService = AuthService();
-        final creds = await CredentialStore.getCredentials();
-        final empCode = empCodeCtrl.text.trim().isNotEmpty 
-            ? empCodeCtrl.text.trim() 
-            : creds?['empCode'] ?? '';
-
-        await authService.forgotMpin(
-          vendorCodeCtrl.text.trim(),
-          empCode,
-        );
-        
-        // We DO NOT clear the local MPIN or Credentials here anymore.
-        // We stay on this screen to let them enter the temp MPIN.
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: const Text("Temp MPIN sent! Enter it below to set a new MPIN."),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ));
-          setState(() {
-            _isVerifyingTempMpin = true;
-            _pin = "";
-          });
-        }
-      } on AuthException catch (e) {
-        setState(() {
-          error = e.message;
-        });
-      } finally {
-        setState(() {
-          isAutoLoggingIn = false;
-        });
-      }
+      Navigator.of(context).pushNamed(AppRoutes.mpinOtpRequest);
     }
   }
 
@@ -405,11 +351,11 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     }
 
     context.read<AuthBloc>().add(LoginRequested(
-          vendorCode: vendor,
-          empCode: normalizedEmp,
-          password: pass,
-          rememberMe: rememberMe,
-        ));
+      vendorCode: vendor,
+      empCode: normalizedEmp,
+      password: pass,
+      rememberMe: rememberMe,
+    ));
   }
 
   InputDecoration _buildInputDecoration(
@@ -451,7 +397,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
     // Dynamically calculate logo size (e.g. 35% of screen width), constrained between 100 and 160
     final logoSize =
-        (MediaQuery.sizeOf(context).width * 0.35).clamp(100.0, 160.0);
+    (MediaQuery.sizeOf(context).width * 0.35).clamp(100.0, 160.0);
 
     return BlocListener<AuthBloc, AuthState>(
         listener: (context, state) async {
@@ -469,6 +415,9 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                         currentPassword: passwordCtrl.text.trim())),
               );
             } else {
+              if (session.acceptedTerms) {
+                await TermsStore.setAccepted(true);
+              }
               final accepted = await TermsStore.isAccepted();
               final hasMpinLocal = await MpinStore.hasMpin();
               if (!context.mounted) return;
@@ -595,40 +544,40 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                               padding: const EdgeInsets.all(4),
                                               decoration: BoxDecoration(
                                                 color: _currentStep == 1 &&
-                                                        vendorLogoUrl != null
+                                                    vendorLogoUrl != null
                                                     ? Colors.white
                                                     : cs.primary,
                                                 borderRadius:
-                                                    BorderRadius.circular(16),
+                                                BorderRadius.circular(16),
                                               ),
                                               child: _currentStep == 1 &&
-                                                      vendorLogoUrl != null
+                                                  vendorLogoUrl != null
                                                   ? ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              12),
-                                                      child: Image.network(
-                                                        vendorLogoUrl!,
-                                                        width: logoSize,
-                                                        height: logoSize,
-                                                        fit: BoxFit
-                                                            .contain, // Safely bounds any aspect ratio dynamically
-                                                        errorBuilder:
-                                                            (_, __, ___) =>
-                                                                Icon(
-                                                          Icons
-                                                              .business_center_rounded,
-                                                          color: cs.onPrimary,
-                                                          size: logoSize,
-                                                        ),
+                                                borderRadius:
+                                                BorderRadius.circular(
+                                                    12),
+                                                child: Image.network(
+                                                  vendorLogoUrl!,
+                                                  width: logoSize,
+                                                  height: logoSize,
+                                                  fit: BoxFit
+                                                      .contain, // Safely bounds any aspect ratio dynamically
+                                                  errorBuilder:
+                                                      (_, __, ___) =>
+                                                      Icon(
+                                                        Icons
+                                                            .business_center_rounded,
+                                                        color: cs.onPrimary,
+                                                        size: logoSize,
                                                       ),
-                                                    )
+                                                ),
+                                              )
                                                   : Icon(
-                                                      Icons
-                                                          .business_center_rounded,
-                                                      color: cs.onPrimary,
-                                                      size: logoSize,
-                                                    ),
+                                                Icons
+                                                    .business_center_rounded,
+                                                color: cs.onPrimary,
+                                                size: logoSize,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -640,7 +589,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                         "SitePulse",
                                         textAlign: TextAlign.center,
                                         style:
-                                            textTheme.headlineSmall?.copyWith(
+                                        textTheme.headlineSmall?.copyWith(
                                           fontWeight: FontWeight.w900,
                                           color: cs.primary,
                                           letterSpacing: 1.2,
@@ -650,7 +599,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                     const SizedBox(height: 12),
                                     AnimatedSwitcher(
                                       duration:
-                                          const Duration(milliseconds: 300),
+                                      const Duration(milliseconds: 300),
                                       transitionBuilder: (child, animation) {
                                         return FadeTransition(
                                           opacity: animation,
@@ -687,7 +636,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                       BlocBuilder<AuthBloc, AuthState>(
                                         builder: (context, state) {
                                           final isSubmitting =
-                                              state is AuthLoading;
+                                          state is AuthLoading;
                                           return SizedBox(
                                             height: 56,
                                             width: double.infinity,
@@ -695,7 +644,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                               style: FilledButton.styleFrom(
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(18),
+                                                  BorderRadius.circular(18),
                                                 ),
                                               ),
                                               onPressed: isSubmitting
@@ -768,20 +717,20 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             onPressed: isFetchingBranding ? null : _nextStep,
             child: isFetchingBranding
                 ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: cs.onPrimary,
-                    ),
-                  )
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cs.onPrimary,
+              ),
+            )
                 : Text(
-                    "Next",
-                    style: textTheme.titleMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              "Next",
+              style: textTheme.titleMedium?.copyWith(
+                color: cs.onPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ],
@@ -1045,20 +994,20 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                 onPressed: isSubmitting ? null : submit,
                 child: isSubmitting
                     ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: cs.onPrimary,
-                        ),
-                      )
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: cs.onPrimary,
+                  ),
+                )
                     : Text(
-                        "Log In",
-                        style: textTheme.titleMedium?.copyWith(
-                          color: cs.onPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  "Log In",
+                  style: textTheme.titleMedium?.copyWith(
+                    color: cs.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             );
           },
@@ -1207,10 +1156,10 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
     }
 
     context.read<AuthBloc>().add(ChangePasswordRequested(
-          token: widget.session.token,
-          currentPassword: widget.currentPassword,
-          newPassword: newPw,
-        ));
+      token: widget.session.token,
+      currentPassword: widget.currentPassword,
+      newPassword: newPw,
+    ));
   }
 
   @override
@@ -1226,6 +1175,9 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
           });
         } else if (state is AuthInitial) {
           // Success case for ChangePassword
+          if (widget.session.acceptedTerms) {
+            await TermsStore.setAccepted(true);
+          }
           final accepted = await TermsStore.isAccepted();
           if (!context.mounted) return;
           Navigator.of(context)
@@ -1296,7 +1248,7 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                   obscureText: true,
                   textInputAction: TextInputAction.next,
                   helperText:
-                      "8 to 10 characters, at least 1 letter and 1 number.",
+                  "8 to 10 characters, at least 1 letter and 1 number.",
                 ),
                 const SizedBox(height: 14),
                 AppTextField(

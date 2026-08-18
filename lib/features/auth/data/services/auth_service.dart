@@ -37,6 +37,7 @@ class AuthService {
           mustChangePassword: response.data['must_change_password'] ?? false,
           expiresAtMs: response.data['expires_at_ms'],
           hasMpin: response.data['has_mpin'] ?? false,
+          acceptedTerms: response.data['accepted_terms'] ?? false,
         );
       } else {
         throw AuthException(response.data['detail'] ?? 'Login failed');
@@ -105,12 +106,13 @@ class AuthService {
     }
   }
 
-  Future<void> forgotMpin(String vendorCode, String empCode) async {
+  Future<void> sendMpinOtp(String vendorCode, String empCode, String email) async {
     final client = await ApiClient.instance.dio;
     try {
       await client.post('/api/v1/engineer/forgot-mpin', data: {
         'vendor_code': vendorCode,
         'emp_code': empCode,
+        'email': email,
       });
     } on DioException catch (e) {
       if (e.response != null && e.response?.data != null) {
@@ -122,7 +124,51 @@ class AuthService {
           }
         }
       }
-      throw AuthException('Failed to reset MPIN: ${e.message}');
+      throw AuthException('Failed to request MPIN OTP: ${e.message}');
+    }
+  }
+
+  Future<String> verifyMpinOtp(String vendorCode, String empCode, String otp) async {
+    final client = await ApiClient.instance.dio;
+    try {
+      final response = await client.post('/api/v1/engineer/verify-mpin-otp', data: {
+        'vendor_code': vendorCode,
+        'emp_code': empCode,
+        'otp': otp,
+      });
+      return response.data['reset_token'] ?? '';
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        final data = e.response?.data;
+        if (data is Map) {
+          final detail = data['error']?['message'] ?? data['detail'] ?? data['message'];
+          if (detail != null) {
+            throw AuthException(detail.toString());
+          }
+        }
+      }
+      throw AuthException('Failed to verify OTP: ${e.message}');
+    }
+  }
+
+  Future<void> setMpinWithToken(String resetToken, String mpin) async {
+    final client = await ApiClient.instance.dio;
+    try {
+      await client.post('/api/v1/engineer/reset-mpin', data: {
+        'reset_token': resetToken,
+        'new_mpin': mpin,
+      });
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        final data = e.response?.data;
+        if (data is Map) {
+          final detail = data['error']?['message'] ?? data['detail'] ?? data['message'];
+          if (detail != null) {
+            throw AuthException(detail.toString());
+          }
+        }
+      }
+      throw AuthException('Failed to reset MPIN with token: ${e.message}');
     }
   }
 }

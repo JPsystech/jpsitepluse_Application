@@ -40,10 +40,10 @@ class TimelineBloc extends Bloc<TimelineEvent, TimelineState> {
       ));
     } catch (e) {
       final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable') || err.contains('you are offline');
       emit(state.copyWith(
         status: TimelineStatus.error,
-        errorMessage: isOffline ? "No internet connection. Please check your network and try again." : e.toString(),
+        errorMessage: isOffline ? "You are offline and no activity history is available locally." : e.toString().replaceFirst("Exception: ", ""),
       ));
     }
   }

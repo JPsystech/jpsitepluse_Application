@@ -16,9 +16,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   Future<void> _onProfileLogoutRequested(
       ProfileLogoutRequested event, Emitter<ProfileState> emit) async {
     await SessionStore.clear();
-    await OfflinePunchQueue().clear();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("cached_today_assignments_v1");
+    // Do not clear offline cache or queues here so MPIN login can restore them
     emit(ProfileLogoutSuccess());
   }
 }

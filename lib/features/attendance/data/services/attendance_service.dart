@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:sitepulse_engineer/features/attendance/data/models/punch_response_model.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
+import 'package:sitepulse_engineer/core/storage/offline_sync_store.dart';
 
 class AttendanceService {
   Future<PunchInResponseModel> punchIn({
@@ -31,6 +32,13 @@ class AttendanceService {
           await client.post('/api/v1/engineer/punch-in', data: body);
       return PunchInResponseModel.fromJson(response.data);
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.sendTimeout || 
+          e.type == DioExceptionType.receiveTimeout || 
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        rethrow;
+      }
       final data = e.response?.data;
       if (data is Map<String, dynamic>) {
         if (data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
@@ -75,6 +83,13 @@ class AttendanceService {
           await client.post('/api/v1/engineer/punch-out', data: body);
       return PunchOutResponseModel.fromJson(response.data);
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.sendTimeout || 
+          e.type == DioExceptionType.receiveTimeout || 
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        rethrow;
+      }
       final data = e.response?.data;
       if (data is Map<String, dynamic>) {
         if (data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {

@@ -991,6 +991,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         } else if (state is PunchOfflineQueued) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)));
+          context.read<HomeBloc>().add(LoadAssignmentsRequested());
           setState(() {});
         }
       },

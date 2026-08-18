@@ -34,4 +34,12 @@ class AuthRepository {
       newPassword: newPassword,
     );
   }
+
+  Future<void> sendMpinOtp(String vendorCode, String empCode, String email) async {
+    return await _authService.sendMpinOtp(vendorCode, empCode, email);
+  }
+
+  Future<String> verifyMpinOtp(String vendorCode, String empCode, String otp) async {
+    return await _authService.verifyMpinOtp(vendorCode, empCode, otp);
+  }
 }

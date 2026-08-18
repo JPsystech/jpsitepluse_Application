@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/storage/terms_store.dart';
 import 'package:sitepulse_engineer/core/storage/mpin_store.dart';
+import 'package:sitepulse_engineer/core/storage/credential_store.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
@@ -59,16 +60,22 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       }
 
       String nextRoute = AppRoutes.login;
+      final creds = await CredentialStore.getCredentials();
       
       if (SessionStore.current != null) {
+        // User has an active session
         if (!accepted) {
           nextRoute = AppRoutes.terms;
-        } else if (hasMpin) {
-          nextRoute = AppRoutes.login;
+        } else if (hasMpin || SessionStore.current!.hasMpin) {
+          nextRoute = AppRoutes.login; // LoginScreen shows MPIN mode
         } else {
           nextRoute = AppRoutes.mpinSetup;
         }
+      } else if (hasMpin && creds != null) {
+        // Logged out, but MPIN + credentials saved on device → show MPIN screen
+        nextRoute = AppRoutes.login; // LoginScreen auto-detects hasMpin & shows MPIN UI
       }
+      // else: default to full login form
 
       emit(SplashSuccess(nextRoute));
     } catch (e) {
