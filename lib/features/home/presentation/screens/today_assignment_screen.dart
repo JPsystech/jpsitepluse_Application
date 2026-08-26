@@ -130,8 +130,23 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   }
 
   void _punchIn(String projectId, {String? exceptionReason}) {
+    final state = context.read<HomeBloc>().state;
+    double? siteLat;
+    double? siteLng;
+    double? radius;
+    if (state is HomeSuccess) {
+      try {
+        final a = state.response.assignments.firstWhere((a) => a.projectId == projectId);
+        siteLat = a.latitude;
+        siteLng = a.longitude;
+        radius = a.allowedRadiusM.toDouble();
+      } catch (_) {}
+    }
     context.read<AttendanceBloc>().add(PunchInRequested(
           projectId: projectId,
+          siteLat: siteLat,
+          siteLng: siteLng,
+          allowedRadiusM: radius,
           exceptionReason: exceptionReason,
         ));
   }
@@ -223,8 +238,23 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     }
     } // Close if (!isRetry)
     if (!mounted) return;
+    final state = context.read<HomeBloc>().state;
+    double? siteLat;
+    double? siteLng;
+    double? radius;
+    if (state is HomeSuccess) {
+      try {
+        final a = state.response.assignments.firstWhere((a) => a.projectId == selectedProjectIdForException);
+        siteLat = a.latitude;
+        siteLng = a.longitude;
+        radius = a.allowedRadiusM.toDouble();
+      } catch (_) {}
+    }
     context.read<AttendanceBloc>().add(PunchOutRequested(
           remarks: remarks ?? _lastPunchOutRemarks ?? "",
+          siteLat: siteLat,
+          siteLng: siteLng,
+          allowedRadiusM: radius,
           exceptionReason: exceptionReason,
         ));
   }
@@ -314,7 +344,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
 
   Widget _buildOfflineBanner() {
     return FutureBuilder<int>(
-      future: OfflinePunchQueue().count(),
+      future: Future.wait([OfflinePunchQueue().count(), OfflineTimesheetQueue().count()]).then((v) => v[0] + v[1]),
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
         if (count == 0) return const SizedBox.shrink();
@@ -350,7 +380,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        "$count punches pending sync",
+                        "$count items pending sync",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: warningColor.withValues(alpha: 0.8),
                             ),
@@ -1347,5 +1377,7 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
     );
   }
 }
+
+
 
 

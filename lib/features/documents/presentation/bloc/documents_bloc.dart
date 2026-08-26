@@ -151,7 +151,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
     emit(state.copyWith(busyKeys: newBusyKeys, clearOneOffs: true));
 
     try {
-      await _documentService.uploadDocumentBytes(
+      final doc = await _documentService.uploadDocumentBytes(
         token: event.sessionToken,
         documentType: event.documentType,
         documentName: event.documentName,
@@ -161,6 +161,24 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         sizeBytes: event.sizeBytes,
         fileExtension: event.fileExtension,
       );
+
+      // Auto-cache the file for offline viewing
+      final tempDir = await getTemporaryDirectory();
+      final name = doc.effectiveFileName.isEmpty
+          ? "document_${doc.id}.pdf"
+          : doc.effectiveFileName;
+      final safeName = name
+          .replaceAll("\\", "_")
+          .replaceAll("/", "_")
+          .replaceAll(":", "_")
+          .replaceAll("*", "_")
+          .replaceAll("?", "_")
+          .replaceAll("\"", "_")
+          .replaceAll("<", "_")
+          .replaceAll(">", "_")
+          .replaceAll("|", "_");
+      final file = File("${tempDir.path}${Platform.pathSeparator}$safeName");
+      await file.writeAsBytes(event.bytes, flush: true);
 
       DateTime? newNdtDate = state.ndtExpiryDate;
       if (event.documentType == "ndt" && event.ndtExpiryDate != null) {
@@ -245,6 +263,13 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
     }
   }
 
+  bool _isImageDocument(EngineerDocument doc) {
+    final ct = doc.contentType.trim().toLowerCase();
+    if (ct.startsWith("image/")) return true;
+    final ext = doc.effectiveFileName.split('.').last.toLowerCase();
+    return ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "webp";
+  }
+
   Future<void> _onViewDocumentRequested(
       ViewDocumentRequested event, Emitter<DocumentsState> emit) async {
     if (state.busyKeys.contains(event.busyKey)) return;
@@ -254,6 +279,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
 
     try {
       final url = event.document.fileUrl.trim();
+      final isImage = _isImageDocument(event.document);
       
       // If it's an offline queued document, the URL is actually a local file path
       if (File(url).existsSync()) {
@@ -261,6 +287,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         emit(state.copyWith(
           busyKeys: updatedBusyKeys,
           downloadedFilePath: url,
+          isImageDownloaded: isImage,
           clearOneOffs: false,
         ));
         return;
@@ -299,6 +326,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
         downloadedFilePath: file.path,
+        isImageDownloaded: isImage,
         clearOneOffs: false,
       ));
     } catch (e) {

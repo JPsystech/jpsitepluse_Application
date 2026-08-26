@@ -386,22 +386,9 @@ class _DocumentUploadView extends StatelessWidget {
       return;
     }
 
-    if (_isImageDocument(document)) {
-      Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => ImageViewer(url: url)));
-      return;
-    }
-
     context
         .read<DocumentsBloc>()
         .add(ViewDocumentRequested(document: document, busyKey: busyKey));
-  }
-
-  bool _isImageDocument(EngineerDocument doc) {
-    final ct = doc.contentType.trim().toLowerCase();
-    if (ct.startsWith("image/")) return true;
-    final ext = doc.effectiveFileName.split('.').last.toLowerCase();
-    return ext == "jpg" || ext == "jpeg" || ext == "png";
   }
 
   @override
@@ -417,7 +404,15 @@ class _DocumentUploadView extends StatelessWidget {
               isError: state.isErrorSnackbar);
         }
         if (state.downloadedFilePath != null) {
-          OpenFilex.open(state.downloadedFilePath!);
+          if (state.isImageDownloaded) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ImageViewer(url: state.downloadedFilePath!),
+              ),
+            );
+          } else {
+            OpenFilex.open(state.downloadedFilePath!);
+          }
         }
       },
       builder: (context, state) {
@@ -431,7 +426,7 @@ class _DocumentUploadView extends StatelessWidget {
           if (doc.documentType == "other") {
             customDocuments.add(doc);
           } else {
-            latestByType[doc.documentType] = doc;
+            latestByType.putIfAbsent(doc.documentType, () => doc);
           }
         }
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));

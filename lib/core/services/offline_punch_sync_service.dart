@@ -47,12 +47,18 @@ class OfflinePunchSyncService {
           await queue.remove(clientPunchId: p.clientPunchId, type: p.type);
           synced += 1;
         } catch (e) {
-          if (e == 'OUT_OF_RADIUS_REASON_REQUIRED') {
-            break;
+          if (e is DioException) {
+            print("OFFLINE PUNCH SYNC ERROR: ${e.response?.statusCode} - ${e.response?.data}");
           }
+          // If network error, stop sync and try later.
           if (e is DioException && e.response == null) {
             break;
           }
+          // For other exceptions (like bad request), we want to skip or remove it?
+          // Actually, we shouldn't delete the user's punch blindly unless it's a permanent error.
+          // But if it's 400 Bad Request, it might never succeed.
+          // Let's break for safety for now.
+          print(e);
           break;
         }
       }
