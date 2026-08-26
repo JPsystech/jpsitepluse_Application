@@ -11,6 +11,7 @@ class DocumentsState extends Equatable {
 
   // For one-off events
   final String? downloadedFilePath;
+  final bool isImageDownloaded;
   final String? snackbarMessage;
   final bool isErrorSnackbar;
 
@@ -21,6 +22,7 @@ class DocumentsState extends Equatable {
     this.ndtExpiryDate,
     this.errorMessage = "",
     this.downloadedFilePath,
+    this.isImageDownloaded = false,
     this.snackbarMessage,
     this.isErrorSnackbar = false,
   });
@@ -32,6 +34,7 @@ class DocumentsState extends Equatable {
     DateTime? ndtExpiryDate,
     String? errorMessage,
     String? downloadedFilePath,
+    bool? isImageDownloaded,
     String? snackbarMessage,
     bool? isErrorSnackbar,
     bool clearOneOffs = false,
@@ -44,6 +47,8 @@ class DocumentsState extends Equatable {
       errorMessage: errorMessage ?? this.errorMessage,
       downloadedFilePath:
           clearOneOffs ? null : (downloadedFilePath ?? this.downloadedFilePath),
+      isImageDownloaded:
+          clearOneOffs ? false : (isImageDownloaded ?? this.isImageDownloaded),
       snackbarMessage:
           clearOneOffs ? null : (snackbarMessage ?? this.snackbarMessage),
       isErrorSnackbar:
@@ -59,6 +64,7 @@ class DocumentsState extends Equatable {
         ndtExpiryDate,
         errorMessage,
         downloadedFilePath,
+        isImageDownloaded,
         snackbarMessage,
         isErrorSnackbar,
       ];

@@ -5,7 +5,7 @@ import 'package:pinput/pinput.dart';
 import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/storage/credential_store.dart';
-
+import 'package:sitepulse_engineer/core/storage/offline_session_cache.dart';
 class MpinSetupScreen extends StatefulWidget {
   final bool isServerMpinSet;
   final bool isResetMode;
@@ -103,6 +103,9 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
           if (session != null) {
             // Standard MPIN setup for logged-in session
             await AuthService().setMpin(session.token, _pin);
+            final updatedSession = session.copyWith(hasMpin: true);
+            await SessionStore.set(updatedSession);
+            await OfflineSessionCache.save(updatedSession);
           }
         }
         await MpinStore.setMpin(_pin);

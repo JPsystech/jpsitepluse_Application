@@ -80,6 +80,13 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         accuracyM = loc.accuracyM;
       }
 
+      if (event.exceptionReason == null && event.siteLat != null && event.siteLng != null && event.allowedRadiusM != null) {
+        final distance = Geolocator.distanceBetween(lat, lng, event.siteLat!, event.siteLng!);
+        if (distance > event.allowedRadiusM!) {
+          throw 'OUT_OF_RADIUS_REASON_REQUIRED';
+        }
+      }
+
       final response = await _repository.punchIn(
         lat: lat,
         lng: lng,
@@ -99,7 +106,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         await OfflinePunchQueue().add(OfflinePunch(
           clientPunchId: event.clientPunchId ?? const Uuid().v4(),
           type: OfflinePunchType.inPunch,
-          clientPunchTimeIso: event.clientPunchTimeIso ?? DateTime.now().toIso8601String(),
+          clientPunchTimeIso: event.clientPunchTimeIso ?? DateTime.now().toUtc().toIso8601String(),
           lat: event.lat ?? loc.lat,
           lng: event.lng ?? loc.lng,
           accuracyM: event.accuracyM ?? loc.accuracyM,
@@ -128,6 +135,13 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         accuracyM = loc.accuracyM;
       }
 
+      if (event.exceptionReason == null && event.siteLat != null && event.siteLng != null && event.allowedRadiusM != null) {
+        final distance = Geolocator.distanceBetween(lat, lng, event.siteLat!, event.siteLng!);
+        if (distance > event.allowedRadiusM!) {
+          throw 'OUT_OF_RADIUS_REASON_REQUIRED';
+        }
+      }
+
       final response = await _repository.punchOut(
         lat: lat,
         lng: lng,
@@ -147,7 +161,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         await OfflinePunchQueue().add(OfflinePunch(
           clientPunchId: event.clientPunchId ?? const Uuid().v4(),
           type: OfflinePunchType.outPunch,
-          clientPunchTimeIso: event.clientPunchTimeIso ?? DateTime.now().toIso8601String(),
+          clientPunchTimeIso: event.clientPunchTimeIso ?? DateTime.now().toUtc().toIso8601String(),
           lat: event.lat ?? loc.lat,
           lng: event.lng ?? loc.lng,
           accuracyM: event.accuracyM ?? loc.accuracyM,

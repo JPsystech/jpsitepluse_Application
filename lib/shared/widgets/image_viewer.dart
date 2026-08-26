@@ -16,7 +16,14 @@ class ImageViewer extends StatefulWidget {
 class _ImageViewerState extends State<ImageViewer> {
   bool _isDownloading = false;
 
+  bool get _isLocalFile => !widget.url.startsWith("http");
+
   Future<void> _downloadImage() async {
+    if (_isLocalFile) {
+      await Share.shareXFiles([XFile(widget.url)], text: "Save or share image");
+      return;
+    }
+
     setState(() => _isDownloading = true);
     try {
       final response = await http.get(Uri.parse(widget.url));
@@ -82,24 +89,38 @@ class _ImageViewerState extends State<ImageViewer> {
           maxScale: 4.0,
           child: Hero(
             tag: widget.url,
-            child: Image.network(
-              widget.url,
-              fit: BoxFit.contain,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return const Center(
-                    child: CircularProgressIndicator(color: Colors.white));
-              },
-              errorBuilder: (_, __, ___) => const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.broken_image, color: Colors.white, size: 64),
-                  SizedBox(height: 16),
-                  Text("Failed to load image",
-                      style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
+            child: _isLocalFile
+                ? Image.file(
+                    File(widget.url),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white, size: 64),
+                        SizedBox(height: 16),
+                        Text("Failed to load image",
+                            style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  )
+                : Image.network(
+                    widget.url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                          child: CircularProgressIndicator(color: Colors.white));
+                    },
+                    errorBuilder: (_, __, ___) => const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white, size: 64),
+                        SizedBox(height: 16),
+                        Text("Failed to load image",
+                            style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ),
           ),
         ),
       ),

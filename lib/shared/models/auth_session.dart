@@ -40,5 +40,23 @@ class AuthSession {
       "accepted_terms": acceptedTerms,
     };
   }
+
+  AuthSession copyWith({
+    String? token,
+    Engineer? engineer,
+    bool? mustChangePassword,
+    int? expiresAtMs,
+    bool? hasMpin,
+    bool? acceptedTerms,
+  }) {
+    return AuthSession(
+      token: token ?? this.token,
+      engineer: engineer ?? this.engineer,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      expiresAtMs: expiresAtMs ?? this.expiresAtMs,
+      hasMpin: hasMpin ?? this.hasMpin,
+      acceptedTerms: acceptedTerms ?? this.acceptedTerms,
+    );
+  }
 }
 

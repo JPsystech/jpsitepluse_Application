@@ -11,6 +11,9 @@ class PunchInRequested extends AttendanceEvent {
   final double? lng;
   final double? accuracyM;
   final String? exceptionReason;
+  final double? siteLat;
+  final double? siteLng;
+  final double? allowedRadiusM;
   final String? projectId;
   final String? clientPunchId;
   final String? clientPunchTimeIso;
@@ -21,6 +24,9 @@ class PunchInRequested extends AttendanceEvent {
     this.lng,
     this.accuracyM,
     this.exceptionReason,
+    this.siteLat,
+    this.siteLng,
+    this.allowedRadiusM,
     this.projectId,
     this.clientPunchId,
     this.clientPunchTimeIso,
@@ -33,6 +39,9 @@ class PunchInRequested extends AttendanceEvent {
         lng,
         accuracyM,
         exceptionReason,
+        siteLat,
+        siteLng,
+        allowedRadiusM,
         projectId,
         clientPunchId,
         clientPunchTimeIso,
@@ -45,6 +54,9 @@ class PunchOutRequested extends AttendanceEvent {
   final double? lng;
   final double? accuracyM;
   final String? exceptionReason;
+  final double? siteLat;
+  final double? siteLng;
+  final double? allowedRadiusM;
   final String remarks;
   final String? clientPunchId;
   final String? clientPunchTimeIso;
@@ -55,6 +67,9 @@ class PunchOutRequested extends AttendanceEvent {
     this.lng,
     this.accuracyM,
     this.exceptionReason,
+    this.siteLat,
+    this.siteLng,
+    this.allowedRadiusM,
     required this.remarks,
     this.clientPunchId,
     this.clientPunchTimeIso,
@@ -67,9 +82,13 @@ class PunchOutRequested extends AttendanceEvent {
         lng,
         accuracyM,
         exceptionReason,
+        siteLat,
+        siteLng,
+        allowedRadiusM,
         remarks,
         clientPunchId,
         clientPunchTimeIso,
         isOffline,
       ];
 }
+

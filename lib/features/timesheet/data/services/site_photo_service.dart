@@ -115,6 +115,8 @@ class SitePhotoService {
     String? submissionTypeOverride,
     String? submissionContextOverride,
   }) async {
+    final safeAttendanceLogId = attendanceLogId == 'offline_' ? null : attendanceLogId;
+
     final when = capturedAt ?? DateTime.now();
     final dateStr = IstTime.formatDate(when);
     final ist = IstTime.toIst(when);
@@ -160,7 +162,7 @@ class SitePhotoService {
         "address_text": addressText,
         "captured_at": when.toUtc().toIso8601String(),
         if (projectId is String) "project_id": projectId,
-        if (attendanceLogId is String) "attendance_log_id": attendanceLogId,
+        if (safeAttendanceLogId is String) "attendance_log_id": safeAttendanceLogId,
         "content_type": contentType,
         "file_extension": fileExtension,
         "size_bytes": sizeBytes,
