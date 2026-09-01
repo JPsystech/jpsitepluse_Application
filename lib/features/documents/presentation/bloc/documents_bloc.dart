@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,7 +11,9 @@ import 'package:sitepulse_engineer/features/documents/data/services/documents_se
 import 'package:sitepulse_engineer/shared/models/engineer_document_model.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/storage/offline_sync_store.dart';
-import 'package:sitepulse_engineer/core/services/api_client.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
+
+import '../../../../core/network/api_client.dart';
 
 part 'documents_event.dart';
 part 'documents_state.dart';
@@ -51,8 +53,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
   }
 
   String _friendlyUploadError(String message) {
-    final cleaned = message.replaceFirst("Exception: ", "").trim();
-    final lower = cleaned.toLowerCase();
+    final lower = message.toLowerCase();
     if (lower.contains("too large")) {
       return "File size too large. Please upload a file smaller than 15 MB.";
     }
@@ -61,14 +62,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         lower.contains("only png")) {
       return "Unsupported format. Please select an allowed document format.";
     }
-    if (lower.contains("network") || 
-        lower.contains("unreachable") || 
-        lower.contains("connection failed") || 
-        lower.contains("socketexception") || 
-        lower.contains("failed host lookup")) {
-      return "You must be online to perform this action.";
-    }
-    return cleaned.isEmpty ? "Upload failed. Please try again." : cleaned;
+    return message.isEmpty ? "Upload failed. Please try again." : message;
   }
 
   Future<void> _onLoadDocumentsRequested(
@@ -135,9 +129,10 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         clearOneOffs: true,
       ));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
         status: DocumentsStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: appError.userMessage,
         clearOneOffs: true,
       ));
     }
@@ -203,11 +198,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         clearOneOffs: false,
       ));
     } catch (e) {
-      final errStr = e.toString().toLowerCase();
-      final isOffline = errStr.contains('connection failed') || 
-                        errStr.contains('socketexception') || 
-                        errStr.contains('failed host lookup') || 
-                        errStr.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       
       final updatedBusyKeys = Set<String>.from(state.busyKeys)
         ..remove(event.busyKey);
@@ -252,7 +243,8 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         }
       }
 
-      final msg = _friendlyUploadError(e.toString());
+      final appError = ErrorHandler.handle(e);
+      final msg = _friendlyUploadError(appError.userMessage);
 
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
@@ -312,12 +304,21 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       
       // If the file already exists locally, use the cached version directly
       if (!(await file.exists())) {
-        final apiUri = await ApiClient().url(url);
-        final response = await http.get(apiUri);
-        if (response.statusCode < 200 || response.statusCode >= 300) {
+        final dio = await ApiClient.instance.dio;
+        String absoluteUrl = url;
+        if (!url.startsWith('http')) {
+           final baseUrl = dio.options.baseUrl;
+           absoluteUrl = "$baseUrl$url";
+        }
+        
+        final response = await dio.get(
+          absoluteUrl,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (response.statusCode != null && (response.statusCode! < 200 || response.statusCode! >= 300)) {
           throw "Failed to download file";
         }
-        await file.writeAsBytes(response.bodyBytes, flush: true);
+        await file.writeAsBytes(response.data as List<int>, flush: true);
       }
 
       final updatedBusyKeys = Set<String>.from(state.busyKeys)
@@ -333,10 +334,12 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       final updatedBusyKeys = Set<String>.from(state.busyKeys)
         ..remove(event.busyKey);
 
+      final appError = ErrorHandler.handle(e);
+      final msg = _friendlyUploadError(appError.userMessage);
+      
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
-        snackbarMessage:
-            "Unable to open file. ${_friendlyUploadError(e.toString())}",
+        snackbarMessage: "Unable to open file. $msg",
         isErrorSnackbar: true,
         clearOneOffs: false,
       ));

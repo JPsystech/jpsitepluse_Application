@@ -13,6 +13,7 @@ import "package:sitepulse_engineer/features/documents/data/services/documents_se
 import "package:sitepulse_engineer/shared/widgets/image_viewer.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
+import "package:sitepulse_engineer/core/error/error_handler.dart";
 
 import "../../../../core/theme/app_colors_extension.dart";
 
@@ -226,7 +227,8 @@ class _DocumentUploadView extends StatelessWidget {
       return prepared;
     } catch (e) {
       if (context.mounted) {
-        _showSnackBar(context, e.toString(), isError: true);
+        final appError = ErrorHandler.handle(e);
+        _showSnackBar(context, appError.userMessage, isError: true);
       }
       return null;
     }
@@ -255,7 +257,8 @@ class _DocumentUploadView extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        _showSnackBar(context, e.toString(), isError: true);
+        final appError = ErrorHandler.handle(e);
+        _showSnackBar(context, appError.userMessage, isError: true);
       }
       return null;
     }

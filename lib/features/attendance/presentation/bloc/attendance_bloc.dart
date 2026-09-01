@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'attendance_event.dart';
 part 'attendance_state.dart';
@@ -99,8 +100,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       );
       emit(PunchInSuccess(response: response));
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       if (isOffline) {
         final loc = await resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
         await OfflinePunchQueue().add(OfflinePunch(
@@ -115,7 +115,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         ));
         emit(const PunchOfflineQueued());
       } else {
-        emit(AttendanceError(message: e.toString()));
+        final appError = ErrorHandler.handle(e);
+        emit(AttendanceError(message: appError.userMessage));
       }
     }
   }
@@ -154,8 +155,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       );
       emit(PunchOutSuccess(response: response));
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       if (isOffline) {
         final loc = await resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
         await OfflinePunchQueue().add(OfflinePunch(
@@ -170,7 +170,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         ));
         emit(const PunchOfflineQueued());
       } else {
-        emit(AttendanceError(message: e.toString()));
+        final appError = ErrorHandler.handle(e);
+        emit(AttendanceError(message: appError.userMessage));
       }
     }
   }

@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import 'package:dio/dio.dart';
+
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 import 'package:sitepulse_engineer/features/home/data/services/home_service.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'timesheet_event.dart';
 part 'timesheet_state.dart';
@@ -51,9 +52,10 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
         isPunchedIn: isPunchedIn,
       ));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
         status: TimesheetStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: appError.userMessage,
       ));
     }
   }
@@ -90,8 +92,7 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
       // Reset status to loaded for future submissions
       emit(state.copyWith(status: TimesheetStatus.loaded));
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       if (isOffline) {
         // Network error - queue offline
         final hoursText = (event.minutes / 60).toStringAsFixed(event.minutes % 60 == 0 ? 0 : 1);
@@ -116,9 +117,10 @@ class TimesheetBloc extends Bloc<TimesheetEvent, TimesheetState> {
           uploadedPhotoUrl: "offline_queued",
         ));
       } else {
+        final appError = ErrorHandler.handle(e);
         emit(state.copyWith(
           status: TimesheetStatus.error,
-          errorMessage: e.toString(),
+          errorMessage: appError.userMessage,
         ));
       }
 

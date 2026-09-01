@@ -1,13 +1,16 @@
 import "dart:convert";
-import "dart:io";
 import "package:shared_preferences/shared_preferences.dart";
-import "package:sitepulse_engineer/core/services/api_client.dart";
+import "package:dio/dio.dart";
+import "package:sitepulse_engineer/core/network/api_client.dart";
 import "package:sitepulse_engineer/shared/models/today_assignment.dart";
+import "package:sitepulse_engineer/core/error/error_handler.dart";
+import "package:sitepulse_engineer/core/error/app_exception.dart";
+import "package:sitepulse_engineer/core/error/error_type.dart";
 
 class TimesheetService {
   final ApiClient api;
 
-  TimesheetService({ApiClient? api}) : api = api ?? ApiClient();
+  TimesheetService({ApiClient? api}) : api = api ?? ApiClient.instance;
 
   Future<EngineerTimesheetListResponse> timesheets({
     required String token,
@@ -38,16 +41,14 @@ class TimesheetService {
     if (site != null && site.trim().isNotEmpty) params["site"] = site.trim();
     if (limit != null && limit > 0) params["limit"] = "$limit";
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
-
-    final uri = await api.url("/api/v1/engineer/timesheets$qs");
-    // Cache key based on month (or default if no month provided)
     final cacheKey = "cached_timesheets_v1_${month?.trim() ?? 'default'}";
 
     try {
-      final json = await api.getJson(uri,
-          headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+      final dio = await api.dio;
+      final res = await dio.get("/api/v1/engineer/timesheets$qs");
+      final json = res.data;
       if (json == null) {
-        throw ApiException("Invalid response from server");
+        throw Exception("Invalid response from server");
       }
       
       // Save to cache on success
@@ -56,11 +57,7 @@ class TimesheetService {
 
       return EngineerTimesheetListResponse.fromJson(json);
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || 
-                        err.contains('socketexception') || 
-                        err.contains('failed host lookup') || 
-                        err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       
       if (isOffline) {
         // Try to load from cache
@@ -70,7 +67,10 @@ class TimesheetService {
           final Map<String, dynamic> json = jsonDecode(cachedData);
           return EngineerTimesheetListResponse.fromJson(json);
         } else {
-          throw Exception("You are offline and no data is available for this month.");
+          throw const AppException(
+            userMessage: "Unable to connect to the server and no data is available for this month.",
+            type: AppErrorType.network,
+          );
         }
       }
       rethrow;
@@ -102,16 +102,14 @@ class TimesheetService {
       params["project"] = project.trim();
     }
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
-
-    final uri = await api.url("/api/v1/engineer/timesheets/filters$qs");
-    // Cache key based on month (or default if no month provided)
     final cacheKey = "cached_timesheet_filters_v1_${month?.trim() ?? 'default'}";
 
     try {
-      final json = await api.getJson(uri,
-          headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+      final dio = await api.dio;
+      final res = await dio.get("/api/v1/engineer/timesheets/filters$qs");
+      final json = res.data;
       if (json == null) {
-        throw ApiException("Invalid response from server");
+        throw Exception("Invalid response from server");
       }
       
       // Save to cache on success
@@ -120,11 +118,7 @@ class TimesheetService {
 
       return EngineerTimesheetFilterOptionsResponse.fromJson(json);
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || 
-                        err.contains('socketexception') || 
-                        err.contains('failed host lookup') || 
-                        err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       
       if (isOffline) {
         // Try to load from cache
@@ -134,7 +128,10 @@ class TimesheetService {
           final Map<String, dynamic> json = jsonDecode(cachedData);
           return EngineerTimesheetFilterOptionsResponse.fromJson(json);
         } else {
-          throw Exception("You are offline and no cached filters are available.");
+          throw const AppException(
+            userMessage: "Unable to connect to the server and no cached filters are available.",
+            type: AppErrorType.network,
+          );
         }
       }
       rethrow;
@@ -143,24 +140,24 @@ class TimesheetService {
 
   Future<EngineerTimesheetDetailResponse> timesheetDetail(
       {required String token, required String workDate}) async {
-    final uri = await api.url(
+    final dio = await api.dio;
+    final res = await dio.get(
         "/api/v1/engineer/timesheets/${Uri.encodeComponent(workDate.trim())}");
-    final json = await api.getJson(uri,
-        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+    final json = res.data;
     if (json == null) {
-      throw ApiException("Invalid response from server");
+      throw Exception("Invalid response from server");
     }
     return EngineerTimesheetDetailResponse.fromJson(json);
   }
 
   Future<EngineerTimesheetDetailResponse> timesheetDetailByLog(
       {required String token, required String attendanceLogId}) async {
-    final uri = await api.url(
+    final dio = await api.dio;
+    final res = await dio.get(
         "/api/v1/engineer/timesheets/logs/${Uri.encodeComponent(attendanceLogId.trim())}");
-    final json = await api.getJson(uri,
-        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+    final json = res.data;
     if (json == null) {
-      throw ApiException("Invalid response from server");
+      throw Exception("Invalid response from server");
     }
     return EngineerTimesheetDetailResponse.fromJson(json);
   }
@@ -193,13 +190,13 @@ class TimesheetService {
     if (site != null && site.trim().isNotEmpty) params["site"] = site.trim();
     final qs = params.isEmpty ? "" : "?${Uri(queryParameters: params).query}";
 
-    final uri = await api.url("/api/v1/engineer/timesheets.pdf$qs");
-    final resp = await api.getBytes(uri,
-        headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+    final dio = await api.dio;
+    final res = await dio.get("/api/v1/engineer/timesheets.pdf$qs",
+        options: Options(responseType: ResponseType.bytes));
     final filename =
-        _filenameFromDisposition(resp.headers["content-disposition"]) ??
+        _filenameFromDisposition(res.headers.value("content-disposition")) ??
             "timesheet.pdf";
-    return (bytes: resp.bytes, filename: filename);
+    return (bytes: res.data as List<int>, filename: filename);
   }
 }
 

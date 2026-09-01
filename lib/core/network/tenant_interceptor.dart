@@ -24,7 +24,12 @@ class TenantInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint("API Error: ${err.message}");
+      if (err.response != null) {
+        debugPrint("API Error: ${err.requestOptions.method} ${err.requestOptions.uri} returned ${err.response?.statusCode}");
+        debugPrint("API Response: ${err.response?.data}");
+      } else {
+        debugPrint("API Network Error: ${err.message}");
+      }
     }
     return handler.next(err);
   }

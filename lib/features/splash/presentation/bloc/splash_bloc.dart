@@ -10,6 +10,7 @@ import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/config/app_config.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'splash_event.dart';
 part 'splash_state.dart';
@@ -79,7 +80,8 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
 
       emit(SplashSuccess(nextRoute));
     } catch (e) {
-      emit(SplashError(e.toString()));
+      final appError = ErrorHandler.handle(e);
+      emit(SplashError(appError.userMessage));
     }
   }
 }

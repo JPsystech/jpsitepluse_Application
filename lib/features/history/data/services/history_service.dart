@@ -1,28 +1,31 @@
 import "dart:convert";
-import "dart:io";
 import "package:shared_preferences/shared_preferences.dart";
-import "package:sitepulse_engineer/core/services/api_client.dart";
+import "package:sitepulse_engineer/core/network/api_client.dart";
 import "package:sitepulse_engineer/shared/models/today_assignment.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
+import "package:sitepulse_engineer/core/error/error_handler.dart";
+import "package:sitepulse_engineer/core/error/app_exception.dart";
+import "package:sitepulse_engineer/core/error/error_type.dart";
 
 class HistoryService {
   final ApiClient api;
 
-  HistoryService({ApiClient? api}) : api = api ?? ApiClient();
+  HistoryService({ApiClient? api}) : api = api ?? ApiClient.instance;
 
   Future<EngineerHistoryResponse> history(
       {required String token, String? month}) async {
     final qs = (month != null && month.trim().isNotEmpty)
         ? "?month=${Uri.encodeComponent(month.trim())}"
         : "";
-    final uri = await api.url("/api/v1/engineer/history$qs");
     final cacheKey = "cached_timeline_v1_${month?.trim() ?? 'default'}";
 
     try {
-      final json = await api.getJson(uri,
-          headers: {HttpHeaders.authorizationHeader: "Bearer $token"});
+      final client = await api.dio;
+      final res = await client.get("/api/v1/engineer/history$qs");
+      final json = res.data;
+      
       if (json == null) {
-        throw ApiException("Invalid response from server");
+        throw Exception("Invalid response from server");
       }
       
       final prefs = await SharedPreferences.getInstance();
@@ -31,11 +34,7 @@ class HistoryService {
       final response = EngineerHistoryResponse.fromJson(json);
       return await _applyOfflinePunches(response);
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || 
-                        err.contains('socketexception') || 
-                        err.contains('failed host lookup') || 
-                        err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       
       if (isOffline) {
         // Try to load from cache
@@ -49,7 +48,10 @@ class HistoryService {
           final response = EngineerHistoryResponse(startDate: "", endDate: "", items: []);
           final merged = await _applyOfflinePunches(response);
           if (merged.items.isNotEmpty) return merged;
-          throw Exception("You are offline and no activity history is available.");
+          throw const AppException(
+            userMessage: "Unable to connect to the server and no activity history is available.",
+            type: AppErrorType.network,
+          );
         }
       }
       rethrow;

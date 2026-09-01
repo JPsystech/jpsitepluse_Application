@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'history_event.dart';
 part 'history_state.dart';
@@ -44,9 +45,10 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
         siteOptions: resp.sites,
       ));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
         status: HistoryStatus.filtersError,
-        errorMessage: e.toString(),
+        errorMessage: appError.userMessage,
         clientOptions: [],
         projectOptions: [],
         siteOptions: [],
@@ -71,8 +73,9 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
       );
       emit(state.copyWith(status: HistoryStatus.success, data: resp));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
-          status: HistoryStatus.error, errorMessage: e.toString(), data: null));
+          status: HistoryStatus.error, errorMessage: appError.userMessage, data: null));
     }
   }
 
@@ -105,8 +108,9 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
       // Reset back to success state so it can be triggered again
       emit(state.copyWith(status: HistoryStatus.success));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
-          status: HistoryStatus.downloadError, errorMessage: e.toString()));
+          status: HistoryStatus.downloadError, errorMessage: appError.userMessage));
       emit(state.copyWith(status: HistoryStatus.success));
     }
   }
@@ -122,8 +126,9 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
       emit(state.copyWith(
           status: HistoryStatus.detailSuccess, detailData: resp));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
-          status: HistoryStatus.detailError, errorMessage: e.toString()));
+          status: HistoryStatus.detailError, errorMessage: appError.userMessage));
     }
   }
 }

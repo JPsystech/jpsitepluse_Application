@@ -22,6 +22,7 @@ import "package:sitepulse_engineer/features/auth/data/models/auth_session_model.
 import "package:sitepulse_engineer/features/auth/presentation/bloc/auth_bloc.dart";
 
 import "../../data/services/auth_service.dart";
+import "package:sitepulse_engineer/core/error/error_handler.dart";
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -68,6 +69,22 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     super.initState();
     serverUrlCtrl.text = productionApiBaseUrl;
     _loadSavedVendorCode();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (SessionStore.sessionExpired) {
+        SessionStore.sessionExpired = false;
+        
+        // Suppress any duplicate error snackbars emitted by feature BLoCs
+        ScaffoldMessenger.of(context).clearSnackBars();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your session has expired. Please login again.'),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _loadSavedVendorCode() async {
@@ -321,7 +338,8 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e.toString();
+          final appError = ErrorHandler.handle(e);
+          error = appError.userMessage;
         });
       }
     }

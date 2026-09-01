@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "package:http/http.dart" as http;
 import "package:path_provider/path_provider.dart";
 import "package:share_plus/share_plus.dart";
+import "package:sitepulse_engineer/core/error/error_handler.dart";
 
 class ImageViewer extends StatefulWidget {
   const ImageViewer({super.key, required this.url});
@@ -43,10 +44,11 @@ class _ImageViewerState extends State<ImageViewer> {
         throw Exception("Failed to download image");
       }
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text("Error: $e"),
+              content: Text(appError.userMessage),
               backgroundColor: Theme.of(context).colorScheme.error),
         );
       }

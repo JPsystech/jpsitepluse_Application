@@ -1,4 +1,5 @@
 import "dart:convert";
+import 'package:sitepulse_engineer/core/network/unauthorized_interceptor.dart';
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -10,6 +11,7 @@ class SessionStore {
   static AuthSession? current;
   static final ValueNotifier<AuthSession?> notifier =
       ValueNotifier<AuthSession?>(null);
+  static bool sessionExpired = false;
 
   static const String _key = "sitepulse_engineer_session";
 
@@ -48,6 +50,9 @@ class SessionStore {
   }
 
   static Future<void> set(AuthSession session) async {
+    sessionExpired = false;
+    UnauthorizedInterceptor.reset();
+
     current = session;
     notifier.value = session;
     final prefs = await SharedPreferences.getInstance();
@@ -59,6 +64,11 @@ class SessionStore {
     notifier.value = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+  }
+
+  static Future<void> expireSession() async {
+    sessionExpired = true;
+    await clear();
   }
 
   static Future<String> getDeviceId() async {

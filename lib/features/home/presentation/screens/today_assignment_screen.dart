@@ -14,7 +14,8 @@ import 'package:sitepulse_engineer/features/home/data/models/today_assignment_mo
 import 'package:sitepulse_engineer/features/history/presentation/screens/history_screen.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
-import 'package:sitepulse_engineer/core/services/api_client.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
+import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 
@@ -182,7 +183,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
 
         final loc = await context.read<AttendanceBloc>().resolveLocationPublic();
 
-        await SitePhotoService(api: ApiClient()).uploadProgressPhoto(
+        await SitePhotoService().uploadProgressPhoto(
           token: widget.sessionToken,
           file: attachedFile,
           lat: loc.lat,
@@ -197,8 +198,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           submissionContextOverride: "PUNCH_OUT_REPORT",
         );
       } catch (e) {
-        final err = e.toString().toLowerCase();
-        final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable');
+        final isOffline = ErrorHandler.isOfflineError(e);
         if (isOffline) {
           final homeState = context.read<HomeBloc>().state;
           String? activeProjectId;
@@ -226,8 +226,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         } else {
           if (mounted) {
             Navigator.of(context).pop(); // dismiss loading
+            final appError = ErrorHandler.handle(e);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Failed to upload report: $e")),
+              SnackBar(content: Text("Failed to upload report: ${appError.userMessage}")),
             );
           }
           return;
@@ -1077,19 +1078,10 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               }
 
               if (state is HomeError) {
-                return ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Center(
-                      child: Text(
-                        "Error: ${state.message}",
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  ],
+                return ErrorStateView(
+                  message: state.message,
+                  onRetry: () =>
+                      context.read<HomeBloc>().add(LoadAssignmentsRequested()),
                 );
               }
 
@@ -1267,8 +1259,9 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
       }
     } catch (e) {
       if (mounted) {
+        final appError = ErrorHandler.handle(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error selecting file: $e")),
+          SnackBar(content: Text("Error selecting file: ${appError.userMessage}")),
         );
       }
     } finally {

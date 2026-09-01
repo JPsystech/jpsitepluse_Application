@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sitepulse_engineer/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:sitepulse_engineer/core/storage/credential_store.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 class MpinOtpRequestScreen extends StatelessWidget {
   const MpinOtpRequestScreen({super.key});
@@ -60,7 +61,8 @@ class _MpinOtpRequestScreenViewState extends State<_MpinOtpRequestScreenView> {
           );
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        final appError = ErrorHandler.handle(e);
+        _error = appError.userMessage;
         _isLoading = false;
       });
     }

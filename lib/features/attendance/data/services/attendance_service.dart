@@ -32,28 +32,11 @@ class AttendanceService {
           await client.post('/api/v1/engineer/punch-in', data: body);
       return PunchInResponseModel.fromJson(response.data);
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionTimeout || 
-          e.type == DioExceptionType.sendTimeout || 
-          e.type == DioExceptionType.receiveTimeout || 
-          e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        rethrow;
-      }
       final data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        if (data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
-          throw 'OUT_OF_RADIUS_REASON_REQUIRED';
-        }
-        
-        if (data['error'] is Map<String, dynamic> && data['error']['message'] != null) {
-          throw Exception(data['error']['message']);
-        }
-        
-        throw Exception(data['detail'] ?? 'Punch In failed');
+      if (data is Map<String, dynamic> && data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
+        throw 'OUT_OF_RADIUS_REASON_REQUIRED';
       }
-      throw Exception(e.message ?? 'Punch In failed');
-    } catch (e) {
-      throw Exception(e.toString());
+      rethrow;
     }
   }
 
@@ -83,28 +66,11 @@ class AttendanceService {
           await client.post('/api/v1/engineer/punch-out', data: body);
       return PunchOutResponseModel.fromJson(response.data);
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionTimeout || 
-          e.type == DioExceptionType.sendTimeout || 
-          e.type == DioExceptionType.receiveTimeout || 
-          e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        rethrow;
-      }
       final data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        if (data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
-          throw 'OUT_OF_RADIUS_REASON_REQUIRED';
-        }
-        
-        if (data['error'] is Map<String, dynamic> && data['error']['message'] != null) {
-          throw Exception(data['error']['message']);
-        }
-        
-        throw Exception(data['detail'] ?? 'Punch Out failed');
+      if (data is Map<String, dynamic> && data['code'] == 'OUT_OF_RADIUS_REASON_REQUIRED') {
+        throw 'OUT_OF_RADIUS_REASON_REQUIRED';
       }
-      throw Exception(e.message ?? 'Punch Out failed');
-    } catch (e) {
-      throw Exception(e.toString());
+      rethrow;
     }
   }
 }

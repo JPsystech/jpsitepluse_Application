@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String url;
@@ -42,10 +43,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       await Share.shareXFiles([XFile(file.path)], text: 'Downloaded PDF Document');
 
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to download: $e'),
+          content: Text('Failed to download: ${appError.userMessage}'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );

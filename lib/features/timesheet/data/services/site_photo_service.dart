@@ -1,19 +1,19 @@
-import "dart:convert";
+
 import "dart:io";
 import "dart:math";
 import "dart:typed_data";
 import "dart:ui" as ui;
 
 import "package:flutter/widgets.dart";
-import "package:http/http.dart" as http;
+import "package:dio/dio.dart";
+import "package:sitepulse_engineer/core/network/api_client.dart";
 
-import "package:sitepulse_engineer/core/utils/ist_time.dart";
-import "package:sitepulse_engineer/core/services/api_client.dart";
+import "../../../../core/ist_time.dart";
 
 class SitePhotoService {
   final ApiClient api;
 
-  SitePhotoService({ApiClient? api}) : api = api ?? ApiClient();
+  SitePhotoService({ApiClient? api}) : api = api ?? ApiClient.instance;
 
   Future<Uint8List> _stampToPng({
     required Uint8List originalBytes,
@@ -147,14 +147,10 @@ class SitePhotoService {
 
     final sizeBytes = uploadBytes.length;
 
-    final presignUri = await api.url("/api/v1/work-submissions/engineer/presign");
-    final presignJson = await api.postJson(
-      presignUri,
-      headers: {
-        HttpHeaders.authorizationHeader: "Bearer $token",
-        HttpHeaders.contentTypeHeader: "application/json",
-      },
-      body: jsonEncode({
+    final client = await api.dio;
+    final res = await client.post(
+      "/api/v1/work-submissions/engineer/presign",
+      data: {
         "submission_type": submissionTypeOverride ?? (isPdf ? "DOCUMENT" : "PHOTO"),
         "submission_context": submissionContextOverride ?? (isPdf ? "SITE_DOC" : "PROGRESS_PHOTO"),
         "latitude": lat,
@@ -166,8 +162,9 @@ class SitePhotoService {
         "content_type": contentType,
         "file_extension": fileExtension,
         "size_bytes": sizeBytes,
-      }),
+      },
     );
+    final presignJson = res.data;
 
     final uploadUrl = presignJson?["upload_url"];
     final uploadUrlAlt = presignJson?["upload_url_alt"];
@@ -178,13 +175,13 @@ class SitePhotoService {
     final returnedAttendanceLogId = presignJson?["attendance_log_id"];
 
     if (uploadUrl is! String || uploadUrl.trim().isEmpty) {
-      throw ApiException("Presign failed: upload_url missing");
+      throw Exception("Presign failed: upload_url missing");
     }
     if (key is! String || key.trim().isEmpty) {
-      throw ApiException("Presign failed: key missing");
+      throw Exception("Presign failed: key missing");
     }
     if (publicUrl is! String || publicUrl.trim().isEmpty) {
-      throw ApiException("Presign failed: download_url missing");
+      throw Exception("Presign failed: download_url missing");
     }
 
     final headers = <String, String>{
@@ -201,52 +198,49 @@ class SitePhotoService {
     }
 
     try {
-      final primary = await api.url(uploadUrl.trim());
-      http.Response resp;
+      final uploadDio = Dio();
+      var uploadUrlStr = uploadUrl.toString().trim();
+      if (!uploadUrlStr.startsWith("http")) {
+        final base = (await api.dio).options.baseUrl;
+        uploadUrlStr = "$base$uploadUrlStr";
+      }
+      Response resp;
       try {
-        resp =
-            await api.client.put(primary, headers: headers, body: uploadBytes);
-      } on HandshakeException {
+        resp = await uploadDio.put(
+          uploadUrlStr,
+          data: uploadBytes,
+          options: Options(headers: headers),
+        );
+      } on DioException {
         final alt = (uploadUrlAlt is String) ? uploadUrlAlt.trim() : "";
         if (alt.isEmpty) {
           rethrow;
         }
-        final altUri = await api.url(alt);
-        resp = await api.client
-            .put(altUri, headers: headers, body: uploadBytes);
+        var altUrl = alt;
+        if (!altUrl.startsWith("http")) {
+          final base = (await api.dio).options.baseUrl;
+          altUrl = "$base$altUrl";
+        }
+        resp = await uploadDio.put(
+          altUrl,
+          data: uploadBytes,
+          options: Options(headers: headers),
+        );
       }
 
       if (resp.statusCode != 200 &&
           resp.statusCode != 201 &&
           resp.statusCode != 204) {
-        throw ApiException(
-            "Upload failed (status ${resp.statusCode}): ${resp.body}");
+        throw Exception(
+            "Upload failed (status ${resp.statusCode}): ${resp.data}");
       }
-    } on HandshakeException catch (e) {
-      final primaryHost = Uri.tryParse(uploadUrl.trim())?.host ?? "";
-      final altHost = (uploadUrlAlt is String)
-          ? (Uri.tryParse(uploadUrlAlt.trim())?.host ?? "")
-          : "";
-      final targets = <String>[
-        if (primaryHost.isNotEmpty) primaryHost,
-        if (altHost.isNotEmpty && altHost != primaryHost) altHost,
-      ];
-      final suffix = targets.isEmpty ? "" : " (hosts: ${targets.join(", ")})";
-      throw ApiException("Upload failed (TLS)$suffix: $e");
-    } on SocketException catch (e) {
-      throw ApiException("Upload failed (network): $e");
-    } on http.ClientException catch (e) {
-      throw ApiException("Upload failed: $e");
+    } catch (e) {
+      rethrow;
     }
 
-    final completeUri = await api.url("/api/v1/work-submissions/engineer/complete");
-    final completeJson = await api.postJson(
-      completeUri,
-      headers: {
-        HttpHeaders.authorizationHeader: "Bearer $token",
-        HttpHeaders.contentTypeHeader: "application/json",
-      },
-      body: jsonEncode({
+    final completeRes = await client.post(
+      "/api/v1/work-submissions/engineer/complete",
+      data: {
         "submission_type": submissionTypeOverride ?? (isPdf ? "DOCUMENT" : "PHOTO"),
         "submission_context": submissionContextOverride ?? (isPdf ? "SITE_DOC" : "PROGRESS_PHOTO"),
         "latitude": lat,
@@ -259,12 +253,13 @@ class SitePhotoService {
         "download_url": publicUrl,
         "content_type": contentType,
         "size_bytes": sizeBytes,
-      }),
+      },
     );
+    final completeJson = completeRes.data;
 
     final url = completeJson?["download_url"];
     if (url is! String || url.trim().isEmpty) {
-      throw ApiException("Save failed: download_url missing");
+      throw Exception("Save failed: download_url missing");
     }
     return url.trim();
   }
