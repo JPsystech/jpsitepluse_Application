@@ -13,6 +13,7 @@ import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
 import "package:sitepulse_engineer/core/config/api_config.dart";
 
 import "package:sitepulse_engineer/features/timesheet/presentation/bloc/timesheet_bloc.dart";
+import "package:sitepulse_engineer/core/error/error_handler.dart";
 
 class TimesheetScreen extends StatelessWidget {
   const TimesheetScreen({
@@ -82,8 +83,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
       });
     } catch (e) {
       if (!mounted) return;
+      final appError = ErrorHandler.handle(e);
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
+          .showSnackBar(SnackBar(content: Text(appError.userMessage)));
     }
   }
 
@@ -103,8 +105,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
       });
     } catch (e) {
       if (!mounted) return;
+      final appError = ErrorHandler.handle(e);
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
+          .showSnackBar(SnackBar(content: Text(appError.userMessage)));
     }
   }
 
@@ -194,8 +197,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
       ));
     } catch (e) {
       if (!mounted) return;
+      final appError = ErrorHandler.handle(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString()),
+        content: Text(appError.userMessage),
         backgroundColor: Theme.of(context).colorScheme.error,
       ));
     }

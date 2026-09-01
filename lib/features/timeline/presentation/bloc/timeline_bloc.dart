@@ -7,6 +7,7 @@ import 'package:equatable/equatable.dart';
 import 'package:sitepulse_engineer/features/history/data/services/history_service.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart';
 import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'timeline_event.dart';
 part 'timeline_state.dart';
@@ -39,11 +40,10 @@ class TimelineBloc extends Bloc<TimelineEvent, TimelineState> {
         data: resp,
       ));
     } catch (e) {
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || err.contains('socketexception') || err.contains('failed host lookup') || err.contains('network is unreachable') || err.contains('you are offline');
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
         status: TimelineStatus.error,
-        errorMessage: isOffline ? "You are offline and no activity history is available locally." : e.toString().replaceFirst("Exception: ", ""),
+        errorMessage: appError.userMessage,
       ));
     }
   }
@@ -76,9 +76,10 @@ class TimelineBloc extends Bloc<TimelineEvent, TimelineState> {
       // Reset back to loaded
       emit(state.copyWith(status: TimelineStatus.loaded));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
         status: TimelineStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: appError.userMessage,
       ));
       // Reset back to loaded
       emit(state.copyWith(status: TimelineStatus.loaded));

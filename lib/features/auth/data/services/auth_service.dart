@@ -1,14 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:sitepulse_engineer/core/error/auth_exception.dart';
 import 'package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart';
 import 'package:sitepulse_engineer/shared/models/engineer.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
-
-class AuthException implements Exception {
-  final String message;
-  AuthException(this.message);
-  @override
-  String toString() => message;
-}
 
 class AuthService {
   AuthService();

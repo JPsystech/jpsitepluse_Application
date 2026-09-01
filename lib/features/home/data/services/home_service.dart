@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
+import 'package:sitepulse_engineer/core/error/app_exception.dart';
+import 'package:sitepulse_engineer/core/error/error_type.dart';
 
 class HomeService {
   Future<TodayAssignmentResponseModel> getTodayAssignments() async {
@@ -39,14 +42,13 @@ class HomeService {
         }
       }
       
-      final err = e.toString().toLowerCase();
-      final isOffline = err.contains('connection failed') || 
-                        err.contains('socketexception') || 
-                        err.contains('failed host lookup') || 
-                        err.contains('network is unreachable');
+      final isOffline = ErrorHandler.isOfflineError(e);
       
       if (isOffline) {
-        throw Exception("You are offline and no dashboard data is available.");
+        throw const AppException(
+          userMessage: "Unable to connect to the server and no dashboard data is available.",
+          type: AppErrorType.network,
+        );
       }
       
       rethrow;

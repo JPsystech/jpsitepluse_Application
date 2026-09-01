@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'attendance_stats_event.dart';
 part 'attendance_stats_state.dart';
@@ -27,8 +28,9 @@ class AttendanceStatsBloc extends Bloc<AttendanceStatsEvent, AttendanceStatsStat
       );
       emit(state.copyWith(status: AttendanceStatsStatus.success, data: resp));
     } catch (e) {
+      final appError = ErrorHandler.handle(e);
       emit(state.copyWith(
-          status: AttendanceStatsStatus.error, errorMessage: e.toString()));
+          status: AttendanceStatsStatus.error, errorMessage: appError.userMessage));
     }
   }
 }

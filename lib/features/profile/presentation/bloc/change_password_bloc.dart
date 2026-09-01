@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'change_password_event.dart';
 part 'change_password_state.dart';
@@ -41,7 +42,8 @@ class ChangePasswordBloc
 
       emit(ChangePasswordSuccess());
     } catch (e) {
-      emit(ChangePasswordError(e.toString()));
+      final appError = ErrorHandler.handle(e);
+      emit(ChangePasswordError(appError.userMessage));
     }
   }
 }

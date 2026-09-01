@@ -1,6 +1,7 @@
 import "dart:io";
 import "package:sitepulse_engineer/features/documents/data/services/documents_service.dart";
 import "package:sitepulse_engineer/core/storage/offline_sync_store.dart";
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 class OfflineDocumentSyncService {
   OfflineDocumentSyncService({DocumentsService? documentsService})
@@ -42,11 +43,7 @@ class OfflineDocumentSyncService {
           await OfflineSyncStore.removeDocumentFromQueue(filePath);
           synced += 1;
         } catch (e) {
-          final errStr = e.toString().toLowerCase();
-          final isOffline = errStr.contains('connection failed') || 
-                            errStr.contains('socketexception') || 
-                            errStr.contains('failed host lookup') || 
-                            errStr.contains('network is unreachable');
+          final isOffline = ErrorHandler.isOfflineError(e);
           if (isOffline) {
             break; // Network dropped again, stop syncing
           } else {

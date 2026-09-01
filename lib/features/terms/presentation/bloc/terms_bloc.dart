@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:sitepulse_engineer/core/storage/terms_store.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
+import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'terms_event.dart';
 part 'terms_state.dart';
@@ -20,7 +21,8 @@ class TermsBloc extends Bloc<TermsEvent, TermsState> {
       await TermsStore.setAccepted(true);
       emit(TermsSuccess());
     } catch (e) {
-      emit(TermsError(e.toString()));
+      final appError = ErrorHandler.handle(e);
+      emit(TermsError(appError.userMessage));
     }
   }
 }
