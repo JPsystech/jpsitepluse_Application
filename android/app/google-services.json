@@ -1,21 +1,78 @@
 {
   "project_info": {
-    "project_number": "308171284598",
-    "project_id": "jp-siteplus",
-    "storage_bucket": "jp-siteplus.firebasestorage.app"
+    "project_number": "429340306857",
+    "project_id": "acs-hrms",
+    "storage_bucket": "acs-hrms.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:308171284598:android:4e961f0852555241993f57",
+        "mobilesdk_app_id": "1:429340306857:android:1bb4bc0c76175066ec68b8",
         "android_client_info": {
-          "package_name": "com.example.sitepulse_engineer"
+          "package_name": "com.example.acs_hrms"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAnZsv2EV3GS5rTVbse5OKwt9jjBMwjNAs"
+          "current_key": "AIzaSyD0-6aewhzKnQsHAjxnyey3YRSFXvSyh9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:429340306857:android:e9babc85753c0b4cec68b8",
+        "android_client_info": {
+          "package_name": "com.jpsystech.acshrms"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0-6aewhzKnQsHAjxnyey3YRSFXvSyh9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:429340306857:android:de81e636f7dfb587ec68b8",
+        "android_client_info": {
+          "package_name": "com.jpsystech.sitepluse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0-6aewhzKnQsHAjxnyey3YRSFXvSyh9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:429340306857:android:de81e636f7dfb587ec68b8",
+        "android_client_info": {
+          "package_name": "com.jpsystech.sitepluse.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0-6aewhzKnQsHAjxnyey3YRSFXvSyh9A"
         }
       ],
       "services": {

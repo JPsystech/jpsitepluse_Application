@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:sitepulse_engineer/features/attendance/data/models/punch_response_model.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
-import 'package:sitepulse_engineer/core/storage/offline_sync_store.dart';
 
 class AttendanceService {
   Future<PunchInResponseModel> punchIn({

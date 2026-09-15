@@ -5,7 +5,6 @@ import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/features/terms/presentation/bloc/terms_bloc.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
-
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 
 class TermsScreen extends StatelessWidget {

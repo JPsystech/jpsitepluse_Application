@@ -49,16 +49,22 @@ class OfflinePunchSyncService {
         } catch (e) {
           if (e is DioException) {
             print("OFFLINE PUNCH SYNC ERROR: ${e.response?.statusCode} - ${e.response?.data}");
+            
+            final statusCode = e.response?.statusCode;
+            // 4xx errors (except 401, 408, 429) are permanent data/validation rejections
+            if (statusCode != null && statusCode >= 400 && statusCode < 500 && 
+                statusCode != 401 && statusCode != 408 && statusCode != 429) {
+              // This punch was permanently rejected by the server (e.g. too old, conflicts).
+              // Remove it from the queue so it doesn't block other punches.
+              print("Discarding permanently rejected offline punch: ${p.clientPunchId}");
+              await queue.remove(clientPunchId: p.clientPunchId, type: p.type);
+              continue; // Continue processing the rest of the queue
+            }
           }
-          // If network error, stop sync and try later.
-          if (e is DioException && e.response == null) {
-            break;
-          }
-          // For other exceptions (like bad request), we want to skip or remove it?
-          // Actually, we shouldn't delete the user's punch blindly unless it's a permanent error.
-          // But if it's 400 Bad Request, it might never succeed.
-          // Let's break for safety for now.
-          print(e);
+          
+          // For network errors (response == null) or 5xx server errors, 
+          // stop sync and try later.
+          print("Halting punch sync due to transient error: $e");
           break;
         }
       }

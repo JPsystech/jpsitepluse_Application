@@ -43,11 +43,24 @@ class OfflineTimesheetSyncService {
           await queue.remove(id: t.id);
           synced += 1;
         } catch (e) {
-          // If it's a network error (no response), break and try again later
-          if (e is DioException && e.response == null) {
-            break;
+          if (e is DioException) {
+            print("OFFLINE TIMESHEET SYNC ERROR: ${e.response?.statusCode} - ${e.response?.data}");
+            
+            final statusCode = e.response?.statusCode;
+            // 4xx errors (except 401, 408, 429) are permanent data/validation rejections
+            if (statusCode != null && statusCode >= 400 && statusCode < 500 && 
+                statusCode != 401 && statusCode != 408 && statusCode != 429) {
+              // This timesheet was permanently rejected by the server.
+              // Remove it from the queue so it doesn't block other timesheets.
+              print("Discarding permanently rejected offline timesheet: ${t.id}");
+              await queue.remove(id: t.id);
+              continue; // Continue processing the rest of the queue
+            }
           }
-          // If it's a 4xx error or other error, we might want to drop it, but we'll break to be safe.
+          
+          // For network errors (response == null) or 5xx server errors, 
+          // stop sync and try later.
+          print("Halting timesheet sync due to transient error: $e");
           break;
         }
       }
