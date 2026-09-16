@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:sitepulse_engineer/core/error/auth_exception.dart';
 import 'package:sitepulse_engineer/features/auth/data/models/auth_session_model.dart';
 import 'package:sitepulse_engineer/shared/models/engineer.dart';
@@ -6,6 +8,20 @@ import 'package:sitepulse_engineer/core/network/api_client.dart';
 
 class AuthService {
   AuthService();
+
+  Future<String> _getDeviceInfo() async {
+    try {
+      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        return '${androidInfo.brand} ${androidInfo.model} (Android ${androidInfo.version.release})';
+      } else if (Platform.isIOS) {
+        final IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        return '${iosInfo.name} (iOS ${iosInfo.systemVersion})';
+      }
+    } catch (_) {}
+    return 'Unknown Device';
+  }
 
   Future<AuthSessionModel> login({
     required String companyCode,
@@ -16,12 +32,14 @@ class AuthService {
   }) async {
     final client = await ApiClient.instance.dio;
     try {
+      final deviceInfoStr = await _getDeviceInfo();
       final response = await client.post('/api/v1/engineer/login', data: {
         'vendor_code': companyCode,
         'emp_code': empCode,
         'password': password,
         'remember_me': rememberMe,
         'device_id': deviceId,
+        'device_info': deviceInfoStr,
       });
 
       if (response.statusCode == 200) {

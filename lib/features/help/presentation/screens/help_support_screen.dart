@@ -1,5 +1,4 @@
 import "package:flutter/material.dart";
-import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class HelpSupportScreen extends StatelessWidget {

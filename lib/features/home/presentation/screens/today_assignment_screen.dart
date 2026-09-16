@@ -16,8 +16,10 @@ import 'package:sitepulse_engineer/features/attendance/presentation/screens/atte
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
-import 'package:uuid/uuid.dart';
+import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
+import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:uuid/uuid.dart';
 
 class TodayAssignmentScreen extends StatelessWidget {
   const TodayAssignmentScreen({
@@ -69,6 +71,18 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   String? selectedProjectIdForException;
   bool isPunchingOutForException = false;
   String? _lastPunchOutRemarks;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<NotificationsBloc>().add(
+              const LoadNotificationsRequested(silent: true),
+            );
+      }
+    });
+  }
 
   Future<String?> _promptExceptionReason(BuildContext context) async {
     return showModalBottomSheet<String>(
@@ -209,7 +223,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           }
           final loc = await context.read<AttendanceBloc>().resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
           await OfflineTimesheetQueue().add(OfflineTimesheet(
-            id: const Uuid().v4(),
+            id:Uuid().v4(),
             photoPath: attachedFile.path,
             lat: loc.lat,
             lng: loc.lng,
@@ -338,8 +352,79 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          _buildNotificationBellButton(),
         ],
       ),
+    );
+  }
+
+  Widget _buildNotificationBellButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return BlocBuilder<NotificationsBloc, NotificationsState>(
+      builder: (context, state) {
+        final unreadCount =
+            (state is NotificationsLoaded) ? state.unreadCount : 0;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Material(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: IconButton(
+                icon: Icon(
+                  unreadCount > 0
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_outlined,
+                  color: unreadCount > 0
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
+                tooltip: 'Notifications',
+                onPressed: () {
+                  Navigator.of(context).pushNamed(AppRoutes.notifications);
+                },
+              ),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.error,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.surface,
+                      width: 1.5,
+                    ),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: Center(
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: TextStyle(
+                        color: colorScheme.onError,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

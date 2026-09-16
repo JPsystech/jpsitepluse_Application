@@ -4,7 +4,6 @@ import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import 'package:pinput/pinput.dart';
 import 'package:sitepulse_engineer/features/auth/data/services/auth_service.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
-import 'package:sitepulse_engineer/core/storage/credential_store.dart';
 import 'package:sitepulse_engineer/core/storage/offline_session_cache.dart';
 class MpinSetupScreen extends StatefulWidget {
   final bool isServerMpinSet;
@@ -154,7 +153,6 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
         : (_isConfirming
             ? "Re-enter your 4-digit MPIN"
             : "Create a 4-digit MPIN for quick access");
-    final currentLength = _isConfirming ? _confirmPin.length : _pin.length;
 
     return PopScope(
       canPop: false,

@@ -9,6 +9,7 @@ import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_setup
 import "package:sitepulse_engineer/features/auth/presentation/screens/change_mpin_screen.dart";
 import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_otp_request_screen.dart";
 import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_otp_screen.dart";
+import "package:sitepulse_engineer/features/notifications/presentation/screens/notifications_screen.dart";
 
 class AppRoutes {
   static const String splash = "/splash";
@@ -16,6 +17,7 @@ class AppRoutes {
   static const String terms = "/terms";
   static const String app = "/app";
   static const String documents = "/documents";
+  static const String notifications = "/notifications";
   static const String mpinSetup = "/mpin-setup";
   static const String changeMpin = "/change-mpin";
   static const String mpinOtpRequest = "/mpin-otp-request";
@@ -29,8 +31,19 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const LoginScreen());
       case terms:
         return MaterialPageRoute(builder: (_) => const TermsScreen());
+      case notifications:
+        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
       case app:
-        return MaterialPageRoute(builder: (_) => const AppShell());
+        int initialTab = 0;
+        if (settings.arguments is int) {
+          initialTab = settings.arguments as int;
+        } else if (settings.arguments is Map) {
+          final args = settings.arguments as Map;
+          initialTab = args['tabIndex'] as int? ?? 0;
+        }
+        return MaterialPageRoute(
+          builder: (_) => AppShell(initialTab: initialTab),
+        );
       case documents:
         return MaterialPageRoute(builder: (_) => const DocumentUploadScreen());
       case changeMpin:

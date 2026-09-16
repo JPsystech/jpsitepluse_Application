@@ -5,7 +5,6 @@ import 'package:sitepulse_engineer/features/attendance/data/models/punch_respons
 import 'package:sitepulse_engineer/features/attendance/data/repositories/attendance_repository.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';

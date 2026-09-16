@@ -5,7 +5,8 @@ part 'shell_event.dart';
 part 'shell_state.dart';
 
 class ShellBloc extends Bloc<ShellEvent, ShellState> {
-  ShellBloc() : super(const ShellState()) {
+  ShellBloc({int initialIndex = 0})
+      : super(ShellState(currentIndex: initialIndex)) {
     on<ShellTabChanged>((event, emit) {
       emit(state.copyWith(currentIndex: event.index));
     });

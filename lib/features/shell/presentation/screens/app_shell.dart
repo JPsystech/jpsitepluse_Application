@@ -41,12 +41,13 @@ class AppShellScope extends InheritedWidget {
 }
 
 class AppShell extends StatelessWidget {
-  const AppShell({super.key});
+  final int initialTab;
+  const AppShell({super.key, this.initialTab = 0});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => ShellBloc(),
+      create: (_) => ShellBloc(initialIndex: initialTab),
       child: const _AppShellView(),
     );
   }
@@ -77,12 +78,21 @@ class _AppShellViewState extends State<_AppShellView> {
     final timesheetSvc = OfflineTimesheetSyncService();
     final documentSvc = OfflineDocumentSyncService();
     
-    // Proactively cache timeline and timesheets on app load
-    HistoryService().history(token: token).catchError((_) => null);
-    TimesheetService().timesheets(
-      token: token, 
-      month: DateFormat('yyyy-MM').format(DateTime.now())
-    ).catchError((_) => null);
+    // Proactively cache timeline and timesheets on app load.
+    // Use fire-and-forget async closures — .catchError((_) => null) is invalid
+    // when the Future type is not nullable, causing an Unhandled Exception that
+    // blocks Flutter's frame cycle and prevents navigation from working.
+    () async {
+      try { await HistoryService().history(token: token); } catch (_) {}
+    }();
+    () async {
+      try {
+        await TimesheetService().timesheets(
+          token: token,
+          month: DateFormat('yyyy-MM').format(DateTime.now()),
+        );
+      } catch (_) {}
+    }();
     
     void runOnce() async {
       final syncedCount = await svc.sync(token: token);

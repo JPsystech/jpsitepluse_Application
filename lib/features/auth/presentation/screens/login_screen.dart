@@ -1,4 +1,5 @@
 import "dart:convert";
+import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -7,6 +8,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 import "package:sitepulse_engineer/core/config/api_config.dart";
+import "package:sitepulse_engineer/core/network/api_client.dart";
 import "package:sitepulse_engineer/core/storage/terms_store.dart";
 import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import "package:sitepulse_engineer/core/storage/credential_store.dart";
@@ -68,26 +70,34 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   void initState() {
     super.initState();
     serverUrlCtrl.text = productionApiBaseUrl;
-    _loadSavedVendorCode();
+
+    // Capture BEFORE addPostFrameCallback clears it.
+    // addPostFrameCallback fires during the first frame, but _loadSavedVendorCode
+    // suspends on "await SharedPreferences.getInstance()" — so the callback
+    // resets sessionExpired = false before _loadSavedVendorCode can read it.
+    final wasForceExpired = SessionStore.sessionExpired;
+    _loadSavedVendorCode(wasForceExpired: wasForceExpired);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (SessionStore.sessionExpired) {
+        final reason = SessionStore.expiredReason ?? 'Your session has expired. Please login again.';
         SessionStore.sessionExpired = false;
+        SessionStore.expiredReason = null;
         
         // Suppress any duplicate error snackbars emitted by feature BLoCs
         ScaffoldMessenger.of(context).clearSnackBars();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Your session has expired. Please login again.'),
+          SnackBar(
+            content: Text(reason),
           ),
         );
       }
     });
   }
 
-  Future<void> _loadSavedVendorCode() async {
+  Future<void> _loadSavedVendorCode({bool wasForceExpired = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final savedCode = prefs.getString("sitepulse_engineer_vendor_code");
     if (savedCode != null && savedCode.trim().isNotEmpty) {
@@ -95,15 +105,25 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         vendorCodeCtrl.text = savedCode.trim();
       });
 
-      final hasMpin = await MpinStore.hasMpin();
-      final creds = await CredentialStore.getCredentials();
-      final session = SessionStore.current;
+      // If the session was forcibly expired (e.g. device binding revoked),
+      // NEVER enter MPIN mode — force a full password login.
+      if (!wasForceExpired) {
+        final hasMpin = await MpinStore.hasMpin();
+        final creds = await CredentialStore.getCredentials();
+        final session = SessionStore.current;
 
-      if (hasMpin || (session?.hasMpin ?? false)) {
-        setState(() {
-          isMpinMode = true;
-          _engineerName = creds?['engineerName'] ?? "Engineer";
-        });
+        if (hasMpin || (session?.hasMpin ?? false)) {
+          setState(() {
+            isMpinMode = true;
+            _engineerName = creds?['engineerName'] ?? "Engineer";
+          });
+
+          // Scenario B fix: app was already on MPIN screen when device binding
+          // changed on another device. No interceptor fired, so sessionExpired
+          // was never set. Silently verify device binding now via /me.
+          // If binding is gone, immediately fall back to full password form.
+          _verifyDeviceBindingAndFallback();
+        }
       }
 
       // Automatically proceed to fetch branding and show Step 2
@@ -112,6 +132,62 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       setState(() {
         isLoadingInitialState = false;
       });
+    }
+  }
+
+  /// Silently pings /me with the current token + device ID.
+  /// If the backend returns a device-binding 401, clears all local auth data
+  /// and switches this screen from MPIN mode to full password mode.
+  Future<void> _verifyDeviceBindingAndFallback() async {
+    try {
+      final token = SessionStore.current?.token;
+      if (token == null || token.trim().isEmpty) return;
+
+      final client = await ApiClient.instance.dio;
+      await client.get('/api/v1/engineer/me');
+      // If it succeeded, device binding is fine — stay in MPIN mode.
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 401) {
+        final data = e.response?.data;
+        String? detail;
+        try {
+          if (data is Map && data['detail'] != null) {
+            detail = data['detail'].toString();
+          }
+        } catch (_) {}
+
+        final isDeviceIssue = detail != null &&
+            (detail.toLowerCase().contains('device') ||
+                detail.toLowerCase().contains('administrator') ||
+                detail.toLowerCase().contains('binding'));
+
+        if (isDeviceIssue) {
+          // Device binding was revoked. Wipe local auth and force full login.
+          await MpinStore.clearMpin();
+          await CredentialStore.clearCredentials();
+          final p = await SharedPreferences.getInstance();
+          await p.remove('sitepulse_engineer_vendor_code');
+          await SessionStore.clear();
+
+          if (!mounted) return;
+          setState(() {
+            isMpinMode = false;
+            _engineerName = '';
+            vendorCodeCtrl.clear();
+          });
+
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'This account has been bound to a new device. Please log in with your password.'),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      // Any other error (network, etc.) — do nothing, let MPIN proceed normally.
     }
   }
 
@@ -224,6 +300,42 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     }
     if (isValid) {
       if (SessionStore.current != null) {
+        // Device binding check: before entering the app, verify the device
+        // binding is still valid. If the admin released this device and another
+        // device logged in, this call returns 401 and we force a full login.
+        try {
+          final client = await ApiClient.instance.dio;
+          await client.get('/api/v1/engineer/me');
+        } on DioException catch (e) {
+          final statusCode = e.response?.statusCode;
+          if (statusCode == 401) {
+            // Device binding was revoked — wipe everything and force password login.
+            await MpinStore.clearMpin();
+            await CredentialStore.clearCredentials();
+            final p = await SharedPreferences.getInstance();
+            await p.remove('sitepulse_engineer_vendor_code');
+            await SessionStore.clear();
+            if (!mounted) return;
+            setState(() {
+              isMpinMode = false;
+              isAutoLoggingIn = false;
+              _pin = '';
+              error = null;
+              vendorCodeCtrl.clear();
+            });
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'This account is bound to a new device. Please log in with your password.'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+            return;
+          }
+          // Any other error (timeout, network) — allow MPIN login to proceed.
+        } catch (_) {}
+
         if (mounted) {
           Navigator.of(context)
               .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
@@ -938,10 +1050,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             final isSubmitting = state is AuthLoading;
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            return Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
                       height: 24,
@@ -956,7 +1070,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Text(
                       "Remember me",
                       style: textTheme.bodyMedium?.copyWith(

@@ -1,9 +1,11 @@
 import "dart:convert";
 import 'package:sitepulse_engineer/core/network/unauthorized_interceptor.dart';
+import 'package:sitepulse_engineer/core/services/notification_service.dart';
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
-import "dart:math";
+import "package:flutter_secure_storage/flutter_secure_storage.dart";
+import "package:uuid/uuid.dart";
 
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
 
@@ -12,6 +14,7 @@ class SessionStore {
   static final ValueNotifier<AuthSession?> notifier =
       ValueNotifier<AuthSession?>(null);
   static bool sessionExpired = false;
+  static String? expiredReason;
 
   static const String _key = "sitepulse_engineer_session";
 
@@ -42,6 +45,7 @@ class SessionStore {
         }
         current = session;
         notifier.value = session;
+        NotificationService.instance.syncToken();
         return;
       }
     } catch (_) {}
@@ -51,35 +55,38 @@ class SessionStore {
 
   static Future<void> set(AuthSession session) async {
     sessionExpired = false;
+    expiredReason = null;
     UnauthorizedInterceptor.reset();
 
     current = session;
     notifier.value = session;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(session.toJson()));
+    NotificationService.instance.syncToken();
   }
 
   static Future<void> clear() async {
+    await NotificationService.instance.unregisterToken();
     current = null;
     notifier.value = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
   }
 
-  static Future<void> expireSession() async {
+  static Future<void> expireSession([String? reason]) async {
     sessionExpired = true;
+    expiredReason = reason;
     await clear();
   }
 
   static Future<String> getDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
+    const storage = FlutterSecureStorage();
     const deviceIdKey = "sitepulse_engineer_device_id";
-    String? deviceId = prefs.getString(deviceIdKey);
+    String? deviceId = await storage.read(key: deviceIdKey);
+    
     if (deviceId == null || deviceId.trim().isEmpty) {
-      final rand = Random.secure();
-      final bytes = List<int>.generate(16, (i) => rand.nextInt(256));
-      deviceId = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
-      await prefs.setString(deviceIdKey, deviceId);
+      deviceId = const Uuid().v4();
+      await storage.write(key: deviceIdKey, value: deviceId);
     }
     return deviceId;
   }

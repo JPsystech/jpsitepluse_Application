@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:sitepulse_engineer/core/config/api_config.dart';
+import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'tenant_interceptor.dart';
 import 'unauthorized_interceptor.dart';
 
@@ -10,6 +11,17 @@ class ApiClient {
     _dio = Dio();
     _dio.interceptors.add(TenantInterceptor());
     _dio.interceptors.add(UnauthorizedInterceptor());
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          try {
+            final deviceId = await SessionStore.getDeviceId();
+            options.headers['X-Device-ID'] = deviceId;
+          } catch (_) {}
+          return handler.next(options);
+        },
+      ),
+    );
   }
 
   static final ApiClient _instance = ApiClient._internal();
