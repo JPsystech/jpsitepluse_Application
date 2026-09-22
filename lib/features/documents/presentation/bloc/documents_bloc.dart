@@ -27,6 +27,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
     on<LoadDocumentsRequested>(_onLoadDocumentsRequested);
     on<UploadDocumentRequested>(_onUploadDocumentRequested);
     on<ViewDocumentRequested>(_onViewDocumentRequested);
+    on<DownloadDocumentToPhoneRequested>(_onDownloadDocumentToPhoneRequested);
   }
 
   String? get _ndtExpiryKey {
@@ -286,20 +287,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       }
 
       final tempDir = await getTemporaryDirectory();
-      final name = event.document.effectiveFileName.isEmpty
-          ? "document_${event.document.id}.pdf"
-          : event.document.effectiveFileName;
-      final safeName = name
-          .replaceAll("\\", "_")
-          .replaceAll("/", "_")
-          .replaceAll(":", "_")
-          .replaceAll("*", "_")
-          .replaceAll("?", "_")
-          .replaceAll("\"", "_")
-          .replaceAll("<", "_")
-          .replaceAll(">", "_")
-          .replaceAll("|", "_");
-
+      final safeName = event.document.downloadFileName;
       final file = File("${tempDir.path}${Platform.pathSeparator}$safeName");
       
       // If the file already exists locally, use the cached version directly
@@ -340,6 +328,89 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
         snackbarMessage: "Unable to open file. $msg",
+        isErrorSnackbar: true,
+        clearOneOffs: false,
+      ));
+    }
+  }
+
+  Future<void> _onDownloadDocumentToPhoneRequested(
+      DownloadDocumentToPhoneRequested event, Emitter<DocumentsState> emit) async {
+    if (state.busyKeys.contains(event.busyKey)) return;
+
+    final newBusyKeys = Set<String>.from(state.busyKeys)..add(event.busyKey);
+    emit(state.copyWith(busyKeys: newBusyKeys, clearOneOffs: true));
+
+    try {
+      final url = event.document.fileUrl.trim();
+      if (url.isEmpty) {
+        throw "File URL is not available.";
+      }
+
+      final safeName = event.document.downloadFileName;
+
+      Directory? targetDir;
+      if (Platform.isAndroid) {
+        final downloadDir = Directory("/storage/emulated/0/Download");
+        if (await downloadDir.exists()) {
+          targetDir = downloadDir;
+        } else {
+          final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+          if (extDirs != null && extDirs.isNotEmpty) {
+            targetDir = extDirs.first;
+          } else {
+            targetDir = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+          }
+        }
+      } else {
+        targetDir = await getApplicationDocumentsDirectory();
+      }
+
+      final targetFile = File("${targetDir.path}${Platform.pathSeparator}$safeName");
+
+      // Check if file is in local cache or offline queue first
+      final tempDir = await getTemporaryDirectory();
+      final cachedFile = File("${tempDir.path}${Platform.pathSeparator}$safeName");
+
+      if (File(url).existsSync()) {
+        await File(url).copy(targetFile.path);
+      } else if (await cachedFile.exists()) {
+        await cachedFile.copy(targetFile.path);
+      } else {
+        final dio = await ApiClient.instance.dio;
+        String absoluteUrl = url;
+        if (!url.startsWith('http')) {
+          final baseUrl = dio.options.baseUrl;
+          absoluteUrl = "$baseUrl$url";
+        }
+
+        final response = await dio.get(
+          absoluteUrl,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (response.statusCode != null && (response.statusCode! < 200 || response.statusCode! >= 300)) {
+          throw "Failed to download file";
+        }
+        await targetFile.writeAsBytes(response.data as List<int>, flush: true);
+      }
+
+      final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
+
+      emit(state.copyWith(
+        busyKeys: updatedBusyKeys,
+        snackbarMessage: "Saved to Downloads: $safeName",
+        isErrorSnackbar: false,
+        clearOneOffs: false,
+      ));
+    } catch (e) {
+      final updatedBusyKeys = Set<String>.from(state.busyKeys)..remove(event.busyKey);
+
+      final appError = ErrorHandler.handle(e);
+      final msg = _friendlyUploadError(appError.userMessage);
+
+      emit(state.copyWith(
+        busyKeys: updatedBusyKeys,
+        snackbarMessage: "Failed to download. $msg",
         isErrorSnackbar: true,
         clearOneOffs: false,
       ));

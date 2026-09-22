@@ -88,15 +88,78 @@ class EngineerDocument {
 
   String get normalizedType => documentType.trim().toLowerCase();
 
-  String get effectiveFileName {
-    final name = (originalFilename ?? "").trim();
-    if (name.isNotEmpty) return name;
-    final url = fileUrl.trim();
-    if (url.isEmpty) return "";
-    final beforeQuery = url.split("?").first;
-    final last = beforeQuery.split("/").last;
-    return last;
+  static String inferExtension(
+      String? contentType, String? originalFilename, String? fileUrl) {
+    final orig = (originalFilename ?? "").trim().toLowerCase();
+    for (final e in [
+      ".pdf",
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp",
+      ".doc",
+      ".docx"
+    ]) {
+      if (orig.endsWith(e)) return e;
+    }
+
+    final url = (fileUrl ?? "").trim().split("?").first.toLowerCase();
+    for (final e in [
+      ".pdf",
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp",
+      ".doc",
+      ".docx"
+    ]) {
+      if (url.endsWith(e)) return e;
+    }
+
+    final ct = (contentType ?? "").trim().toLowerCase();
+    if (ct == "application/pdf") return ".pdf";
+    if (ct == "application/msword") return ".doc";
+    if (ct ==
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      return ".docx";
+    }
+    if (ct == "image/png") return ".png";
+    if (ct == "image/webp") return ".webp";
+    if (ct == "image/jpeg" || ct == "image/jpg") return ".jpg";
+
+    return ".pdf";
   }
+
+  String get downloadFileName {
+    final ext = inferExtension(contentType, originalFilename, fileUrl);
+    final orig = (originalFilename ?? "").trim();
+    final isOrigHash =
+        RegExp(r'^[a-f0-9\-]{24,}$', caseSensitive: false).hasMatch(orig.split('.').first);
+    if (orig.isNotEmpty && orig.contains(".") && !isOrigHash) {
+      final safe = orig.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      return safe.toLowerCase().endsWith(ext.toLowerCase()) ? safe : "$safe$ext";
+    }
+
+    String title = documentName.trim();
+    if (title.isEmpty) {
+      title = documentType.trim();
+    }
+    if (title.isEmpty) {
+      title = "Document";
+    }
+
+    String safeTitle = title
+        .replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+
+    if (safeTitle.toLowerCase().endsWith(ext.toLowerCase())) {
+      return safeTitle;
+    }
+    return "$safeTitle$ext";
+  }
+
+  String get effectiveFileName => downloadFileName;
 }
 
 class EngineerDocumentPresignResponse {

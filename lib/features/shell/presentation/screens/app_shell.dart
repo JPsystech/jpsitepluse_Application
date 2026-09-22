@@ -16,6 +16,9 @@ import "package:sitepulse_engineer/features/profile/presentation/screens/profile
 import "package:intl/intl.dart";
 import "package:sitepulse_engineer/features/timeline/presentation/screens/activity_timeline_screen.dart";
 import "package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart";
+import "package:sitepulse_engineer/features/documents/presentation/screens/document_upload_screen.dart";
+import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
+import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
 import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
 import "../../../../core/services/offline_document_sync_service.dart";
@@ -46,8 +49,15 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ShellBloc(initialIndex: initialTab),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => ShellBloc(initialIndex: initialTab)),
+        BlocProvider(
+          create: (_) => DocumentsBloc()
+            ..add(LoadDocumentsRequested(
+                sessionToken: (SessionStore.current?.token ?? "").trim())),
+        ),
+      ],
       child: const _AppShellView(),
     );
   }
@@ -137,6 +147,7 @@ class _AppShellViewState extends State<_AppShellView> {
           TimesheetScreen(
               sessionToken: session.token,
               engineerEmpCode: session.engineer.empCode),
+          const DocumentUploadScreen(),
           const ProfileScreen(),
         ];
 
@@ -193,8 +204,8 @@ class _AppShellViewState extends State<_AppShellView> {
                           labelTextStyle: WidgetStateProperty.resolveWith((states) {
                             final screenWidth = MediaQuery.sizeOf(context).width;
                             final isSelected = states.contains(WidgetState.selected);
-                            // Scale font dynamically based on screen width to prevent wrapping
-                            final baseSize = screenWidth < 380 ? 10.0 : 12.0;
+                            // Scale font dynamically based on screen width to prevent wrapping with 5 tabs
+                            final baseSize = screenWidth < 360 ? 9.5 : (screenWidth < 400 ? 10.5 : 11.5);
                             
                             return TextStyle(
                               color: isSelected 
@@ -203,19 +214,19 @@ class _AppShellViewState extends State<_AppShellView> {
                               fontSize: baseSize,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                               letterSpacing: -0.5, // Tighter letter spacing to fit
-                              overflow: TextOverflow.visible,
+                              overflow: TextOverflow.ellipsis,
                             );
                           }),
                           iconTheme: WidgetStateProperty.resolveWith((states) {
                             if (states.contains(WidgetState.selected)) {
                               return IconThemeData(
                                 color: Theme.of(context).colorScheme.primary,
-                                size: 26,
+                                size: 24,
                               );
                             }
                             return IconThemeData(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              size: 24,
+                              size: 22,
                             );
                           }),
                         ),
@@ -230,23 +241,74 @@ class _AppShellViewState extends State<_AppShellView> {
                           onDestinationSelected: (idx) => context
                               .read<ShellBloc>()
                               .add(ShellTabChanged(idx)),
-                          destinations: const [
-                            NavigationDestination(
+                          destinations: [
+                            const NavigationDestination(
                               icon: Icon(Icons.today_outlined),
                               selectedIcon: Icon(Icons.today_rounded),
                               label: "Today",
                             ),
-                            NavigationDestination(
+                            const NavigationDestination(
                               icon: Icon(Icons.timeline_rounded),
                               selectedIcon: Icon(Icons.timeline_rounded),
                               label: "Timeline",
                             ),
-                            NavigationDestination(
+                            const NavigationDestination(
                               icon: Icon(Icons.edit_note_rounded),
                               selectedIcon: Icon(Icons.edit_note_rounded),
                               label: "Work Update",
                             ),
                             NavigationDestination(
+                              icon: BlocBuilder<DocumentsBloc, DocumentsState>(
+                                builder: (context, docState) {
+                                  final latestDocs = <String, EngineerDocument>{};
+                                  for (final d in docState.documents) {
+                                    if (d.documentType != 'other') {
+                                      latestDocs.putIfAbsent(d.documentType, () => d);
+                                    }
+                                  }
+                                  const totalReq = 8;
+                                  final uploadedReq = latestDocs.values
+                                      .where((d) => d.fileUrl.trim().isNotEmpty)
+                                      .length;
+                                  final missing = (totalReq - uploadedReq).clamp(0, totalReq);
+
+                                  if (missing > 0 && docState.status == DocumentsStatus.loaded) {
+                                    return Badge(
+                                      label: Text('$missing'),
+                                      backgroundColor: const Color(0xFFEF4444),
+                                      child: const Icon(Icons.folder_outlined),
+                                    );
+                                  }
+                                  return const Icon(Icons.folder_outlined);
+                                },
+                              ),
+                              selectedIcon: BlocBuilder<DocumentsBloc, DocumentsState>(
+                                builder: (context, docState) {
+                                  final latestDocs = <String, EngineerDocument>{};
+                                  for (final d in docState.documents) {
+                                    if (d.documentType != 'other') {
+                                      latestDocs.putIfAbsent(d.documentType, () => d);
+                                    }
+                                  }
+                                  const totalReq = 8;
+                                  final uploadedReq = latestDocs.values
+                                      .where((d) => d.fileUrl.trim().isNotEmpty)
+                                      .length;
+                                  final missing = (totalReq - uploadedReq).clamp(0, totalReq);
+
+                                  if (missing > 0 && docState.status == DocumentsStatus.loaded) {
+                                    return Badge(
+                                      label: Text('$missing'),
+                                      backgroundColor: const Color(0xFFEF4444),
+                                      child: const Icon(Icons.folder_shared_rounded),
+                                    );
+                                  }
+                                  return const Icon(Icons.folder_shared_rounded);
+                                },
+                              ),
+                              label: "Documents",
+                            ),
+                            const NavigationDestination(
                               icon: Icon(Icons.person_outline_rounded),
                               selectedIcon: Icon(Icons.person_rounded),
                               label: "Profile",

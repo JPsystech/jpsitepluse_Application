@@ -46,13 +46,35 @@ class NotificationRouter {
 
       case 'DOCUMENT':
       case 'DOCUMENT_VERIFICATION':
-        NavigationService.navigateTo(AppRoutes.documents);
+        NavigationService.navigateToTab(3);
         break;
 
       case 'SUBMISSION':
       case 'WORK_SUBMISSION':
       case 'TIMESHEET':
         NavigationService.navigateToTab(2);
+        break;
+
+      case 'REFERRAL_UPDATE':
+      case 'REFERRAL_CANDIDATE':
+      case 'REFERRAL_PROJECT':
+      case 'REFERRAL_JOB':
+      case 'REFERRAL_REWARD':
+        int tabIndex = 0;
+        if (data['tabIndex'] != null) {
+          tabIndex = int.tryParse(data['tabIndex'].toString()) ?? 0;
+          if (tabIndex > 2) tabIndex = (type == 'REFERRAL_REWARD') ? 2 : 0;
+        } else if (type == 'REFERRAL_PROJECT') {
+          tabIndex = 1;
+        } else if (type == 'REFERRAL_REWARD') {
+          tabIndex = 2;
+        } else {
+          tabIndex = 0;
+        }
+        NavigationService.navigateTo(
+          AppRoutes.referrals,
+          arguments: {'tabIndex': tabIndex},
+        );
         break;
 
       default:

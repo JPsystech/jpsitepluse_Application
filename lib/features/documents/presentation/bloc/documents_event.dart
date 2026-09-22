@@ -67,3 +67,14 @@ class ViewDocumentRequested extends DocumentsEvent {
   @override
   List<Object?> get props => [document, busyKey];
 }
+
+class DownloadDocumentToPhoneRequested extends DocumentsEvent {
+  final EngineerDocument document;
+  final String busyKey;
+
+  const DownloadDocumentToPhoneRequested(
+      {required this.document, required this.busyKey});
+
+  @override
+  List<Object?> get props => [document, busyKey];
+}
