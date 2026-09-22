@@ -7,6 +7,9 @@ import "package:sitepulse_engineer/features/help/presentation/screens/help_suppo
 import "package:sitepulse_engineer/features/settings/presentation/screens/settings_screen.dart";
 import "package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/profile_bloc.dart";
+import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
+import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
+import "package:sitepulse_engineer/features/shell/presentation/screens/app_shell.dart";
 import "change_password_screen.dart";
 
 class ProfileScreen extends StatelessWidget {
@@ -308,9 +311,61 @@ class _ProfileView extends StatelessWidget {
           ),
           Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _ProfileMenuTile(
-            icon: Icons.folder_open_rounded,
-            title: "Documents",
-            onTap: () => Navigator.of(context).pushNamed(AppRoutes.documents),
+            icon: Icons.stars_rounded,
+            title: "Referrals & Rewards",
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.referrals),
+          ),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
+          BlocBuilder<DocumentsBloc, DocumentsState>(
+            builder: (context, docState) {
+              final latestDocs = <String, EngineerDocument>{};
+              for (final d in docState.documents) {
+                if (d.documentType != 'other') {
+                  latestDocs.putIfAbsent(d.documentType, () => d);
+                }
+              }
+              const totalReq = 8;
+              final uploadedReq = latestDocs.values
+                  .where((d) => d.fileUrl.trim().isNotEmpty)
+                  .length;
+              final missing = (totalReq - uploadedReq).clamp(0, totalReq);
+              final isLoaded = docState.status == DocumentsStatus.loaded;
+
+              Widget? trailing;
+              if (isLoaded) {
+                trailing = Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: missing == 0
+                        ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                        : cs.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    missing == 0 ? "8/8 Done ✓" : "$uploadedReq/$totalReq Uploaded",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: missing == 0 ? const Color(0xFF10B981) : cs.primary,
+                    ),
+                  ),
+                );
+              }
+
+              return _ProfileMenuTile(
+                icon: Icons.folder_open_rounded,
+                title: "Documents",
+                trailing: trailing,
+                onTap: () {
+                  final shell = AppShellScope.maybeOf(context);
+                  if (shell != null) {
+                    shell.setIndex(3);
+                  } else {
+                    Navigator.of(context).pushNamed(AppRoutes.documents);
+                  }
+                },
+              );
+            },
           ),
           Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           _ProfileMenuTile(
@@ -347,11 +402,13 @@ class _ProfileView extends StatelessWidget {
 class _ProfileMenuTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final Widget? trailing;
   final VoidCallback onTap;
 
   const _ProfileMenuTile({
     required this.icon,
     required this.title,
+    this.trailing,
     required this.onTap,
   });
 
@@ -384,6 +441,10 @@ class _ProfileMenuTile extends StatelessWidget {
                       ),
                 ),
               ),
+              if (trailing != null) ...[
+                trailing!,
+                const SizedBox(width: 8),
+              ],
               Icon(Icons.chevron_right_rounded, size: 22, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
             ],
           ),

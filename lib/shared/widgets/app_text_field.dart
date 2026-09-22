@@ -20,6 +20,7 @@ class AppTextField extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.helperText,
     this.onChanged,
+    this.onTap,
   });
 
   final String label;
@@ -38,6 +39,7 @@ class AppTextField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final String? helperText;
   final ValueChanged<String>? onChanged;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +69,14 @@ class AppTextField extends StatelessWidget {
           textInputAction: textInputAction,
           enabled: enabled,
           maxLines: obscureText ? 1 : maxLines,
+          onTap: () {
+            if (!controller.selection.isCollapsed) {
+              controller.selection = TextSelection.collapsed(
+                offset: controller.selection.extentOffset,
+              );
+            }
+            onTap?.call();
+          },
           onSubmitted: onSubmitted,
           onChanged: onChanged,
           inputFormatters: inputFormatters,

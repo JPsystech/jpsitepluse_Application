@@ -39,7 +39,7 @@ const String _apiBaseUrlOverride =
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
 
 const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
-const String iosSimulatorApiBaseUrl = "http://192.168.1.14:8011";
+const String iosSimulatorApiBaseUrl = "http://192.168.1.9:8011";
 
 Future<String>? _resolvedApiBaseUrl;
 String? _syncBaseUrl;
@@ -125,7 +125,7 @@ Future<String> _resolveApiBaseUrlInner() async {
         port: 8011,
         timeout: const Duration(milliseconds: 400));
     if (okPhysical) {
-      return "http://192.168.1.14:8011";
+      return "http://192.168.1.9:8011";
     }
     throw ApiConfigException(
         "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.10:8011)");

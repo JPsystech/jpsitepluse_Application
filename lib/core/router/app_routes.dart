@@ -10,6 +10,10 @@ import "package:sitepulse_engineer/features/auth/presentation/screens/change_mpi
 import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_otp_request_screen.dart";
 import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_otp_screen.dart";
 import "package:sitepulse_engineer/features/notifications/presentation/screens/notifications_screen.dart";
+import "package:sitepulse_engineer/features/referrals/data/models/job_opening_model.dart";
+import "package:sitepulse_engineer/features/referrals/presentation/screens/referrals_home_screen.dart";
+import "package:sitepulse_engineer/features/referrals/presentation/screens/refer_candidate_screen.dart";
+import "package:sitepulse_engineer/features/referrals/presentation/screens/submit_project_lead_screen.dart";
 
 class AppRoutes {
   static const String splash = "/splash";
@@ -22,6 +26,9 @@ class AppRoutes {
   static const String changeMpin = "/change-mpin";
   static const String mpinOtpRequest = "/mpin-otp-request";
   static const String mpinOtpVerify = "/mpin-otp-verify";
+  static const String referrals = "/referrals";
+  static const String referCandidate = "/referrals/candidate";
+  static const String submitProjectLead = "/referrals/project-lead";
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -33,6 +40,30 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const TermsScreen());
       case notifications:
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+      case referrals:
+        int initialTab = 0;
+        if (settings.arguments is int) {
+          initialTab = settings.arguments as int;
+        } else if (settings.arguments is Map) {
+          final args = settings.arguments as Map;
+          initialTab = args['tabIndex'] as int? ?? 0;
+        }
+        return MaterialPageRoute(
+          builder: (_) => ReferralsHomeScreen(initialTabIndex: initialTab),
+        );
+      case referCandidate:
+        JobOpeningModel? preselectedJob;
+        if (settings.arguments is JobOpeningModel) {
+          preselectedJob = settings.arguments as JobOpeningModel;
+        }
+        return MaterialPageRoute(
+          builder: (_) =>
+              ReferCandidateScreen(preselectedJob: preselectedJob),
+        );
+      case submitProjectLead:
+        return MaterialPageRoute(
+          builder: (_) => const SubmitProjectLeadScreen(),
+        );
       case app:
         int initialTab = 0;
         if (settings.arguments is int) {

@@ -1071,6 +1071,64 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         ));
   }
 
+  Widget _buildReferralPromoCard() {
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: cs.primary.withValues(alpha: 0.2)),
+      ),
+      color: cs.primaryContainer.withValues(alpha: 0.25),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.referrals),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.stars_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Refer & Earn Rewards",
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Refer engineer friends or submit project leads to earn cash rewards!",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: cs.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AttendanceBloc, AttendanceState>(
@@ -1186,7 +1244,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     _buildAttendanceOverviewCard(resp.attendanceOverview, assignments.length),
                     const SizedBox(height: 16),
                     _buildWeeklySummaryCard(resp.weeklySummary),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
+                    _buildReferralPromoCard(),
+                    const SizedBox(height: 24),
                     if (!hasAssignment)
                       _buildEmptyState()
                     else

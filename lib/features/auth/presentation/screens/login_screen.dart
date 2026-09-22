@@ -825,6 +825,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           controller: vendorCodeCtrl,
           textInputAction: TextInputAction.done,
           clipBehavior: Clip.none,
+          onTap: () {
+            if (!vendorCodeCtrl.selection.isCollapsed) {
+              vendorCodeCtrl.selection = TextSelection.collapsed(
+                offset: vendorCodeCtrl.selection.extentOffset,
+              );
+            }
+          },
           onSubmitted: (_) => _nextStep(),
           decoration: _buildInputDecoration(
             context,
@@ -1010,6 +1017,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           textInputAction: TextInputAction.next,
           clipBehavior: Clip.none,
           textCapitalization: TextCapitalization.characters,
+          onTap: () {
+            if (!empCodeCtrl.selection.isCollapsed) {
+              empCodeCtrl.selection = TextSelection.collapsed(
+                offset: empCodeCtrl.selection.extentOffset,
+              );
+            }
+          },
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z0-9\-_/]")),
             UpperCaseTextFormatter(),
@@ -1027,6 +1041,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           obscureText: obscurePassword,
           textInputAction: TextInputAction.done,
           clipBehavior: Clip.none,
+          onTap: () {
+            if (!passwordCtrl.selection.isCollapsed) {
+              passwordCtrl.selection = TextSelection.collapsed(
+                offset: passwordCtrl.selection.extentOffset,
+              );
+            }
+          },
           onSubmitted: (_) => submit(),
           decoration: _buildInputDecoration(
             context,
@@ -1035,8 +1056,20 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             Icons.lock_outline,
           ).copyWith(
             suffixIcon: IconButton(
-              onPressed: () =>
-                  setState(() => obscurePassword = !obscurePassword),
+              onPressed: () {
+                final currentOffset = passwordCtrl.selection.extentOffset;
+                setState(() => obscurePassword = !obscurePassword);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (passwordCtrl.text.isNotEmpty) {
+                    final targetOffset = currentOffset >= 0 &&
+                            currentOffset <= passwordCtrl.text.length
+                        ? currentOffset
+                        : passwordCtrl.text.length;
+                    passwordCtrl.selection =
+                        TextSelection.collapsed(offset: targetOffset);
+                  }
+                });
+              },
               icon: Icon(
                 obscurePassword
                     ? Icons.visibility_off_outlined
@@ -1474,11 +1507,9 @@ class UpperCaseTextFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    final upper = newValue.text.toUpperCase();
-    return TextEditingValue(
-      text: upper,
-      selection: TextSelection.collapsed(offset: upper.length),
-      composing: TextRange.empty,
+    return newValue.copyWith(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

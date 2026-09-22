@@ -18,16 +18,32 @@ import "package:sitepulse_engineer/core/error/error_handler.dart";
 import "../../../../core/theme/app_colors_extension.dart";
 
 class DocumentUploadScreen extends StatelessWidget {
-  const DocumentUploadScreen({super.key});
+  final DocumentsBloc? bloc;
+
+  const DocumentUploadScreen({super.key, this.bloc});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => DocumentsBloc()
-        ..add(LoadDocumentsRequested(
-            sessionToken: (SessionStore.current?.token ?? "").trim())),
-      child: const _DocumentUploadView(),
-    );
+    if (bloc != null) {
+      return BlocProvider.value(
+        value: bloc!,
+        child: const _DocumentUploadView(),
+      );
+    }
+    try {
+      final existing = context.read<DocumentsBloc>();
+      return BlocProvider.value(
+        value: existing,
+        child: const _DocumentUploadView(),
+      );
+    } catch (_) {
+      return BlocProvider(
+        create: (_) => DocumentsBloc()
+          ..add(LoadDocumentsRequested(
+              sessionToken: (SessionStore.current?.token ?? "").trim())),
+        child: const _DocumentUploadView(),
+      );
+    }
   }
 }
 
@@ -394,6 +410,21 @@ class _DocumentUploadView extends StatelessWidget {
         .add(ViewDocumentRequested(document: document, busyKey: busyKey));
   }
 
+  Future<void> _downloadDocument(BuildContext context, EngineerDocument document,
+      DocumentsState state) async {
+    final busyKey = "download::${document.id}";
+    if (state.busyKeys.contains(busyKey)) return;
+
+    final url = document.fileUrl.trim();
+    if (url.isEmpty) {
+      _showSnackBar(context, "No file is available to download", isError: true);
+      return;
+    }
+
+    context.read<DocumentsBloc>().add(
+        DownloadDocumentToPhoneRequested(document: document, busyKey: busyKey));
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -433,6 +464,43 @@ class _DocumentUploadView extends StatelessWidget {
           }
         }
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+
+        final totalRequired = _defaultDefinitions.where((d) => d.isRequired).length;
+        int uploadedRequired = 0;
+        int approvedCount = 0;
+        int pendingReviewCount = 0;
+        int rejectedCount = 0;
+
+        for (final def in _defaultDefinitions) {
+          final doc = latestByType[def.type];
+          if (doc != null && doc.fileUrl.trim().isNotEmpty) {
+            if (def.isRequired) uploadedRequired++;
+            final status = doc.verificationStatus.trim().toUpperCase();
+            if (status == "APPROVED") {
+              approvedCount++;
+            } else if (status == "REJECTED") {
+              rejectedCount++;
+            } else {
+              pendingReviewCount++;
+            }
+          }
+        }
+
+        for (final doc in customDocuments) {
+          if (doc.fileUrl.trim().isNotEmpty) {
+            final status = doc.verificationStatus.trim().toUpperCase();
+            if (status == "APPROVED") {
+              approvedCount++;
+            } else if (status == "REJECTED") {
+              rejectedCount++;
+            } else {
+              pendingReviewCount++;
+            }
+          }
+        }
+
+        final missingRequired = (totalRequired - uploadedRequired).clamp(0, totalRequired);
+        final progress = totalRequired > 0 ? (uploadedRequired / totalRequired).clamp(0.0, 1.0) : 0.0;
 
         return Scaffold(
           backgroundColor: cs.surface,
@@ -475,6 +543,17 @@ class _DocumentUploadView extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          _buildComplianceSummaryCard(
+                            context: context,
+                            totalRequired: totalRequired,
+                            uploadedRequired: uploadedRequired,
+                            approvedCount: approvedCount,
+                            pendingReviewCount: pendingReviewCount,
+                            rejectedCount: rejectedCount,
+                            missingRequired: missingRequired,
+                            progress: progress,
+                          ),
+                          const SizedBox(height: 12),
                           _InfoCard(
                               loadError: state.status == DocumentsStatus.error
                                   ? state.errorMessage
@@ -520,6 +599,11 @@ class _DocumentUploadView extends StatelessWidget {
                                 onView: doc != null && doc.fileUrl.trim().isNotEmpty
                                     ? () => _viewDocument(context, doc, state)
                                     : null,
+                                onDownload: doc != null && doc.fileUrl.trim().isNotEmpty
+                                    ? () => _downloadDocument(context, doc, state)
+                                    : null,
+                                isDownloading: doc != null &&
+                                    state.busyKeys.contains("download::${doc.id}"),
                                 uploadLabel: doc == null ? "Upload" : "Re-upload",
                               ),
                             );
@@ -573,6 +657,7 @@ class _DocumentUploadView extends StatelessWidget {
                                   helperColor: null,
                                   isUploading: state.busyKeys.contains(busyKey),
                                   isViewing: state.busyKeys.contains("view::${doc.id}"),
+                                  isDownloading: state.busyKeys.contains("download::${doc.id}"),
                                   onUpload: () => _handleUpload(
                                     context: context,
                                     definition: _customDefinition,
@@ -582,6 +667,9 @@ class _DocumentUploadView extends StatelessWidget {
                                   ),
                                   onView: doc.fileUrl.trim().isNotEmpty
                                       ? () => _viewDocument(context, doc, state)
+                                      : null,
+                                  onDownload: doc.fileUrl.trim().isNotEmpty
+                                      ? () => _downloadDocument(context, doc, state)
                                       : null,
                                   uploadLabel: "Re-upload",
                                 ),
@@ -641,6 +729,206 @@ class _DocumentUploadView extends StatelessWidget {
         return Theme.of(context).extension<AppColorsExtension>()!.warning;
     }
   }
+
+  Widget _buildComplianceSummaryCard({
+    required BuildContext context,
+    required int totalRequired,
+    required int uploadedRequired,
+    required int approvedCount,
+    required int pendingReviewCount,
+    required int rejectedCount,
+    required int missingRequired,
+    required double progress,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final percent = (progress * 100).toInt();
+    final isAllComplete = missingRequired == 0 && rejectedCount == 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isAllComplete
+              ? [
+                  const Color(0xFF10B981).withValues(alpha: 0.12),
+                  const Color(0xFF059669).withValues(alpha: 0.05),
+                ]
+              : [
+                  cs.primaryContainer.withValues(alpha: 0.45),
+                  cs.surfaceContainerHighest.withValues(alpha: 0.35),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isAllComplete
+              ? const Color(0xFF10B981).withValues(alpha: 0.4)
+              : cs.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isAllComplete
+                      ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                      : cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isAllComplete
+                      ? Icons.verified_user_rounded
+                      : Icons.folder_shared_rounded,
+                  color: isAllComplete ? const Color(0xFF10B981) : cs.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Upload & Verification Status",
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isAllComplete
+                          ? "All required documents uploaded!"
+                          : "$uploadedRequired of $totalRequired required documents uploaded",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isAllComplete
+                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                      : cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "$percent%",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isAllComplete ? const Color(0xFF10B981) : cs.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isAllComplete ? const Color(0xFF10B981) : cs.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryStatPill(
+                  context,
+                  label: "Approved",
+                  count: approvedCount,
+                  color: const Color(0xFF10B981),
+                  icon: Icons.check_circle_outline_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSummaryStatPill(
+                  context,
+                  label: "In Review",
+                  count: pendingReviewCount,
+                  color: const Color(0xFFF59E0B),
+                  icon: Icons.schedule_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSummaryStatPill(
+                  context,
+                  label: rejectedCount > 0 ? "Rejected" : "Missing",
+                  count: rejectedCount > 0 ? rejectedCount : missingRequired,
+                  color: const Color(0xFFEF4444),
+                  icon: rejectedCount > 0
+                      ? Icons.cancel_outlined
+                      : Icons.error_outline_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryStatPill(
+    BuildContext context, {
+    required String label,
+    required int count,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                "$count",
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color.withValues(alpha: 0.9),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DocumentCard extends StatelessWidget {
@@ -655,8 +943,10 @@ class _DocumentCard extends StatelessWidget {
     required this.helperColor,
     required this.isUploading,
     required this.isViewing,
+    this.isDownloading = false,
     required this.onUpload,
     required this.onView,
+    this.onDownload,
     required this.uploadLabel,
   });
 
@@ -670,8 +960,10 @@ class _DocumentCard extends StatelessWidget {
   final Color? helperColor;
   final bool isUploading;
   final bool isViewing;
+  final bool isDownloading;
   final VoidCallback onUpload;
   final VoidCallback? onView;
+  final VoidCallback? onDownload;
   final String uploadLabel;
 
   @override
@@ -818,7 +1110,28 @@ class _DocumentCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  if (onDownload != null) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: "Download to Phone",
+                      onPressed: isDownloading ? null : onDownload,
+                      icon: isDownloading
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: cs.primary),
+                            )
+                          : const Icon(Icons.download_rounded, size: 20),
+                      style: IconButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        minimumSize: const Size(48, 48),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
                 ],
                 Expanded(
                   child: FilledButton.icon(

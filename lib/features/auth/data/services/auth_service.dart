@@ -14,10 +14,30 @@ class AuthService {
       final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
       if (Platform.isAndroid) {
         final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        return '${androidInfo.brand} ${androidInfo.model} (Android ${androidInfo.version.release})';
+        final brand = androidInfo.brand.trim();
+        final model = androidInfo.model.trim();
+
+        String deviceName;
+        if (model.toLowerCase().startsWith(brand.toLowerCase())) {
+          deviceName = model;
+        } else if (brand.isNotEmpty) {
+          deviceName = '$brand $model';
+        } else {
+          deviceName = model.isNotEmpty ? model : 'Android Device';
+        }
+
+        deviceName = deviceName.split(' ').map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1);
+        }).join(' ');
+
+        return '$deviceName (Android ${androidInfo.version.release})';
       } else if (Platform.isIOS) {
         final IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-        return '${iosInfo.name} (iOS ${iosInfo.systemVersion})';
+        final name = iosInfo.utsname.machine.trim().isNotEmpty
+            ? iosInfo.utsname.machine
+            : iosInfo.name;
+        return '$name (iOS ${iosInfo.systemVersion})';
       }
     } catch (_) {}
     return 'Unknown Device';
