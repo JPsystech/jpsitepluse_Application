@@ -5,6 +5,7 @@ import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/storage/terms_store.dart';
 import 'package:sitepulse_engineer/core/storage/mpin_store.dart';
 import 'package:sitepulse_engineer/core/storage/credential_store.dart';
+import 'package:sitepulse_engineer/core/services/push_notification_registration_service.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
@@ -44,6 +45,9 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       }
 
       await SessionStore.load();
+      if (SessionStore.current != null) {
+        await PushNotificationRegistrationService.registerForCurrentSession();
+      }
       final accepted = await TermsStore.isAccepted();
       final hasMpin = await MpinStore.hasMpin();
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/router/navigation_service.dart';
+import 'package:sitepulse_engineer/core/services/location_request_response_service.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 
 class NotificationRouter {
@@ -37,6 +38,17 @@ class NotificationRouter {
     debugPrint('[NotificationRouter] Routing for type: $type');
 
     switch (type) {
+      case 'DEVICE_RESET':
+      case 'FORCE_LOGOUT':
+        await SessionStore.clear();
+        NavigationService.navigateToAndClear(AppRoutes.login);
+        break;
+
+      case 'LOCATION_REQUEST':
+        final requestId = (data['request_id'] ?? data['requestId'] ?? '').toString();
+        await LocationRequestResponseService.handleLocationRequest(requestId);
+        break;
+
       case 'ASSIGNMENT':
       case 'ATTENDANCE':
       case 'SHIFT_REMINDER':
@@ -77,8 +89,32 @@ class NotificationRouter {
         );
         break;
 
+      case 'CIRCULAR':
+      case 'ANNOUNCEMENT':
+      case 'NOTICE':
+      case 'URGENT':
+      case 'URGENT_ALERT':
+      case 'SAFETY':
+      case 'SAFETY_ALERT':
+      case 'PROJECT_UPDATE':
+      case 'GENERAL':
+        NavigationService.navigateTo(
+          AppRoutes.notificationDetail,
+          arguments: data,
+        );
+        break;
+
       default:
-        NavigationService.navigateToTab(0);
+        // If the notification has message content or campaign ID, open the detail page
+        if ((data['body'] != null && data['body'].toString().trim().isNotEmpty) ||
+            data['campaign_id'] != null) {
+          NavigationService.navigateTo(
+            AppRoutes.notificationDetail,
+            arguments: data,
+          );
+        } else {
+          NavigationService.navigateToTab(0);
+        }
         break;
     }
   }

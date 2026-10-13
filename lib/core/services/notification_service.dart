@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,15 +13,9 @@ import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/router/navigation_service.dart';
 import 'package:sitepulse_engineer/core/router/notification_router.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/services/location_request_response_service.dart';
 import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
-
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  try {
-    await Firebase.initializeApp();
-  } catch (_) {}
-  debugPrint('[FCM Background] Handling message: ${message.messageId} data: ${message.data}');
-}
+import 'package:sitepulse_engineer/features/notifications/data/services/notification_center_service.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -53,8 +46,6 @@ class NotificationService {
     if (_isInitialized) return;
 
     try {
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
       // Setup Notification Channel for Android
       final androidImplementation = _localNotifications
           .resolvePlatformSpecificImplementation<
@@ -107,19 +98,44 @@ class NotificationService {
     }
   }
 
+  Future<void> showIncomingNotification(RemoteMessage message) async {
+    final notifId = (message.data['notification_id'] ??
+            message.data['id'] ??
+            message.data['campaign_id'] ??
+            '')
+        .toString()
+        .trim();
+    if (notifId.isNotEmpty) {
+      NotificationCenterService().markAsDelivered(notifId);
+    }
+
+    await _showLocalNotification(message);
+    try {
+      final ctx = NavigationService.currentContext;
+      if (ctx != null && ctx.mounted) {
+        ctx.read<NotificationsBloc>().add(
+              const LoadNotificationsRequested(silent: true),
+            );
+      }
+    } catch (_) {}
+  }
+
   void _setupForegroundListener() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('[FCM Foreground] Received: ${message.notification?.title} - ${message.notification?.body}');
-      _showLocalNotification(message);
+      final type = message.data['type']?.toString().toUpperCase();
+      if (type == 'LOCATION_REQUEST') {
+        final requestId = (message.data['request_id'] ?? message.data['requestId'] ?? '').toString();
+        LocationRequestResponseService.handleLocationRequest(requestId);
+        return;
+      }
 
-      try {
-        final ctx = NavigationService.currentContext;
-        if (ctx != null && ctx.mounted) {
-          ctx.read<NotificationsBloc>().add(
-                const LoadNotificationsRequested(silent: true),
-              );
-        }
-      } catch (_) {}
+      if (type == 'DEVICE_RESET' || type == 'FORCE_LOGOUT') {
+        // Do not display reset notification
+        return;
+      }
+
+      showIncomingNotification(message);
     });
   }
 
@@ -127,15 +143,29 @@ class NotificationService {
     // App opened from background state by tapping notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       debugPrint('[FCM OpenedApp] User tapped notification: ${message.data}');
-      NotificationRouter.handleNotificationClick(message.data);
+      final payloadMap = Map<String, dynamic>.from(message.data);
+      if (message.notification?.title != null && !payloadMap.containsKey('title')) {
+        payloadMap['title'] = message.notification!.title;
+      }
+      if (message.notification?.body != null && !payloadMap.containsKey('body')) {
+        payloadMap['body'] = message.notification!.body;
+      }
+      NotificationRouter.handleNotificationClick(payloadMap);
     });
 
     // App launched from terminated state by tapping notification
     _fcm.getInitialMessage().then((RemoteMessage? message) {
       if (message != null) {
         debugPrint('[FCM InitialMessage] App launched from notification: ${message.data}');
+        final payloadMap = Map<String, dynamic>.from(message.data);
+        if (message.notification?.title != null && !payloadMap.containsKey('title')) {
+          payloadMap['title'] = message.notification!.title;
+        }
+        if (message.notification?.body != null && !payloadMap.containsKey('body')) {
+          payloadMap['body'] = message.notification!.body;
+        }
         Future.delayed(const Duration(milliseconds: 600), () {
-          NotificationRouter.handleNotificationClick(message.data);
+          NotificationRouter.handleNotificationClick(payloadMap);
         });
       }
     });
@@ -182,7 +212,14 @@ class NotificationService {
     );
 
     final int id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-    final String payload = jsonEncode(message.data);
+    final payloadMap = Map<String, dynamic>.from(message.data);
+    if (!payloadMap.containsKey('title') || (payloadMap['title'] as String?)?.isEmpty == true) {
+      payloadMap['title'] = title;
+    }
+    if (!payloadMap.containsKey('body') || (payloadMap['body'] as String?)?.isEmpty == true) {
+      payloadMap['body'] = body;
+    }
+    final String payload = jsonEncode(payloadMap);
 
     await _localNotifications.show(
       id,

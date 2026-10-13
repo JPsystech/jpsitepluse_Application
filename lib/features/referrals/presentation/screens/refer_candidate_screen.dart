@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/features/referrals/data/models/job_opening_model.dart';
@@ -10,6 +9,8 @@ import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral
 import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral_event.dart';
 import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral_state.dart';
 import 'package:sitepulse_engineer/features/referrals/presentation/widgets/referral_terms_sheet.dart';
+import 'package:sitepulse_engineer/shared/models/country_code.dart';
+import 'package:sitepulse_engineer/shared/widgets/country_code_phone_field.dart';
 
 class ReferCandidateScreen extends StatelessWidget {
   final JobOpeningModel? preselectedJob;
@@ -65,6 +66,7 @@ class _ReferCandidateScreenContentState
 
   final _nameController = TextEditingController();
   final _mobileController = TextEditingController();
+  CountryCode _selectedCountry = CountryCode.india;
   final _emailController = TextEditingController();
   final _companyController = TextEditingController();
   final _expController = TextEditingController();
@@ -149,13 +151,17 @@ class _ReferCandidateScreenContentState
       return;
     }
 
-    final candidateMob = _mobileController.text.trim().replaceAll(RegExp(r'\D'), '');
+    final candidateMobDigits = _mobileController.text.trim().replaceAll(RegExp(r'\D'), '');
+    final fullCandidateMobile = "${_selectedCountry.dialCode} ${_mobileController.text.trim()}";
     final currentEngMob = SessionStore.current?.engineer.mobileNo.trim().replaceAll(RegExp(r'\D'), '');
     if (currentEngMob != null && currentEngMob.isNotEmpty) {
       final normCurrent = currentEngMob.length >= 10
           ? currentEngMob.substring(currentEngMob.length - 10)
           : currentEngMob;
-      if (candidateMob == normCurrent) {
+      final normCandidate = candidateMobDigits.length >= 10
+          ? candidateMobDigits.substring(candidateMobDigits.length - 10)
+          : candidateMobDigits;
+      if (normCandidate == normCurrent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("You cannot refer yourself. Referral rewards are only valid for external candidates."),
@@ -196,7 +202,7 @@ class _ReferCandidateScreenContentState
           SubmitCandidateReferralRequested(
             jobOpeningId: _selectedJobId!,
             candidateName: _nameController.text.trim(),
-            candidateMobile: _mobileController.text.trim(),
+            candidateMobile: fullCandidateMobile,
             candidateEmail: candidateEmail,
             currentCompany: _companyController.text.trim().isEmpty
                 ? null
@@ -297,35 +303,35 @@ class _ReferCandidateScreenContentState
                     ),
                     const SizedBox(height: 14),
 
-                    TextFormField(
+                    CountryCodePhoneField(
                       controller: _mobileController,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: "Mobile Number *",
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
-                        hintText: "10-digit mobile number",
-                      ),
+                      selectedCountry: _selectedCountry,
+                      onCountryChanged: (c) {
+                        setState(() {
+                          _selectedCountry = c;
+                        });
+                      },
+                      labelText: "Candidate Mobile *",
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter mobile number";
                         }
                         final clean = v.trim().replaceAll(RegExp(r'\s+'), '');
-                        if (clean.length != 10) {
+                        if (_selectedCountry.iso == 'IN' && clean.length != 10) {
                           return "Enter a valid 10-digit mobile number";
+                        }
+                        if (_selectedCountry.iso != 'IN' && (clean.length < 7 || clean.length > 15)) {
+                          return "Enter a valid mobile number (7-15 digits)";
                         }
                         final currentEngMob = SessionStore.current?.engineer.mobileNo.trim().replaceAll(RegExp(r'\D'), '');
                         if (currentEngMob != null && currentEngMob.isNotEmpty) {
                           final normCurrent = currentEngMob.length >= 10
                               ? currentEngMob.substring(currentEngMob.length - 10)
                               : currentEngMob;
-                          if (clean == normCurrent) {
+                          final normClean = clean.length >= 10
+                              ? clean.substring(clean.length - 10)
+                              : clean;
+                          if (normClean == normCurrent) {
                             return "You cannot refer yourself. Enter candidate's number.";
                           }
                         }

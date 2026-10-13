@@ -47,8 +47,17 @@ class DocumentUploadScreen extends StatelessWidget {
   }
 }
 
-class _DocumentUploadView extends StatelessWidget {
+enum _DocFilter { all, pendingUpload, inReview, rejected, approved }
+
+class _DocumentUploadView extends StatefulWidget {
   const _DocumentUploadView();
+
+  @override
+  State<_DocumentUploadView> createState() => _DocumentUploadViewState();
+}
+
+class _DocumentUploadViewState extends State<_DocumentUploadView> {
+  _DocFilter _selectedFilter = _DocFilter.all;
 
   String get _token => (SessionStore.current?.token ?? "").trim();
 
@@ -465,23 +474,37 @@ class _DocumentUploadView extends StatelessWidget {
         }
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
-        final totalRequired = _defaultDefinitions.where((d) => d.isRequired).length;
-        int uploadedRequired = 0;
+        final department = SessionStore.current?.engineer.department;
+        final definitions = _getDefinitionsForDepartment(department);
+        final requiredDefinitions = definitions.where((d) => d.isRequired).toList();
+        final optionalDefinitions = definitions.where((d) => !d.isRequired).toList();
+
+        final totalRequired = requiredDefinitions.length;
+        int validUploadedRequired = 0;
         int approvedCount = 0;
         int pendingReviewCount = 0;
         int rejectedCount = 0;
+        int pendingUploadRequired = 0;
 
-        for (final def in _defaultDefinitions) {
+        for (final def in requiredDefinitions) {
+          final doc = latestByType[def.type];
+          if (doc == null || doc.fileUrl.trim().isEmpty) {
+            pendingUploadRequired++;
+          }
+        }
+
+        for (final def in definitions) {
           final doc = latestByType[def.type];
           if (doc != null && doc.fileUrl.trim().isNotEmpty) {
-            if (def.isRequired) uploadedRequired++;
             final status = doc.verificationStatus.trim().toUpperCase();
             if (status == "APPROVED") {
               approvedCount++;
+              if (def.isRequired) validUploadedRequired++;
             } else if (status == "REJECTED") {
               rejectedCount++;
             } else {
               pendingReviewCount++;
+              if (def.isRequired) validUploadedRequired++;
             }
           }
         }
@@ -499,8 +522,21 @@ class _DocumentUploadView extends StatelessWidget {
           }
         }
 
-        final missingRequired = (totalRequired - uploadedRequired).clamp(0, totalRequired);
-        final progress = totalRequired > 0 ? (uploadedRequired / totalRequired).clamp(0.0, 1.0) : 0.0;
+        final progress = totalRequired > 0 ? (validUploadedRequired / totalRequired).clamp(0.0, 1.0) : 0.0;
+
+        final visibleRequired = requiredDefinitions
+            .where((d) => _matchesFilter(_selectedFilter, latestByType[d.type]))
+            .toList();
+        final visibleOptional = optionalDefinitions
+            .where((d) => _matchesFilter(_selectedFilter, latestByType[d.type]))
+            .toList();
+        final visibleCustom = customDocuments
+            .where((doc) => _matchesFilter(_selectedFilter, doc))
+            .toList();
+        final totalAllDocs = definitions.length + customDocuments.length;
+        final hasAnyVisible = visibleRequired.isNotEmpty ||
+            visibleOptional.isNotEmpty ||
+            visibleCustom.isNotEmpty;
 
         return Scaffold(
           backgroundColor: cs.surface,
@@ -545,136 +581,237 @@ class _DocumentUploadView extends StatelessWidget {
                         children: [
                           _buildComplianceSummaryCard(
                             context: context,
+                            streamName: department,
                             totalRequired: totalRequired,
-                            uploadedRequired: uploadedRequired,
+                            uploadedRequired: validUploadedRequired,
                             approvedCount: approvedCount,
                             pendingReviewCount: pendingReviewCount,
+                            pendingUploadRequired: pendingUploadRequired,
                             rejectedCount: rejectedCount,
-                            missingRequired: missingRequired,
                             progress: progress,
+                            activeFilter: _selectedFilter,
+                            onFilterSelected: (filter) {
+                              setState(() {
+                                _selectedFilter =
+                                    _selectedFilter == filter ? _DocFilter.all : filter;
+                              });
+                            },
                           ),
+                          if (rejectedCount > 0) ...[
+                            const SizedBox(height: 12),
+                            _buildRejectionAlertBanner(context, rejectedCount),
+                          ],
                           const SizedBox(height: 12),
                           _InfoCard(
                               loadError: state.status == DocumentsStatus.error
                                   ? state.errorMessage
                                   : null),
-                          const SizedBox(height: 24),
-                          
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, bottom: 12),
-                            child: Text(
-                              "Required Documents",
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: cs.primary,
-                                  ),
-                            ),
+                          const SizedBox(height: 20),
+                          _buildFilterTabs(
+                            context: context,
+                            totalAllDocs: totalAllDocs,
+                            pendingUploadCount: pendingUploadRequired,
+                            inReviewCount: pendingReviewCount,
+                            rejectedCount: rejectedCount,
+                            approvedCount: approvedCount,
                           ),
-                          ..._defaultDefinitions.map((definition) {
-                            final doc = latestByType[definition.type];
-                            final busyKey = "upload::${definition.type}";
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _DocumentCard(
-                                title: definition.displayName,
-                                requiredLabel: _requiredLabel(definition, doc),
-                                requiredColor: _requiredColor(context, definition, doc),
-                                statusLabel: _statusLabel(doc),
-                                statusColor: _statusColor(context, doc),
-                                remarks: doc?.adminRemarks,
-                                helperText: definition.type == "ndt"
-                                    ? _ndtReminderText(state.ndtExpiryDate)
-                                    : null,
-                                helperColor: definition.type == "ndt"
-                                    ? _ndtReminderColor(context, state.ndtExpiryDate)
-                                    : null,
-                                isUploading: state.busyKeys.contains(busyKey),
-                                isViewing: doc != null &&
-                                    state.busyKeys.contains("view::${doc.id}"),
-                                onUpload: () => _handleUpload(
-                                    context: context,
-                                    definition: definition,
-                                    busyKey: busyKey,
-                                    state: state),
-                                onView: doc != null && doc.fileUrl.trim().isNotEmpty
-                                    ? () => _viewDocument(context, doc, state)
-                                    : null,
-                                onDownload: doc != null && doc.fileUrl.trim().isNotEmpty
-                                    ? () => _downloadDocument(context, doc, state)
-                                    : null,
-                                isDownloading: doc != null &&
-                                    state.busyKeys.contains("download::${doc.id}"),
-                                uploadLabel: doc == null ? "Upload" : "Re-upload",
-                              ),
-                            );
-                          }),
-                          
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Text(
-                                    "Custom Documents",
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          const SizedBox(height: 20),
+
+                          if (_selectedFilter != _DocFilter.all && !hasAnyVisible)
+                            _buildFilterEmptyCard(context, _selectedFilter)
+                          else ...[
+                            if (visibleRequired.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      "Required Documents",
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: cs.primary,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: cs.primary.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        "$validUploadedRequired/$totalRequired",
+                                        style: TextStyle(
+                                          fontSize: 12,
                                           fontWeight: FontWeight.bold,
                                           color: cs.primary,
                                         ),
-                                    overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...visibleRequired.map((definition) {
+                                final doc = latestByType[definition.type];
+                                final busyKey = "upload::${definition.type}";
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _DocumentCard(
+                                    title: definition.displayName,
+                                    requiredLabel: _requiredLabel(definition, doc),
+                                    requiredColor: _requiredColor(context, definition, doc),
+                                    statusLabel: _statusLabel(doc),
+                                    statusColor: _statusColor(context, doc),
+                                    remarks: doc?.adminRemarks,
+                                    helperText: definition.type == "ndt"
+                                        ? _ndtReminderText(state.ndtExpiryDate)
+                                        : null,
+                                    helperColor: definition.type == "ndt"
+                                        ? _ndtReminderColor(context, state.ndtExpiryDate)
+                                        : null,
+                                    isUploading: state.busyKeys.contains(busyKey),
+                                    isViewing: doc != null &&
+                                        state.busyKeys.contains("view::${doc.id}"),
+                                    onUpload: () => _handleUpload(
+                                        context: context,
+                                        definition: definition,
+                                        busyKey: busyKey,
+                                        state: state),
+                                    onView: doc != null && doc.fileUrl.trim().isNotEmpty
+                                        ? () => _viewDocument(context, doc, state)
+                                        : null,
+                                    onDownload: doc != null && doc.fileUrl.trim().isNotEmpty
+                                        ? () => _downloadDocument(context, doc, state)
+                                        : null,
+                                    isDownloading: doc != null &&
+                                        state.busyKeys.contains("download::${doc.id}"),
+                                    uploadLabel: doc == null ? "Upload" : "Re-upload",
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              FilledButton.tonalIcon(
-                                onPressed: () => _addCustomDocument(context, state),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: const Text("Add New"),
-                                style: FilledButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
+                                );
+                              }),
                             ],
-                          ),
-                          const SizedBox(height: 12),
-                          if (customDocuments.isEmpty)
-                            const _EmptyCustomCard()
-                          else
-                            ...customDocuments.map((doc) {
-                              final busyKey = "custom::${doc.documentName}";
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _DocumentCard(
-                                  title: doc.documentName,
-                                  requiredLabel: _requiredLabel(_customDefinition, doc),
-                                  requiredColor: _requiredColor(context, _customDefinition, doc),
-                                  statusLabel: _statusLabel(doc),
-                                  statusColor: _statusColor(context, doc),
-                                  remarks: doc.adminRemarks,
-                                  helperText: null,
-                                  helperColor: null,
-                                  isUploading: state.busyKeys.contains(busyKey),
-                                  isViewing: state.busyKeys.contains("view::${doc.id}"),
-                                  isDownloading: state.busyKeys.contains("download::${doc.id}"),
-                                  onUpload: () => _handleUpload(
-                                    context: context,
-                                    definition: _customDefinition,
-                                    customDocumentName: doc.documentName,
-                                    busyKey: busyKey,
-                                    state: state,
-                                  ),
-                                  onView: doc.fileUrl.trim().isNotEmpty
-                                      ? () => _viewDocument(context, doc, state)
-                                      : null,
-                                  onDownload: doc.fileUrl.trim().isNotEmpty
-                                      ? () => _downloadDocument(context, doc, state)
-                                      : null,
-                                  uploadLabel: "Re-upload",
+
+                            if (visibleOptional.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                                child: Text(
+                                  "Optional Documents",
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: cs.primary,
+                                      ),
                                 ),
-                              );
-                            }),
+                              ),
+                              ...visibleOptional.map((definition) {
+                                final doc = latestByType[definition.type];
+                                final busyKey = "upload::${definition.type}";
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _DocumentCard(
+                                    title: definition.displayName,
+                                    requiredLabel: _requiredLabel(definition, doc),
+                                    requiredColor: _requiredColor(context, definition, doc),
+                                    statusLabel: _statusLabel(doc),
+                                    statusColor: _statusColor(context, doc),
+                                    remarks: doc?.adminRemarks,
+                                    helperText: definition.type == "ndt"
+                                        ? _ndtReminderText(state.ndtExpiryDate)
+                                        : null,
+                                    helperColor: definition.type == "ndt"
+                                        ? _ndtReminderColor(context, state.ndtExpiryDate)
+                                        : null,
+                                    isUploading: state.busyKeys.contains(busyKey),
+                                    isViewing: doc != null &&
+                                        state.busyKeys.contains("view::${doc.id}"),
+                                    onUpload: () => _handleUpload(
+                                        context: context,
+                                        definition: definition,
+                                        busyKey: busyKey,
+                                        state: state),
+                                    onView: doc != null && doc.fileUrl.trim().isNotEmpty
+                                        ? () => _viewDocument(context, doc, state)
+                                        : null,
+                                    onDownload: doc != null && doc.fileUrl.trim().isNotEmpty
+                                        ? () => _downloadDocument(context, doc, state)
+                                        : null,
+                                    isDownloading: doc != null &&
+                                        state.busyKeys.contains("download::${doc.id}"),
+                                    uploadLabel: doc == null ? "Upload" : "Re-upload",
+                                  ),
+                                );
+                              }),
+                            ],
+
+                            if (_selectedFilter == _DocFilter.all || visibleCustom.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 4),
+                                      child: Text(
+                                        "Custom Documents",
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: cs.primary,
+                                            ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  FilledButton.tonalIcon(
+                                    onPressed: () => _addCustomDocument(context, state),
+                                    icon: const Icon(Icons.add_rounded, size: 18),
+                                    label: const Text("Add New"),
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              if (customDocuments.isEmpty && _selectedFilter == _DocFilter.all)
+                                const _EmptyCustomCard()
+                              else
+                                ...visibleCustom.map((doc) {
+                                  final busyKey = "custom::${doc.documentName}";
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: _DocumentCard(
+                                      title: doc.documentName,
+                                      requiredLabel: _requiredLabel(_customDefinition, doc),
+                                      requiredColor: _requiredColor(context, _customDefinition, doc),
+                                      statusLabel: _statusLabel(doc),
+                                      statusColor: _statusColor(context, doc),
+                                      remarks: doc.adminRemarks,
+                                      helperText: null,
+                                      helperColor: null,
+                                      isUploading: state.busyKeys.contains(busyKey),
+                                      isViewing: state.busyKeys.contains("view::${doc.id}"),
+                                      isDownloading: state.busyKeys.contains("download::${doc.id}"),
+                                      onUpload: () => _handleUpload(
+                                        context: context,
+                                        definition: _customDefinition,
+                                        customDocumentName: doc.documentName,
+                                        busyKey: busyKey,
+                                        state: state,
+                                      ),
+                                      onView: doc.fileUrl.trim().isNotEmpty
+                                          ? () => _viewDocument(context, doc, state)
+                                          : null,
+                                      onDownload: doc.fileUrl.trim().isNotEmpty
+                                          ? () => _downloadDocument(context, doc, state)
+                                          : null,
+                                      uploadLabel: "Re-upload",
+                                    ),
+                                  );
+                                }),
+                            ],
+                          ],
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -692,14 +829,12 @@ class _DocumentUploadView extends StatelessWidget {
   String _requiredLabel(_DocumentDefinition definition, EngineerDocument? doc) {
     final backend = (doc?.requiredLabel ?? "").trim();
     if (backend.isNotEmpty) return backend;
-    final isRequired = doc?.isRequired ?? definition.isRequired;
-    return isRequired ? "Required" : "Optional";
+    return definition.isRequired ? "Required" : "Optional";
   }
 
   Color _requiredColor(BuildContext context, _DocumentDefinition definition,
       EngineerDocument? doc) {
-    final isRequired = doc?.isRequired ?? definition.isRequired;
-    return isRequired
+    return definition.isRequired
         ? Theme.of(context).colorScheme.primary
         : Theme.of(context).colorScheme.onSurfaceVariant;
   }
@@ -732,17 +867,34 @@ class _DocumentUploadView extends StatelessWidget {
 
   Widget _buildComplianceSummaryCard({
     required BuildContext context,
+    String? streamName,
     required int totalRequired,
     required int uploadedRequired,
     required int approvedCount,
     required int pendingReviewCount,
+    required int pendingUploadRequired,
     required int rejectedCount,
-    required int missingRequired,
     required double progress,
+    required _DocFilter activeFilter,
+    required ValueChanged<_DocFilter> onFilterSelected,
   }) {
     final cs = Theme.of(context).colorScheme;
     final percent = (progress * 100).toInt();
-    final isAllComplete = missingRequired == 0 && rejectedCount == 0;
+    final isAllComplete = pendingUploadRequired == 0 && rejectedCount == 0;
+
+    String subtitle;
+    if (isAllComplete) {
+      subtitle = "All required documents uploaded!";
+    } else if (pendingUploadRequired > 0 && rejectedCount > 0) {
+      subtitle =
+          "$uploadedRequired of $totalRequired required uploaded · $pendingUploadRequired to upload · $rejectedCount rejected";
+    } else if (rejectedCount > 0) {
+      subtitle =
+          "$uploadedRequired of $totalRequired required uploaded · $rejectedCount rejected (action required)";
+    } else {
+      subtitle =
+          "$uploadedRequired of $totalRequired required uploaded · $pendingUploadRequired pending upload";
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -799,11 +951,19 @@ class _DocumentUploadView extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                     ),
+                    if (streamName != null && streamName.trim().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        "Stream: ${streamName.trim()}",
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
-                      isAllComplete
-                          ? "All required documents uploaded!"
-                          : "$uploadedRequired of $totalRequired required documents uploaded",
+                      subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -852,6 +1012,8 @@ class _DocumentUploadView extends StatelessWidget {
                   count: approvedCount,
                   color: const Color(0xFF10B981),
                   icon: Icons.check_circle_outline_rounded,
+                  isSelected: activeFilter == _DocFilter.approved,
+                  onTap: () => onFilterSelected(_DocFilter.approved),
                 ),
               ),
               const SizedBox(width: 8),
@@ -862,18 +1024,36 @@ class _DocumentUploadView extends StatelessWidget {
                   count: pendingReviewCount,
                   color: const Color(0xFFF59E0B),
                   icon: Icons.schedule_rounded,
+                  isSelected: activeFilter == _DocFilter.inReview,
+                  onTap: () => onFilterSelected(_DocFilter.inReview),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryStatPill(
+                  context,
+                  label: "Pending Upload",
+                  count: pendingUploadRequired,
+                  color: const Color(0xFF3B82F6),
+                  icon: Icons.upload_file_rounded,
+                  isSelected: activeFilter == _DocFilter.pendingUpload,
+                  onTap: () => onFilterSelected(_DocFilter.pendingUpload),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildSummaryStatPill(
                   context,
-                  label: rejectedCount > 0 ? "Rejected" : "Missing",
-                  count: rejectedCount > 0 ? rejectedCount : missingRequired,
+                  label: "Rejected",
+                  count: rejectedCount,
                   color: const Color(0xFFEF4444),
-                  icon: rejectedCount > 0
-                      ? Icons.cancel_outlined
-                      : Icons.error_outline_rounded,
+                  icon: Icons.cancel_outlined,
+                  isSelected: activeFilter == _DocFilter.rejected,
+                  onTap: () => onFilterSelected(_DocFilter.rejected),
                 ),
               ),
             ],
@@ -889,41 +1069,329 @@ class _DocumentUploadView extends StatelessWidget {
     required int count,
     required Color color,
     required IconData icon,
+    bool isSelected = false,
+    VoidCallback? onTap,
   }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withValues(alpha: 0.22)
+              : color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? color : color.withValues(alpha: 0.25),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  "$count",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: color.withValues(alpha: 0.95),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRejectionAlertBanner(BuildContext context, int rejectedCount) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: const Color(0xFFEF4444).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFFEF4444),
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Action Required: $rejectedCount Document${rejectedCount == 1 ? '' : 's'} Rejected",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Please review admin remarks on the rejected document${rejectedCount == 1 ? '' : 's'} and re-upload.",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterTabs({
+    required BuildContext context,
+    required int totalAllDocs,
+    required int pendingUploadCount,
+    required int inReviewCount,
+    required int rejectedCount,
+    required int approvedCount,
+  }) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildFilterChip(
+            context: context,
+            label: "All",
+            filter: _DocFilter.all,
+            count: totalAllDocs,
+          ),
+          _buildFilterChip(
+            context: context,
+            label: "Pending Upload",
+            filter: _DocFilter.pendingUpload,
+            count: pendingUploadCount,
+          ),
+          _buildFilterChip(
+            context: context,
+            label: "In Review",
+            filter: _DocFilter.inReview,
+            count: inReviewCount,
+          ),
+          _buildFilterChip(
+            context: context,
+            label: "Rejected",
+            filter: _DocFilter.rejected,
+            count: rejectedCount,
+          ),
+          _buildFilterChip(
+            context: context,
+            label: "Approved",
+            filter: _DocFilter.approved,
+            count: approvedCount,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required BuildContext context,
+    required String label,
+    required _DocFilter filter,
+    required int count,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final isSelected = _selectedFilter == filter;
+
+    Color badgeColor;
+    switch (filter) {
+      case _DocFilter.approved:
+        badgeColor = const Color(0xFF10B981);
+        break;
+      case _DocFilter.inReview:
+        badgeColor = const Color(0xFFF59E0B);
+        break;
+      case _DocFilter.pendingUpload:
+        badgeColor = const Color(0xFF3B82F6);
+        break;
+      case _DocFilter.rejected:
+        badgeColor = const Color(0xFFEF4444);
+        break;
+      case _DocFilter.all:
+        badgeColor = cs.primary;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        selected: isSelected,
+        showCheckmark: false,
+        backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+        selectedColor: badgeColor.withValues(alpha: 0.18),
+        side: BorderSide(
+          color: isSelected
+              ? badgeColor
+              : cs.outlineVariant.withValues(alpha: 0.5),
+          width: isSelected ? 1.5 : 1.0,
+        ),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? badgeColor : cs.onSurface,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? badgeColor.withValues(alpha: 0.25)
+                    : cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                "$count",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? badgeColor : cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        onSelected: (_) {
+          setState(() {
+            _selectedFilter = isSelected ? _DocFilter.all : filter;
+          });
+        },
+      ),
+    );
+  }
+
+  bool _matchesFilter(_DocFilter filter, EngineerDocument? doc) {
+    switch (filter) {
+      case _DocFilter.all:
+        return true;
+      case _DocFilter.pendingUpload:
+        return doc == null || doc.fileUrl.trim().isEmpty;
+      case _DocFilter.inReview:
+        return doc != null &&
+            doc.fileUrl.trim().isNotEmpty &&
+            doc.verificationStatus.trim().toUpperCase() == "PENDING";
+      case _DocFilter.rejected:
+        return doc != null &&
+            doc.fileUrl.trim().isNotEmpty &&
+            doc.verificationStatus.trim().toUpperCase() == "REJECTED";
+      case _DocFilter.approved:
+        return doc != null &&
+            doc.fileUrl.trim().isNotEmpty &&
+            doc.verificationStatus.trim().toUpperCase() == "APPROVED";
+    }
+  }
+
+  Widget _buildFilterEmptyCard(BuildContext context, _DocFilter filter) {
+    String title;
+    String message;
+    IconData icon;
+    Color iconColor;
+
+    switch (filter) {
+      case _DocFilter.pendingUpload:
+        title = "No Pending Uploads";
+        message = "All required documents have already been uploaded.";
+        icon = Icons.check_circle_outline_rounded;
+        iconColor = const Color(0xFF10B981);
+        break;
+      case _DocFilter.inReview:
+        title = "No Documents In Review";
+        message = "You don't have any documents currently awaiting admin review.";
+        icon = Icons.schedule_rounded;
+        iconColor = const Color(0xFFF59E0B);
+        break;
+      case _DocFilter.rejected:
+        title = "No Rejected Documents";
+        message = "None of your documents have been rejected. Everything looks good!";
+        icon = Icons.verified_user_outlined;
+        iconColor = const Color(0xFF10B981);
+        break;
+      case _DocFilter.approved:
+        title = "No Approved Documents Yet";
+        message = "Documents uploaded will appear here once verified by admin.";
+        icon = Icons.folder_outlined;
+        iconColor = Theme.of(context).colorScheme.primary;
+        break;
+      case _DocFilter.all:
+        title = "No Documents";
+        message = "No documents found.";
+        icon = Icons.folder_outlined;
+        iconColor = Theme.of(context).colorScheme.primary;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                "$count",
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
+          Icon(icon, size: 40, color: iconColor),
+          const SizedBox(height: 12),
           Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color.withValues(alpha: 0.9),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _selectedFilter = _DocFilter.all;
+              });
+            },
+            child: const Text("Show All Documents"),
           ),
         ],
       ),
@@ -1314,42 +1782,117 @@ class _DocumentDefinition {
   final bool allowPdf;
   final bool allowsCameraOrGallery;
   final List<String> allowedExtensions;
+
+  _DocumentDefinition copyWith({
+    String? type,
+    String? displayName,
+    bool? isRequired,
+    bool? allowPdf,
+    bool? allowsCameraOrGallery,
+    List<String>? allowedExtensions,
+  }) {
+    return _DocumentDefinition(
+      type: type ?? this.type,
+      displayName: displayName ?? this.displayName,
+      isRequired: isRequired ?? this.isRequired,
+      allowPdf: allowPdf ?? this.allowPdf,
+      allowsCameraOrGallery:
+          allowsCameraOrGallery ?? this.allowsCameraOrGallery,
+      allowedExtensions: allowedExtensions ?? this.allowedExtensions,
+    );
+  }
 }
 
-const List<_DocumentDefinition> _defaultDefinitions = <_DocumentDefinition>[
+const Set<String> _kMechanicalRequiredTypes = {
+  "cv",
+  "degree",
+  "ndt",
+  "pan",
+  "aadhaar",
+  "bank_passbook",
+};
+
+const Set<String> _kElectricalCivilRequiredTypes = {
+  "cv",
+  "degree",
+  "pan",
+  "aadhaar",
+  "bank_passbook",
+};
+
+Set<String> _getRequiredTypesForDepartment(String? department) {
+  final norm = (department ?? "").trim().toLowerCase();
+  if (norm == "mechanical engineer") {
+    return _kMechanicalRequiredTypes;
+  }
+  if (norm == "electrical engineer" || norm == "civil engineer") {
+    return _kElectricalCivilRequiredTypes;
+  }
+  return _kElectricalCivilRequiredTypes;
+}
+
+const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[
   _DocumentDefinition(
-      type: "cv",
-      displayName: "CV",
-      isRequired: true,
-      allowedExtensions: <String>["pdf", "doc", "docx"]),
+    type: "cv",
+    displayName: "CV / Resume",
+    isRequired: true,
+    allowedExtensions: <String>["pdf", "doc", "docx"],
+  ),
   _DocumentDefinition(
-      type: "ndt", displayName: "NDT Certificate", isRequired: true),
+    type: "degree",
+    displayName: "Degree / Diploma Certificate",
+    isRequired: true,
+  ),
   _DocumentDefinition(
-      type: "degree",
-      displayName: "Degree / Diploma Certificate",
-      isRequired: true),
+    type: "ndt",
+    displayName: "NDT Certificate",
+    isRequired: true,
+  ),
+  _DocumentDefinition(
+    type: "pan",
+    displayName: "PAN Card",
+    isRequired: true,
+    allowsCameraOrGallery: true,
+  ),
+  _DocumentDefinition(
+    type: "aadhaar",
+    displayName: "Aadhaar Card",
+    isRequired: true,
+    allowsCameraOrGallery: true,
+  ),
+  _DocumentDefinition(
+    type: "bank_passbook",
+    displayName: "Bank Passbook / Cancelled Cheque",
+    isRequired: true,
+    allowsCameraOrGallery: true,
+  ),
   _DocumentDefinition(
     type: "selfie",
     displayName: "Selfie / Passport Size Photo",
-    isRequired: true,
+    isRequired: false,
     allowPdf: false,
     allowsCameraOrGallery: true,
   ),
-  _DocumentDefinition(type: "pan", displayName: "PAN Card", isRequired: true),
-  _DocumentDefinition(
-      type: "aadhaar", displayName: "Aadhaar Card", isRequired: true),
   _DocumentDefinition(
     type: "signature",
     displayName: "Signature Photo",
-    isRequired: true,
+    isRequired: false,
     allowPdf: false,
     allowsCameraOrGallery: true,
   ),
   _DocumentDefinition(
-      type: "appointment_letter",
-      displayName: "Signed Appointment Letter",
-      isRequired: true),
+    type: "appointment_letter",
+    displayName: "Signed Appointment Letter",
+    isRequired: false,
+  ),
 ];
+
+List<_DocumentDefinition> _getDefinitionsForDepartment(String? department) {
+  final requiredTypes = _getRequiredTypesForDepartment(department);
+  return _allStandardDefinitions.map((def) {
+    return def.copyWith(isRequired: requiredTypes.contains(def.type));
+  }).toList();
+}
 
 const _DocumentDefinition _customDefinition = _DocumentDefinition(
   type: "other",

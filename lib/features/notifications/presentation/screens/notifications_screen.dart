@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sitepulse_engineer/core/router/notification_router.dart';
+import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/features/notifications/data/models/engineer_notification_model.dart';
 import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
@@ -36,10 +36,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           .add(MarkNotificationReadRequested(notification.id));
     }
 
-    // 2. Route using the notification data payload
-    if (notification.data.isNotEmpty) {
-      NotificationRouter.handleNotificationClick(notification.data);
-    }
+    // 2. Open full detail screen to view complete circular / notification
+    Navigator.of(context).pushNamed(
+      AppRoutes.notificationDetail,
+      arguments: notification,
+    );
   }
 
   void _showClearAllConfirmation(BuildContext context) {

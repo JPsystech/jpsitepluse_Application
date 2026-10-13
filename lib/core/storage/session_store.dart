@@ -8,6 +8,8 @@ import "package:flutter_secure_storage/flutter_secure_storage.dart";
 import "package:uuid/uuid.dart";
 
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
+import "package:sitepulse_engineer/shared/models/engineer.dart";
+import "package:sitepulse_engineer/core/network/api_client.dart";
 
 class SessionStore {
   static AuthSession? current;
@@ -77,6 +79,26 @@ class SessionStore {
     sessionExpired = true;
     expiredReason = reason;
     await clear();
+  }
+
+  static Future<Engineer?> syncProfile() async {
+    try {
+      final session = current;
+      if (session == null || session.token.trim().isEmpty) return null;
+      final client = await ApiClient.instance.dio;
+      final response = await client.get('/api/v1/engineer/me');
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        final updatedEngineer = Engineer.fromJson(response.data as Map<String, dynamic>);
+        final updatedSession = session.copyWith(engineer: updatedEngineer);
+        await set(updatedSession);
+        return updatedEngineer;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Failed to sync engineer profile: $e');
+      }
+    }
+    return current?.engineer;
   }
 
   static Future<String> getDeviceId() async {

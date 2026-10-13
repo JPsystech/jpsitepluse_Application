@@ -9,6 +9,8 @@ import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_setup
 import "package:sitepulse_engineer/features/auth/presentation/screens/change_mpin_screen.dart";
 import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_otp_request_screen.dart";
 import "package:sitepulse_engineer/features/auth/presentation/screens/mpin_otp_screen.dart";
+import "package:sitepulse_engineer/features/notifications/data/models/engineer_notification_model.dart";
+import "package:sitepulse_engineer/features/notifications/presentation/screens/notification_detail_screen.dart";
 import "package:sitepulse_engineer/features/notifications/presentation/screens/notifications_screen.dart";
 import "package:sitepulse_engineer/features/referrals/data/models/job_opening_model.dart";
 import "package:sitepulse_engineer/features/referrals/presentation/screens/referrals_home_screen.dart";
@@ -22,6 +24,7 @@ class AppRoutes {
   static const String app = "/app";
   static const String documents = "/documents";
   static const String notifications = "/notifications";
+  static const String notificationDetail = "/notifications/detail";
   static const String mpinSetup = "/mpin-setup";
   static const String changeMpin = "/change-mpin";
   static const String mpinOtpRequest = "/mpin-otp-request";
@@ -40,6 +43,22 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const TermsScreen());
       case notifications:
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+      case notificationDetail:
+        EngineerNotificationModel? model;
+        Map<String, dynamic>? raw;
+        if (settings.arguments is EngineerNotificationModel) {
+          model = settings.arguments as EngineerNotificationModel;
+        } else if (settings.arguments is Map<String, dynamic>) {
+          raw = settings.arguments as Map<String, dynamic>;
+        } else if (settings.arguments is Map) {
+          raw = Map<String, dynamic>.from(settings.arguments as Map);
+        }
+        return MaterialPageRoute(
+          builder: (_) => NotificationDetailScreen(
+            notification: model,
+            rawPayload: raw,
+          ),
+        );
       case referrals:
         int initialTab = 0;
         if (settings.arguments is int) {

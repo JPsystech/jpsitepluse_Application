@@ -255,6 +255,7 @@ class EngineerTimesheetListResponse {
   final List<EngineerTimesheetRow> items;
   final int totalPresentDays;
   final double totalHours;
+  final List<int> weeklyOffDays;
 
   EngineerTimesheetListResponse({
     required this.startDate,
@@ -262,6 +263,7 @@ class EngineerTimesheetListResponse {
     required this.items,
     required this.totalPresentDays,
     required this.totalHours,
+    this.weeklyOffDays = const [6],
   });
 
   factory EngineerTimesheetListResponse.fromJson(Map<String, dynamic> json) {
@@ -272,12 +274,31 @@ class EngineerTimesheetListResponse {
             .map(EngineerTimesheetRow.fromJson)
             .toList()
         : <EngineerTimesheetRow>[];
+
+    List<int> parsedWeeklyOff = const [6];
+    final rawWeeklyOff = json["weekly_off_days"];
+    if (rawWeeklyOff is List) {
+      parsedWeeklyOff = rawWeeklyOff
+          .map((e) => (e as num?)?.toInt())
+          .whereType<int>()
+          .toList();
+      if (parsedWeeklyOff.isEmpty) parsedWeeklyOff = const [6];
+    } else if (rawWeeklyOff is String && rawWeeklyOff.trim().isNotEmpty) {
+      parsedWeeklyOff = rawWeeklyOff
+          .split(',')
+          .map((s) => int.tryParse(s.trim()))
+          .whereType<int>()
+          .toList();
+      if (parsedWeeklyOff.isEmpty) parsedWeeklyOff = const [6];
+    }
+
     return EngineerTimesheetListResponse(
       startDate: (json["start_date"] as String?) ?? "",
       endDate: (json["end_date"] as String?) ?? "",
       items: items,
       totalPresentDays: (json["total_present_days"] as num?)?.toInt() ?? 0,
       totalHours: (json["total_hours"] as num?)?.toDouble() ?? 0,
+      weeklyOffDays: parsedWeeklyOff,
     );
   }
 }
@@ -294,6 +315,8 @@ class EngineerTimesheetRow {
   final double totalHours;
   final String? remarks;
   final String? mark;
+  final String? status;
+  final bool? isOutOfRadius;
 
   EngineerTimesheetRow({
     required this.attendanceLogId,
@@ -307,6 +330,8 @@ class EngineerTimesheetRow {
     required this.totalHours,
     required this.remarks,
     required this.mark,
+    this.status,
+    this.isOutOfRadius,
   });
 
   factory EngineerTimesheetRow.fromJson(Map<String, dynamic> json) {
@@ -327,6 +352,12 @@ class EngineerTimesheetRow {
       totalHours: (json["total_hours"] as num?)?.toDouble() ?? 0,
       remarks: json["remarks"] as String?,
       mark: json["mark"] as String?,
+      status: json["status"] as String?,
+      isOutOfRadius: (json["is_out_of_radius"] as bool?) ??
+          (json["punch_in_is_inside_radius"] == false ||
+              json["punch_out_is_inside_radius"] == false ||
+              json["punch_in_is_exception_punch"] == true ||
+              json["punch_out_is_exception_punch"] == true),
     );
   }
 }

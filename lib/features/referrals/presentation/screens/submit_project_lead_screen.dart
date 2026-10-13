@@ -1,12 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral_bloc.dart';
 import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral_event.dart';
 import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral_state.dart';
 import 'package:sitepulse_engineer/features/referrals/presentation/widgets/referral_terms_sheet.dart';
+import 'package:sitepulse_engineer/shared/models/country_code.dart';
+import 'package:sitepulse_engineer/shared/widgets/country_code_phone_field.dart';
 
 class SubmitProjectLeadScreen extends StatelessWidget {
   final ReferralBloc? bloc;
@@ -55,6 +56,7 @@ class _SubmitProjectLeadScreenContentState
   final _clientNameController = TextEditingController();
   final _contactPersonController = TextEditingController();
   final _contactMobileController = TextEditingController();
+  CountryCode _selectedCountry = CountryCode.india;
   final _contactEmailController = TextEditingController();
   final _siteNameController = TextEditingController();
   final _siteAddressController = TextEditingController();
@@ -155,15 +157,17 @@ class _SubmitProjectLeadScreenContentState
 
     final estVal = double.tryParse(_estimatedValueController.text.trim());
 
+    final fullContactMobile = _contactMobileController.text.trim().isEmpty
+        ? null
+        : "${_selectedCountry.dialCode} ${_contactMobileController.text.trim()}";
+
     context.read<ReferralBloc>().add(
           SubmitProjectInquiryRequested(
             clientName: _clientNameController.text.trim(),
             contactPerson: _contactPersonController.text.trim().isEmpty
                 ? null
                 : _contactPersonController.text.trim(),
-            contactMobile: _contactMobileController.text.trim().isEmpty
-                ? null
-                : _contactMobileController.text.trim(),
+            contactMobile: fullContactMobile,
             contactEmail: contactEmail,
             siteName: _siteNameController.text.trim().isEmpty
                 ? null
@@ -277,68 +281,55 @@ class _SubmitProjectLeadScreenContentState
                     ),
                     const SizedBox(height: 14),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: _contactMobileController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
-                            ],
-                            decoration: const InputDecoration(
-                              labelText: "Contact Mobile *",
-                              prefixIcon: Icon(Icons.phone_outlined),
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
-                              ),
-                              hintText: "10-digit mobile",
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return "Please enter mobile number";
-                              }
-                              final clean = v.trim().replaceAll(RegExp(r'\s+'), '');
-                              if (clean.length != 10) {
-                                return "Enter a valid 10-digit mobile number";
-                              }
-                              return null;
-                            },
-                          ),
+                    CountryCodePhoneField(
+                      controller: _contactMobileController,
+                      selectedCountry: _selectedCountry,
+                      onCountryChanged: (c) {
+                        setState(() {
+                          _selectedCountry = c;
+                        });
+                      },
+                      labelText: "Contact Mobile *",
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return "Please enter mobile number";
+                        }
+                        final clean = v.trim().replaceAll(RegExp(r'\s+'), '');
+                        if (_selectedCountry.iso == 'IN' && clean.length != 10) {
+                          return "Enter a valid 10-digit mobile number";
+                        }
+                        if (_selectedCountry.iso != 'IN' && (clean.length < 7 || clean.length > 15)) {
+                          return "Enter a valid mobile number (7-15 digits)";
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    TextFormField(
+                      controller: _contactEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: "Contact Email *",
+                        prefixIcon: Icon(Icons.email_outlined),
+                        hintText: "client@company.com",
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.all(Radius.circular(12)),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: _contactEmailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: "Contact Email *",
-                              prefixIcon: Icon(Icons.email_outlined),
-                              hintText: "client@company.com",
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
-                              ),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return "Please enter contact email";
-                              }
-                              final clean = v.trim().toLowerCase();
-                              final emailRegex = RegExp(
-                                  r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
-                              if (!emailRegex.hasMatch(clean)) {
-                                return "Enter a valid email (e.g. name@company.com)";
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return "Please enter contact email";
+                        }
+                        final clean = v.trim().toLowerCase();
+                        final emailRegex = RegExp(
+                            r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+                        if (!emailRegex.hasMatch(clean)) {
+                          return "Enter a valid email (e.g. name@company.com)";
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
 

@@ -14,6 +14,7 @@ import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import "package:sitepulse_engineer/core/storage/credential_store.dart";
 import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/storage/offline_session_cache.dart";
+import "package:sitepulse_engineer/core/services/push_notification_registration_service.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
@@ -537,6 +538,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             });
           } else if (state is AuthSuccess) {
             final session = state.session;
+            await PushNotificationRegistrationService.registerForCurrentSession();
             if (session.mustChangePassword) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
@@ -1422,6 +1424,7 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                   hint: "Repeat password",
                   obscureText: true,
                   textInputAction: TextInputAction.done,
+
                 ),
                 const SizedBox(height: 18),
                 Container(

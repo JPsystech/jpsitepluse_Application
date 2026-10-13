@@ -115,8 +115,55 @@ class EngineerNotificationModel {
     }
   }
 
+  String get categoryLabel {
+    switch (notificationType) {
+      case 'ANNOUNCEMENT':
+      case 'CIRCULAR':
+        return 'Announcement';
+      case 'URGENT':
+      case 'URGENT_ALERT':
+        return 'Urgent Alert';
+      case 'SAFETY':
+      case 'SAFETY_ALERT':
+        return 'Safety Alert';
+      case 'PROJECT':
+      case 'PROJECT_UPDATE':
+        return 'Project Update';
+      case 'ASSIGNMENT':
+        return 'Assignment';
+      case 'TIMESHEET':
+      case 'WORK_SUBMISSION':
+      case 'SUBMISSION':
+        return 'Work Submission';
+      case 'DOCUMENT':
+      case 'DOCUMENT_VERIFICATION':
+        return 'Document Notice';
+      case 'ATTENDANCE':
+      case 'SHIFT_REMINDER':
+      case 'OVERDUE_PUNCH_OUT':
+        return 'Attendance Notice';
+      case 'SECURITY':
+        return 'Security Notice';
+      case 'GENERAL':
+      default:
+        return 'General Notice';
+    }
+  }
+
   IconData get icon {
     switch (notificationType) {
+      case 'ANNOUNCEMENT':
+      case 'CIRCULAR':
+        return Icons.campaign_rounded;
+      case 'URGENT':
+      case 'URGENT_ALERT':
+        return Icons.warning_amber_rounded;
+      case 'SAFETY':
+      case 'SAFETY_ALERT':
+        return Icons.health_and_safety_rounded;
+      case 'PROJECT':
+      case 'PROJECT_UPDATE':
+        return Icons.business_center_rounded;
       case 'ASSIGNMENT':
         return Icons.assignment_outlined;
       case 'TIMESHEET':
@@ -139,6 +186,18 @@ class EngineerNotificationModel {
 
   Color get categoryColor {
     switch (notificationType) {
+      case 'ANNOUNCEMENT':
+      case 'CIRCULAR':
+        return const Color(0xFF6366F1); // Indigo
+      case 'URGENT':
+      case 'URGENT_ALERT':
+        return const Color(0xFFDC2626); // Red
+      case 'SAFETY':
+      case 'SAFETY_ALERT':
+        return const Color(0xFFEA580C); // Orange
+      case 'PROJECT':
+      case 'PROJECT_UPDATE':
+        return const Color(0xFF0D9488); // Teal
       case 'ASSIGNMENT':
         return const Color(0xFF2563EB); // Blue
       case 'TIMESHEET':
