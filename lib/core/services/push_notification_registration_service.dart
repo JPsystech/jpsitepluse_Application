@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:sitepulse_engineer/core/services/location_request_response_service.dart';
+import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
 import 'package:sitepulse_engineer/core/services/notification_service.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
@@ -104,6 +105,12 @@ class PushNotificationRegistrationService {
       final requestId = (message.data['request_id'] ?? message.data['requestId'] ?? '').toString().trim();
       if (requestId.isEmpty) return;
       await LocationRequestResponseService.handleLocationRequest(requestId);
+      return;
+    }
+
+    if (type == 'TRANSIT_MODE_UPDATE') {
+      final isTransit = (message.data['is_transit'] ?? '').toString().trim().toLowerCase() == 'true';
+      await LiveLocationTrackingService.instance.setTransitMode(isTransit);
       return;
     }
 

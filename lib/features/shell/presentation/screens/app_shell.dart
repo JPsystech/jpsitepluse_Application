@@ -23,6 +23,7 @@ import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
 import "../../../../core/services/offline_document_sync_service.dart";
 import "../../../home/presentation/bloc/home_bloc.dart";
+import "package:sitepulse_engineer/shared/widgets/location_disclosure_dialog.dart";
 
 class AppShellScope extends InheritedWidget {
   const AppShellScope({
@@ -73,6 +74,16 @@ class _AppShellView extends StatefulWidget {
 class _AppShellViewState extends State<_AppShellView> {
   Timer? _offlineSyncTimer;
   String? _offlineSyncToken;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        LocationDisclosureDialog.showIfNeeded(context);
+      }
+    });
+  }
 
   @override
   void dispose() {

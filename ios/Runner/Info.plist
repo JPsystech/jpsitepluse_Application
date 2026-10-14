@@ -30,6 +30,16 @@
 	<string>Allow camera access to capture engineer document photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Allow photo library access to select engineer document images.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Allow location access to verify attendance and punch in at your assigned site location.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Allow background location access during active shifts and site transit to verify site arrival and coordinate field safety.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

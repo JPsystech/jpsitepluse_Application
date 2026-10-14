@@ -4,6 +4,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'package:flutter/services.dart';
 import 'package:sitepulse_engineer/core/services/push_notification_registration_service.dart';
 import 'core/services/notification_service.dart';
+import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
 import "app.dart";
 
 void main() async {
@@ -24,6 +25,7 @@ void main() async {
   try {
     await PushNotificationRegistrationService.initializeFirebase();
     await NotificationService.instance.initialize();
+    await LiveLocationTrackingService.instance.initialize();
   } catch (e) {
     debugPrint("Firebase / Notification init failed: $e");
   }
