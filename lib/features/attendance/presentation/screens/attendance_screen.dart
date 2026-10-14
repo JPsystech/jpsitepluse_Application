@@ -7,6 +7,9 @@ import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
 
+import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
+import 'package:sitepulse_engineer/core/storage/session_store.dart';
+
 class AttendanceScreen extends StatelessWidget {
   final String sessionToken;
 
@@ -41,6 +44,9 @@ class _AttendanceViewState extends State<_AttendanceView> {
     super.initState();
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month, 1);
+    SessionStore.syncProfile().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _changeMonth(int monthsToAdd) {
@@ -145,6 +151,7 @@ class _AttendanceViewState extends State<_AttendanceView> {
                     _AttendanceCalendarGrid(
                       items: data.items,
                       viewMonth: _selectedMonth,
+                      weeklyOffDays: data.weeklyOffDays,
                     ),
                     
                     const SizedBox(height: 32),
@@ -390,8 +397,13 @@ class _SummaryCard extends StatelessWidget {
 class _AttendanceCalendarGrid extends StatelessWidget {
   final List<dynamic> items;
   final DateTime viewMonth;
+  final List<int>? weeklyOffDays;
 
-  const _AttendanceCalendarGrid({required this.items, required this.viewMonth});
+  const _AttendanceCalendarGrid({
+    required this.items,
+    required this.viewMonth,
+    this.weeklyOffDays,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -413,28 +425,68 @@ class _AttendanceCalendarGrid extends StatelessWidget {
     }
 
     final cs = Theme.of(context).colorScheme;
-    final successColor = Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981);
-    final errorColor = cs.error;
-    final greyColor = cs.surfaceContainerHighest;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final engineer = SessionStore.current?.engineer;
+    final effectiveWeeklyOffs = weeklyOffDays ?? engineer?.weeklyOffDays ?? const [6];
+
+    // Exact Admin Panel Color Palette (matches MonthlyAttendanceView.module.css)
+    final Color adminPresentBg = isDark ? const Color(0xFF14532D).withValues(alpha: 0.35) : const Color(0xFFDCFCE7);
+    final Color adminPresentText = isDark ? const Color(0xFF4ADE80) : const Color(0xFF15703D);
+    final Color adminPresentBorder = isDark ? const Color(0xFF15703D).withValues(alpha: 0.6) : const Color(0xFF86EFAC);
+
+    final Color adminAttentionBg = isDark ? const Color(0xFF7C2D12).withValues(alpha: 0.35) : const Color(0xFFFFEDD5);
+    final Color adminAttentionText = isDark ? const Color(0xFFFB923C) : const Color(0xFFA4470C);
+    final Color adminAttentionBorder = isDark ? const Color(0xFFC2410C).withValues(alpha: 0.6) : const Color(0xFFFDBA74);
+
+    final Color adminWeekOffBg = isDark ? const Color(0xFF7C2D12).withValues(alpha: 0.25) : const Color(0xFFFFF7ED);
+    final Color adminWeekOffText = isDark ? const Color(0xFFFDBA74) : const Color(0xFFC2410C);
+    final Color adminWeekOffBorder = isDark ? const Color(0xFF9A3412).withValues(alpha: 0.5) : const Color(0xFFFED7AA);
+
+    final Color adminAbsentBg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEE2E2);
+    final Color adminAbsentText = isDark ? const Color(0xFFF87171) : const Color(0xFFB4232D);
+    final Color adminAbsentBorder = isDark ? const Color(0xFFB4232D).withValues(alpha: 0.6) : const Color(0xFFFCA5A5);
+
+    final Color adminFutureBg = isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F4F7);
+    final Color adminFutureText = isDark ? Colors.white38 : const Color(0xFF98A2B3);
 
     final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildLegend(
+          context,
+          presentBg: adminPresentBg,
+          presentText: adminPresentText,
+          attentionBg: adminAttentionBg,
+          attentionText: adminAttentionText,
+          weekOffBg: adminWeekOffBg,
+          weekOffText: adminWeekOffText,
+          absentBg: adminAbsentBg,
+          absentText: adminAbsentText,
+          futureBg: adminFutureBg,
+          futureText: adminFutureText,
+        ),
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: weekDays.map((day) => Expanded(
-            child: Center(
-              child: Text(
-                day,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: cs.onSurfaceVariant,
+          children: weekDays.asMap().entries.map((entry) {
+            final int dayIndex = entry.key; // 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+            final String dayName = entry.value;
+            final bool isWeeklyOffHeader = effectiveWeeklyOffs.contains(dayIndex);
+            return Expanded(
+              child: Center(
+                child: Text(
+                  dayName,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isWeeklyOffHeader ? adminWeekOffText : cs.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ),
-          )).toList(),
+            );
+          }).toList(),
         ),
         const SizedBox(height: 12),
         GridView.builder(
@@ -457,64 +509,129 @@ class _AttendanceCalendarGrid extends StatelessWidget {
             final dayItems = itemsByDate[dateStr] ?? [];
 
             bool isFuture = currentCellDate.isAfter(today);
-            bool isSunday = currentCellDate.weekday == DateTime.sunday;
-            
-            bool isOngoing = dayItems.any((item) => item.punchInTime.year > 2000 && item.punchOutTime == null);
-            double totalHours = dayItems.fold(0.0, (sum, item) => sum + (item.totalHours as num));
-            bool isPresent = dayItems.isNotEmpty && (dayItems.any((item) => item.mark == 'P') || totalHours > 0) && !isOngoing;
-            bool isAbsent = dayItems.any((item) => item.mark == 'A');
-            
-            // Mark red if it's a past weekday and there's no punch log
-            bool isMissing = !isFuture && !isPresent && !isOngoing && !isSunday; 
-            
-            Color bgColor = greyColor.withValues(alpha: 0.3);
-            Color textColor = cs.onSurfaceVariant;
+            final pyWeekday = currentCellDate.weekday - 1; // 0=Mon ... 6=Sun
+            bool isWeeklyOff = effectiveWeeklyOffs.contains(pyWeekday);
+
+            bool isOutOfRadiusItem(dynamic item) {
+              if (item is EngineerTimesheetRow && item.isOutOfRadius == true) return true;
+              final rem = (item.remarks ?? '').toString().toLowerCase();
+              final mark = (item.mark ?? '').toString().toUpperCase();
+              final status = (item.status ?? '').toString().toUpperCase();
+              return rem.contains('out of radius') ||
+                  rem.contains('out_of_radius') ||
+                  rem.contains('outside radius') ||
+                  rem.contains('outside allowed radius') ||
+                  mark == 'OUT_OF_RADIUS' ||
+                  mark == 'OOR' ||
+                  status == 'OUT_OF_RADIUS';
+            }
+
+            bool isAutoClosedItem(dynamic item) {
+              final rem = (item.remarks ?? '').toString().toUpperCase();
+              final mark = (item.mark ?? '').toString().toUpperCase();
+              final status = (item.status ?? '').toString().toUpperCase();
+              return rem.startsWith('SYSTEM_AUTO_CLOSED') ||
+                  rem.contains('AUTO_CLOSED') ||
+                  rem.contains('AUTO-CLOSED') ||
+                  rem.contains('SYSTEM AUTO-CLOSED') ||
+                  rem.contains('CLOSED BY SYSTEM') ||
+                  mark == 'AUTO_CLOSED' ||
+                  mark == 'AC' ||
+                  status == 'AUTO_CLOSED';
+            }
+
+            bool isIncompleteItem(dynamic item) {
+              final mark = (item.mark ?? '').toString().toUpperCase();
+              final status = (item.status ?? '').toString().toUpperCase();
+              final isOngoing = item.punchInTime != null &&
+                  item.punchInTime.year > 2000 &&
+                  item.punchOutTime == null;
+              return isOngoing ||
+                  mark == 'INCOMPLETE' ||
+                  mark == 'INC' ||
+                  mark == 'MI' ||
+                  mark == 'MO' ||
+                  status == 'INCOMPLETE';
+            }
+
+            final bool hasOutOfRadius = dayItems.any(isOutOfRadiusItem);
+            final bool hasAutoClosed = dayItems.any(isAutoClosedItem);
+            final bool hasIncomplete = dayItems.any(isIncompleteItem);
+
+            final bool isOrange = hasOutOfRadius || hasAutoClosed || hasIncomplete;
+
+            final double totalHours = dayItems.fold(0.0, (sum, item) => sum + (item.totalHours as num));
+            final bool isPresentMark = dayItems.any((item) => (item.mark ?? '').toString().toUpperCase() == 'P');
+            final bool isPresent = !isOrange && dayItems.isNotEmpty && (isPresentMark || totalHours > 0);
+
+            final bool isAbsentMark = dayItems.any((item) => (item.mark ?? '').toString().toUpperCase() == 'A');
+            final bool isMissing = !isFuture && !isWeeklyOff && dayItems.isEmpty;
+            final bool isAbsent = !isOrange && !isPresent && (isAbsentMark || isMissing);
+
+            Color bgColor = adminFutureBg;
+            Color textColor = adminFutureText;
+            Color borderColor = Colors.transparent;
             Widget? extraInfo;
-            
-            if (isOngoing) {
-              final warningColor = Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B);
-              bgColor = warningColor.withValues(alpha: 0.15);
-              textColor = warningColor.withAlpha(220);
+
+            if (isOrange) {
+              bgColor = adminAttentionBg;
+              textColor = adminAttentionText;
+              borderColor = adminAttentionBorder;
+
+              String label = 'Work';
+              if (hasAutoClosed) {
+                label = 'Auto';
+              } else if (hasOutOfRadius) {
+                label = 'Radius';
+              } else if (hasIncomplete) {
+                final isOngoing = dayItems.any((i) => i.punchInTime.year > 2000 && i.punchOutTime == null);
+                label = isOngoing ? 'Work' : 'Inc';
+              }
+
               extraInfo = Text(
-                'Work',
+                label,
                 style: TextStyle(
-                  color: warningColor,
+                  color: adminAttentionText,
                   fontWeight: FontWeight.w900,
                   fontSize: 10,
                 ),
               );
             } else if (isPresent) {
-              bgColor = successColor.withValues(alpha: 0.15);
-              textColor = successColor.withAlpha(220);
+              bgColor = adminPresentBg;
+              textColor = adminPresentText;
+              borderColor = adminPresentBorder;
               extraInfo = Text(
-                '${totalHours.toStringAsFixed(1)}h',
+                totalHours > 0 ? '${totalHours.toStringAsFixed(1)}h' : 'P',
                 style: TextStyle(
-                  color: successColor,
+                  color: adminPresentText,
                   fontWeight: FontWeight.w900,
                   fontSize: 10,
                 ),
               );
-            } else if (isAbsent || isMissing) {
-              bgColor = errorColor.withValues(alpha: 0.1);
-              textColor = errorColor;
+            } else if (isAbsent) {
+              bgColor = adminAbsentBg;
+              textColor = adminAbsentText;
+              borderColor = adminAbsentBorder;
               extraInfo = Text(
-                'Abs',
+                'A',
                 style: TextStyle(
-                  color: errorColor.withValues(alpha: 0.8),
+                  color: adminAbsentText,
                   fontWeight: FontWeight.w900,
                   fontSize: 10,
                 ),
               );
             } else if (isFuture) {
-              bgColor = greyColor.withValues(alpha: 0.2);
-              textColor = cs.onSurfaceVariant.withValues(alpha: 0.5);
-            } else if (isSunday) {
-              bgColor = greyColor.withValues(alpha: 0.4);
-              textColor = cs.onSurfaceVariant.withValues(alpha: 0.7);
+              bgColor = adminFutureBg;
+              textColor = adminFutureText;
+              borderColor = Colors.transparent;
+            } else if (isWeeklyOff) {
+              bgColor = adminWeekOffBg;
+              textColor = adminWeekOffText;
+              borderColor = adminWeekOffBorder;
               extraInfo = Text(
-                'Off',
+                'WO',
                 style: TextStyle(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  color: adminWeekOffText,
                   fontWeight: FontWeight.w900,
                   fontSize: 9,
                 ),
@@ -540,10 +657,7 @@ class _AttendanceCalendarGrid extends StatelessWidget {
                   color: bgColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isOngoing 
-                        ? (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B)).withValues(alpha: 0.3)
-                        : isPresent ? successColor.withValues(alpha: 0.3) 
-                        : (isAbsent || isMissing ? errorColor.withValues(alpha: 0.3) : Colors.transparent),
+                    color: borderColor,
                     width: 1,
                   ),
                 ),
@@ -600,6 +714,76 @@ class _AttendanceCalendarGrid extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildLegend(
+    BuildContext context, {
+    required Color presentBg,
+    required Color presentText,
+    required Color attentionBg,
+    required Color attentionText,
+    required Color weekOffBg,
+    required Color weekOffText,
+    required Color absentBg,
+    required Color absentText,
+    Color? futureBg,
+    Color? futureText,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 6,
+        alignment: WrapAlignment.center,
+        children: [
+          _buildLegendItem('P', 'Present', presentBg, presentText),
+          _buildLegendItem('P', 'Attention', attentionBg, attentionText),
+          _buildLegendItem('WO', 'Week Off', weekOffBg, weekOffText),
+          _buildLegendItem('A', 'Absent', absentBg, absentText),
+          if (futureBg != null && futureText != null)
+            _buildLegendItem('—', 'Future', futureBg, futureText),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String mark, String label, Color bg, Color textColor) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            mark,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _DailyDetailsBottomSheet extends StatelessWidget {
@@ -634,7 +818,62 @@ class _DailyDetailsBottomSheet extends StatelessWidget {
               itemBuilder: (context, index) {
                 final item = items[index];
                 final isOngoing = item.punchInTime.year > 2000 && item.punchOutTime == null;
-                
+
+                final rem = (item.remarks ?? '').toString().toLowerCase();
+                final mark = (item.mark ?? '').toString().toUpperCase();
+                final status = (item.status ?? '').toString().toUpperCase();
+
+                final isOutOfRadius = (item is EngineerTimesheetRow && item.isOutOfRadius == true) ||
+                    rem.contains('out of radius') ||
+                    rem.contains('out_of_radius') ||
+                    rem.contains('outside radius') ||
+                    mark == 'OUT_OF_RADIUS' ||
+                    mark == 'OOR' ||
+                    status == 'OUT_OF_RADIUS';
+
+                final isAutoClosed = rem.toUpperCase().startsWith('SYSTEM_AUTO_CLOSED') ||
+                    rem.toUpperCase().contains('AUTO_CLOSED') ||
+                    rem.toUpperCase().contains('AUTO-CLOSED') ||
+                    rem.toUpperCase().contains('CLOSED BY SYSTEM') ||
+                    mark == 'AUTO_CLOSED' ||
+                    mark == 'AC' ||
+                    status == 'AUTO_CLOSED';
+
+                final isIncomplete = isOngoing ||
+                    mark == 'INCOMPLETE' ||
+                    mark == 'INC' ||
+                    mark == 'MI' ||
+                    mark == 'MO' ||
+                    status == 'INCOMPLETE';
+
+                final bool isDark = Theme.of(context).brightness == Brightness.dark;
+                final Color adminPresentBg = isDark ? const Color(0xFF14532D).withValues(alpha: 0.35) : const Color(0xFFDCFCE7);
+                final Color adminPresentText = isDark ? const Color(0xFF4ADE80) : const Color(0xFF15703D);
+                final Color adminAttentionBg = isDark ? const Color(0xFF7C2D12).withValues(alpha: 0.35) : const Color(0xFFFFEDD5);
+                final Color adminAttentionText = isDark ? const Color(0xFFFB923C) : const Color(0xFFA4470C);
+
+                Color badgeBgColor;
+                Color badgeTextColor;
+                String badgeText;
+
+                if (isAutoClosed) {
+                  badgeBgColor = adminAttentionBg;
+                  badgeTextColor = adminAttentionText;
+                  badgeText = "Auto-Closed";
+                } else if (isOutOfRadius) {
+                  badgeBgColor = adminAttentionBg;
+                  badgeTextColor = adminAttentionText;
+                  badgeText = "Out of Radius";
+                } else if (isIncomplete) {
+                  badgeBgColor = adminAttentionBg;
+                  badgeTextColor = adminAttentionText;
+                  badgeText = isOngoing ? "Working" : "Incomplete";
+                } else {
+                  badgeBgColor = adminPresentBg;
+                  badgeTextColor = adminPresentText;
+                  badgeText = "${item.totalHours.toStringAsFixed(1)} hrs";
+                }
+
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -661,18 +900,14 @@ class _DailyDetailsBottomSheet extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isOngoing 
-                                  ? (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B)).withValues(alpha: 0.15)
-                                  : cs.primary.withValues(alpha: 0.1),
+                              color: badgeBgColor,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              isOngoing ? "Working" : "${item.totalHours.toStringAsFixed(1)} hrs",
+                              badgeText,
                               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: isOngoing 
-                                        ? (Theme.of(context).extension<AppColorsExtension>()?.warning ?? const Color(0xFFF59E0B))
-                                        : cs.primary,
+                                    color: badgeTextColor,
                                   ),
                             ),
                           ),

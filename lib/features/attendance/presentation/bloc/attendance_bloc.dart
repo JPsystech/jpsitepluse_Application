@@ -7,6 +7,7 @@ import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
+import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'attendance_event.dart';
@@ -97,6 +98,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         clientPunchTimeIso: event.clientPunchTimeIso,
         isOffline: event.isOffline,
       );
+      LiveLocationTrackingService.instance.startDutyTracking();
       emit(PunchInSuccess(response: response));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);
@@ -112,6 +114,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           projectId: event.projectId,
           exceptionReason: event.exceptionReason,
         ));
+        LiveLocationTrackingService.instance.startDutyTracking();
         emit(const PunchOfflineQueued());
       } else {
         final appError = ErrorHandler.handle(e);
@@ -152,6 +155,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         clientPunchTimeIso: event.clientPunchTimeIso,
         isOffline: event.isOffline,
       );
+      LiveLocationTrackingService.instance.stopDutyTracking();
       emit(PunchOutSuccess(response: response));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);

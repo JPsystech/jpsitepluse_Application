@@ -111,4 +111,21 @@ class NotificationCenterService {
       return 0;
     }
   }
+
+  Future<bool> markAsDelivered(String id) async {
+    final cleanId = id.trim();
+    if (cleanId.isEmpty) return false;
+    try {
+      final client = await ApiClient.instance.dio;
+      final response = await client.post(
+        '/api/v1/engineer/notifications/$cleanId/delivered',
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[NotificationCenterService] markAsDelivered error: $e');
+      }
+      return false;
+    }
+  }
 }

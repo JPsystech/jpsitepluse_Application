@@ -115,8 +115,14 @@ class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
 
     try {
       final response = await _service.getNotifications();
+      final filteredItems = response.items.where((n) {
+        final type = n.notificationType.toUpperCase();
+        final title = n.title.toLowerCase();
+        return type != 'DEVICE_RESET' && !title.contains('device binding reset');
+      }).toList();
+
       emit(NotificationsLoaded(
-        notifications: response.items,
+        notifications: filteredItems,
         unreadCount: response.unreadCount,
         totalCount: response.totalCount,
       ));
@@ -235,6 +241,11 @@ class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
     ForegroundNotificationReceived event,
     Emitter<NotificationsState> emit,
   ) {
+    if (event.notificationType.toUpperCase() == 'DEVICE_RESET' ||
+        event.title.toLowerCase().contains('device binding reset')) {
+      return;
+    }
+
     final newNotif = EngineerNotificationModel(
       id: event.id,
       title: event.title,
