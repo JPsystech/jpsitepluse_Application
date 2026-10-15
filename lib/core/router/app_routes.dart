@@ -16,6 +16,7 @@ import "package:sitepulse_engineer/features/referrals/data/models/job_opening_mo
 import "package:sitepulse_engineer/features/referrals/presentation/screens/referrals_home_screen.dart";
 import "package:sitepulse_engineer/features/referrals/presentation/screens/refer_candidate_screen.dart";
 import "package:sitepulse_engineer/features/referrals/presentation/screens/submit_project_lead_screen.dart";
+import "package:sitepulse_engineer/features/onboarding/presentation/screens/complete_profile_screen.dart";
 
 class AppRoutes {
   static const String splash = "/splash";
@@ -23,6 +24,7 @@ class AppRoutes {
   static const String terms = "/terms";
   static const String app = "/app";
   static const String documents = "/documents";
+  static const String completeProfile = "/complete-profile";
   static const String notifications = "/notifications";
   static const String notificationDetail = "/notifications/detail";
   static const String mpinSetup = "/mpin-setup";
@@ -96,6 +98,8 @@ class AppRoutes {
         );
       case documents:
         return MaterialPageRoute(builder: (_) => const DocumentUploadScreen());
+      case completeProfile:
+        return MaterialPageRoute(builder: (_) => const CompleteProfileScreen());
       case changeMpin:
         return MaterialPageRoute(builder: (_) => const ChangeMpinScreen());
       case mpinOtpRequest:

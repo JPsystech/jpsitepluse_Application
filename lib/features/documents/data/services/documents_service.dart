@@ -201,4 +201,23 @@ class DocumentsService {
       originalFileName: originalFileName,
     );
   }
+
+  Future<void> deleteDocument({
+    required String token,
+    required String documentId,
+  }) async {
+    final client = await api.dio;
+    final options = (token.isNotEmpty)
+        ? Options(headers: {'Authorization': 'Bearer $token'})
+        : null;
+
+    final res = await client.delete(
+      "/api/v1/engineer/documents/$documentId",
+      options: options,
+    );
+
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception("Failed to delete document (status ${res.statusCode})");
+    }
+  }
 }

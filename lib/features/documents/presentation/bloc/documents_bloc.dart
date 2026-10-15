@@ -28,6 +28,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
     on<UploadDocumentRequested>(_onUploadDocumentRequested);
     on<ViewDocumentRequested>(_onViewDocumentRequested);
     on<DownloadDocumentToPhoneRequested>(_onDownloadDocumentToPhoneRequested);
+    on<DeleteDocumentRequested>(_onDeleteDocumentRequested);
   }
 
   String? get _ndtExpiryKey {
@@ -411,6 +412,42 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       emit(state.copyWith(
         busyKeys: updatedBusyKeys,
         snackbarMessage: "Failed to download. $msg",
+        isErrorSnackbar: true,
+        clearOneOffs: false,
+      ));
+    }
+  }
+
+  Future<void> _onDeleteDocumentRequested(
+      DeleteDocumentRequested event, Emitter<DocumentsState> emit) async {
+    final busy = Set<String>.from(state.busyKeys)..add(event.busyKey);
+    emit(state.copyWith(busyKeys: busy, clearOneOffs: true));
+
+    try {
+      await _documentService.deleteDocument(
+        token: event.sessionToken,
+        documentId: event.documentId,
+      );
+
+      final updatedDocs =
+          state.documents.where((d) => d.id != event.documentId).toList();
+
+      final clearedBusy = Set<String>.from(state.busyKeys)
+        ..remove(event.busyKey);
+      emit(state.copyWith(
+        documents: updatedDocs,
+        busyKeys: clearedBusy,
+        snackbarMessage: "Document deleted successfully",
+        isErrorSnackbar: false,
+        clearOneOffs: false,
+      ));
+    } catch (e) {
+      final clearedBusy = Set<String>.from(state.busyKeys)
+        ..remove(event.busyKey);
+      final appError = ErrorHandler.handle(e);
+      emit(state.copyWith(
+        busyKeys: clearedBusy,
+        snackbarMessage: appError.userMessage,
         isErrorSnackbar: true,
         clearOneOffs: false,
       ));

@@ -20,6 +20,7 @@ import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
 import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:sitepulse_engineer/features/onboarding/presentation/screens/complete_profile_screen.dart';
 import 'package:uuid/uuid.dart';
 
 class TodayAssignmentScreen extends StatelessWidget {
@@ -559,8 +560,69 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
+  Widget _buildIncompleteProfileCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_clock_rounded,
+              color: Colors.amber.shade900, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Complete Your Profile",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.amber.shade900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Upload compliance documents and bank details to unlock punch-in.",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.amber.shade900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade800,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const CompleteProfileScreen()),
+              );
+              if (mounted) {
+                context.read<HomeBloc>().add(LoadAssignmentsRequested());
+              }
+            },
+            child: const Text("Complete", style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAssignmentsListCard(
-      List<TodayAssignmentModel> assignments, String? activeProjectId) {
+      List<TodayAssignmentModel> assignments,
+      String? activeProjectId,
+      bool isProfileComplete) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -617,6 +679,73 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               ],
             ),
           ),
+          if (!isProfileComplete)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_clock_rounded,
+                      color: Colors.amber.shade900, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Profile Incomplete",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Upload required compliance documents & details to unlock punch-in.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: Colors.amber.shade200,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                    ),
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const CompleteProfileScreen()),
+                      );
+                      if (mounted) {
+                        context
+                            .read<HomeBloc>()
+                            .add(LoadAssignmentsRequested());
+                      }
+                    },
+                    child: Text(
+                      "Complete",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Divider
           Divider(
               height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -644,6 +773,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 isAnyProjectActive,
                 isThisProjectActive,
                 isCompleted,
+                isProfileComplete,
               );
             },
           ),
@@ -652,8 +782,12 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAssignmentRow(TodayAssignmentModel assignment,
-      bool isAnyProjectActive, bool isThisProjectActive, bool isCompleted) {
+  Widget _buildAssignmentRow(
+      TodayAssignmentModel assignment,
+      bool isAnyProjectActive,
+      bool isThisProjectActive,
+      bool isCompleted,
+      bool isProfileComplete) {
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<AppColorsExtension>();
     final successColor = ext?.success ?? Colors.green;
@@ -805,6 +939,24 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     icon: Icons.logout_rounded,
                   );
                 } else if (!isAnyProjectActive) {
+                  if (!isProfileComplete) {
+                    return PrimaryButton(
+                      label: "Complete Profile to Punch In",
+                      icon: Icons.lock_outline_rounded,
+                      backgroundColor: Colors.amber.shade800,
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const CompleteProfileScreen()),
+                        );
+                        if (mounted) {
+                          context
+                              .read<HomeBloc>()
+                              .add(LoadAssignmentsRequested());
+                        }
+                      },
+                    );
+                  }
                   return PrimaryButton(
                     label: "Punch In",
                     isLoading: isThisLoading,
@@ -1265,11 +1417,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     const SizedBox(height: 16),
                     _buildReferralPromoCard(),
                     const SizedBox(height: 24),
-                    if (!hasAssignment)
-                      _buildEmptyState()
-                    else
+                    if (!hasAssignment) ...[
+                      if (!resp.isProfileComplete)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _buildIncompleteProfileCard(context),
+                        ),
+                      _buildEmptyState(),
+                    ] else
                       _buildAssignmentsListCard(
-                          assignments, resp.activeProjectId),
+                          assignments, resp.activeProjectId, resp.isProfileComplete),
                     const SizedBox(height: 40),
                   ],
                 );
