@@ -30,6 +30,8 @@ class NotificationService {
   static const String _channelDesc =
       'Important notifications, shift reminders, and project updates.';
   static const String _lastTokenKey = 'sitepulse_last_synced_fcm_token';
+  static const int _activeShiftNotificationId = 41001;
+  static const String _activeShiftChannelId = 'sitepulse_active_shift';
 
   bool _isInitialized = false;
 
@@ -187,6 +189,42 @@ class NotificationService {
         debugPrint('[NotificationService] Failed to parse local notification payload: $e');
       }
     }
+  }
+
+  Future<void> showActiveShiftNotification() async {
+    if (!Platform.isAndroid) return;
+
+    const details = AndroidNotificationDetails(
+      _activeShiftChannelId,
+      'Active Shift',
+      channelDescription: 'On-duty location tracking and shift actions.',
+      importance: Importance.low,
+      priority: Priority.low,
+      icon: '@drawable/ic_notification',
+      ongoing: true,
+      autoCancel: false,
+      onlyAlertOnce: true,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'punch_out',
+          'Punch Out',
+          showsUserInterface: true,
+          cancelNotification: false,
+        ),
+      ],
+    );
+
+    await _localNotifications.show(
+      _activeShiftNotificationId,
+      'JP SitePulse',
+      'On-duty tracking active',
+      const NotificationDetails(android: details),
+      payload: jsonEncode({'type': 'SHIFT_PUNCH_OUT'}),
+    );
+  }
+
+  Future<void> cancelActiveShiftNotification() async {
+    await _localNotifications.cancel(_activeShiftNotificationId);
   }
 
   Future<void> _showLocalNotification(RemoteMessage message) async {

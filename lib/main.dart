@@ -26,6 +26,9 @@ void main() async {
     await PushNotificationRegistrationService.initializeFirebase();
     await NotificationService.instance.initialize();
     await LiveLocationTrackingService.instance.initialize();
+    if (LiveLocationTrackingService.instance.isTracking) {
+      await NotificationService.instance.showActiveShiftNotification();
+    }
   } catch (e) {
     debugPrint("Firebase / Notification init failed: $e");
   }

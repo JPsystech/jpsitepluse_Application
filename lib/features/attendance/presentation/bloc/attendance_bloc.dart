@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
+import 'package:sitepulse_engineer/core/services/notification_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'attendance_event.dart';
@@ -98,7 +99,10 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         clientPunchTimeIso: event.clientPunchTimeIso,
         isOffline: event.isOffline,
       );
-      LiveLocationTrackingService.instance.startDutyTracking();
+      await LiveLocationTrackingService.instance.startDutyTracking(
+        attendanceLogId: response.attendanceLogId,
+      );
+      await NotificationService.instance.showActiveShiftNotification();
       emit(PunchInSuccess(response: response));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);
@@ -114,7 +118,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           projectId: event.projectId,
           exceptionReason: event.exceptionReason,
         ));
-        LiveLocationTrackingService.instance.startDutyTracking();
+        await LiveLocationTrackingService.instance.startDutyTracking();
+        await NotificationService.instance.showActiveShiftNotification();
         emit(const PunchOfflineQueued());
       } else {
         final appError = ErrorHandler.handle(e);
@@ -145,6 +150,11 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         }
       }
 
+      await LiveLocationTrackingService.instance.sendKnownLocation(
+        latitude: lat,
+        longitude: lng,
+        accuracyM: accuracyM,
+      );
       final response = await _repository.punchOut(
         lat: lat,
         lng: lng,
@@ -155,7 +165,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         clientPunchTimeIso: event.clientPunchTimeIso,
         isOffline: event.isOffline,
       );
-      LiveLocationTrackingService.instance.stopDutyTracking();
+      await LiveLocationTrackingService.instance.stopDutyTracking();
+      await NotificationService.instance.cancelActiveShiftNotification();
       emit(PunchOutSuccess(response: response));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);
@@ -171,6 +182,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           remarks: event.remarks,
           exceptionReason: event.exceptionReason,
         ));
+        await LiveLocationTrackingService.instance.stopDutyTracking();
+        await NotificationService.instance.cancelActiveShiftNotification();
         emit(const PunchOfflineQueued());
       } else {
         final appError = ErrorHandler.handle(e);

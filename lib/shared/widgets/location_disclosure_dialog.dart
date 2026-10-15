@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
 
 class LocationDisclosureDialog extends StatelessWidget {
   const LocationDisclosureDialog({super.key});
@@ -66,7 +64,7 @@ class LocationDisclosureDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'JP SitePulse collects location data to enable the following features even when the app is closed or not in use during your work shift:',
+              'JP SitePulse uses location during an active work shift, including when the app is in the background or the screen is locked, for these features:',
               style: TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
             ),
             const SizedBox(height: 12),
@@ -74,12 +72,6 @@ class LocationDisclosureDialog extends StatelessWidget {
               icon: Icons.access_time_filled,
               title: 'Shift & Attendance Verification',
               desc: 'Confirms your arrival and presence within project geofenced boundaries for accurate punch records.',
-            ),
-            const SizedBox(height: 8),
-            _buildFeatureBullet(
-              icon: Icons.directions_transit_filled,
-              title: 'Outstation Site Transit Tracking',
-              desc: 'Allows site management to monitor transit progress when traveling to outstation project locations and detect site arrival.',
             ),
             const SizedBox(height: 8),
             _buildFeatureBullet(
@@ -96,7 +88,7 @@ class LocationDisclosureDialog extends StatelessWidget {
                 border: Border.all(color: Colors.amber.shade200),
               ),
               child: const Text(
-                'Note: Background tracking strictly turns off when you punch out or when transit is completed. Your personal off-duty time is never tracked.',
+                'Note: Background tracking strictly turns off when you punch out. Your personal off-duty time is never tracked.',
                 style: TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
               ),
             ),
@@ -147,24 +139,9 @@ class LocationDisclosureDialog extends StatelessWidget {
 
   static Future<void> _requestPermissions() async {
     try {
-      var permission = await Geolocator.checkPermission();
+      final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      // On Android, if foreground is granted, prompt for background location
-      if (Platform.isAndroid && permission != LocationPermission.deniedForever) {
-        if (permission == LocationPermission.whileInUse) {
-          // Attempt requesting always
-          final bgPerm = await Geolocator.requestPermission();
-          if (bgPerm != LocationPermission.denied && bgPerm != LocationPermission.deniedForever) {
-            permission = bgPerm;
-          }
-        }
-      }
-
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        // Prime the device GPS/Network cache and report initial location to server
-        LiveLocationTrackingService.instance.captureAndSendLocation(source: 'LOGIN');
+        await Geolocator.requestPermission();
       }
     } catch (_) {}
   }

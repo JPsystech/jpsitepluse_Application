@@ -18,6 +18,7 @@ import 'package:sitepulse_engineer/core/error/error_handler.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
+import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
 import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
 import 'package:uuid/uuid.dart';
 
@@ -75,13 +76,30 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   @override
   void initState() {
     super.initState();
+    ShiftActionService.punchOutRequests.addListener(_handlePunchOutAction);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<NotificationsBloc>().add(
               const LoadNotificationsRequested(silent: true),
             );
+        _consumePendingPunchOutAction();
       }
     });
+  }
+
+  void _handlePunchOutAction() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _consumePendingPunchOutAction());
+  }
+
+  void _consumePendingPunchOutAction() {
+    if (!mounted || !ShiftActionService.consumePendingPunchOut()) return;
+    _punchOut();
+  }
+
+  @override
+  void dispose() {
+    ShiftActionService.punchOutRequests.removeListener(_handlePunchOutAction);
+    super.dispose();
   }
 
   Future<String?> _promptExceptionReason(BuildContext context) async {

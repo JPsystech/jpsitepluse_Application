@@ -33,7 +33,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Allow location access to verify attendance and punch in at your assigned site location.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Allow background location access during active shifts and site transit to verify site arrival and coordinate field safety.</string>
+	<string>Allow background location access during active shifts to verify attendance and coordinate field safety.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

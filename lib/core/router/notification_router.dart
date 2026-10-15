@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/router/navigation_service.dart';
 import 'package:sitepulse_engineer/core/services/location_request_response_service.dart';
+import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 
 class NotificationRouter {
@@ -53,6 +54,11 @@ class NotificationRouter {
       case 'ATTENDANCE':
       case 'SHIFT_REMINDER':
       case 'OVERDUE_PUNCH_OUT':
+        NavigationService.navigateToTab(0);
+        break;
+
+      case 'SHIFT_PUNCH_OUT':
+        ShiftActionService.requestPunchOut();
         NavigationService.navigateToTab(0);
         break;
 
