@@ -24,6 +24,7 @@ import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.d
 import "../../../../core/services/offline_document_sync_service.dart";
 import "../../../home/presentation/bloc/home_bloc.dart";
 import "package:sitepulse_engineer/shared/widgets/location_disclosure_dialog.dart";
+import "package:sitepulse_engineer/features/onboarding/presentation/widgets/complete_profile_dialog.dart";
 
 class AppShellScope extends InheritedWidget {
   const AppShellScope({
@@ -78,9 +79,12 @@ class _AppShellViewState extends State<_AppShellView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
-        LocationDisclosureDialog.showIfNeeded(context);
+        await LocationDisclosureDialog.showIfNeeded(context);
+        if (mounted) {
+          await CompleteProfileDialog.showIfNeeded(context);
+        }
       }
     });
   }

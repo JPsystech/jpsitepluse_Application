@@ -9,6 +9,7 @@ class PrimaryButton extends StatefulWidget {
     this.isLoading = false,
     this.icon,
     this.isDestructive = false,
+    this.backgroundColor,
   });
 
   final String label;
@@ -16,6 +17,7 @@ class PrimaryButton extends StatefulWidget {
   final bool isLoading;
   final IconData? icon;
   final bool isDestructive;
+  final Color? backgroundColor;
 
   @override
   State<PrimaryButton> createState() => _PrimaryButtonState();
@@ -79,23 +81,28 @@ class _PrimaryButtonState extends State<PrimaryButton>
           decoration: BoxDecoration(
             gradient: isDisabled
                 ? null
-                : (widget.isDestructive
-                    ? LinearGradient(colors: [
-                        Theme.of(context).colorScheme.error,
-                        const Color(0xFFBE123C)
-                      ])
-                    : Theme.of(context)
-                        .extension<AppColorsExtension>()!
-                        .primaryGradient),
-            color: isDisabled ? const Color(0xFFCBD5E1) : null,
+                : (widget.backgroundColor != null
+                    ? null
+                    : (widget.isDestructive
+                        ? LinearGradient(colors: [
+                            Theme.of(context).colorScheme.error,
+                            const Color(0xFFBE123C)
+                          ])
+                        : Theme.of(context)
+                            .extension<AppColorsExtension>()!
+                            .primaryGradient)),
+            color: isDisabled
+                ? const Color(0xFFCBD5E1)
+                : widget.backgroundColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: isDisabled
                 ? null
                 : [
                     BoxShadow(
-                      color: (widget.isDestructive
-                              ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).colorScheme.primary)
+                      color: (widget.backgroundColor ??
+                              (widget.isDestructive
+                                  ? Theme.of(context).colorScheme.error
+                                  : Theme.of(context).colorScheme.primary))
                           .withAlpha(60),
                       blurRadius: 12,
                       offset: const Offset(0, 6),

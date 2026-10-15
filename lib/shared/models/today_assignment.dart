@@ -5,6 +5,7 @@ class TodayAssignmentResponse {
   final String? message;
   final String? activeAttendanceLogId;
   final String? activeProjectId;
+  final bool isProfileComplete;
 
   TodayAssignmentResponse({
     required this.hasAssignment,
@@ -13,6 +14,7 @@ class TodayAssignmentResponse {
     required this.message,
     required this.activeAttendanceLogId,
     required this.activeProjectId,
+    this.isProfileComplete = true,
   });
 
   factory TodayAssignmentResponse.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class TodayAssignmentResponse {
       message: json["message"] as String?,
       activeAttendanceLogId: json["active_attendance_log_id"] as String?,
       activeProjectId: json["active_project_id"] as String?,
+      isProfileComplete: (json["is_profile_complete"] as bool?) ?? true,
     );
   }
 }
