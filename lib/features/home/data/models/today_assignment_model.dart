@@ -91,6 +91,7 @@ class TodayAssignmentResponseModel {
   final String? activeProjectId;
   final AttendanceOverviewModel? attendanceOverview;
   final WeeklySummaryModel? weeklySummary;
+  final bool isProfileComplete;
 
   TodayAssignmentResponseModel({
     required this.hasAssignment,
@@ -101,6 +102,7 @@ class TodayAssignmentResponseModel {
     required this.activeProjectId,
     this.attendanceOverview,
     this.weeklySummary,
+    this.isProfileComplete = true,
   });
 
   factory TodayAssignmentResponseModel.fromJson(Map<String, dynamic> json) {
@@ -129,6 +131,7 @@ class TodayAssignmentResponseModel {
       weeklySummary: json["weekly_summary"] != null
           ? WeeklySummaryModel.fromJson(json["weekly_summary"])
           : null,
+      isProfileComplete: (json["is_profile_complete"] as bool?) ?? true,
     );
   }
 }

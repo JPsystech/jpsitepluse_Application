@@ -78,3 +78,18 @@ class DownloadDocumentToPhoneRequested extends DocumentsEvent {
   @override
   List<Object?> get props => [document, busyKey];
 }
+
+class DeleteDocumentRequested extends DocumentsEvent {
+  final String sessionToken;
+  final String documentId;
+  final String busyKey;
+
+  const DeleteDocumentRequested({
+    required this.sessionToken,
+    required this.documentId,
+    required this.busyKey,
+  });
+
+  @override
+  List<Object?> get props => [sessionToken, documentId, busyKey];
+}
