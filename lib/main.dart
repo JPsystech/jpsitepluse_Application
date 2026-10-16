@@ -25,12 +25,18 @@ void main() async {
   try {
     await PushNotificationRegistrationService.initializeFirebase();
     await NotificationService.instance.initialize();
+  } catch (e) {
+    debugPrint("Firebase / Notification init failed: $e");
+  }
+
+  // Shift tracking must initialize even when Firebase or notifications fail.
+  try {
     await LiveLocationTrackingService.instance.initialize();
     if (LiveLocationTrackingService.instance.isTracking) {
       await NotificationService.instance.showActiveShiftNotification();
     }
   } catch (e) {
-    debugPrint("Firebase / Notification init failed: $e");
+    debugPrint("Live location tracking init failed: $e");
   }
 
   runApp(const SitePulseAppFoundation());

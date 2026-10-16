@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sitepulse_engineer/core/network/api_client.dart';
+import 'package:sitepulse_engineer/core/services/location_tracking_policy.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 
 class LiveLocationTrackingService {
@@ -18,17 +19,22 @@ class LiveLocationTrackingService {
   static const String _dutyActiveKey = 'sitepulse_duty_tracking_active';
   static const String _dutyStartedAtKey = 'sitepulse_duty_tracking_started_at';
   static const String _attendanceLogIdKey = 'sitepulse_duty_attendance_log_id';
-  static const int _dutyIntervalSeconds = 20;
-  static const int _dutyDistanceFilterMeters = 25;
+  static const int _dutyIntervalSeconds = 60;
+  static const int _dutyDistanceFilterMeters = 30;
+  static const int _heartbeatSeconds = 300;
   static const int _lastKnownMaxAgeSeconds = 30;
   static const int _maxDutySessionHours = 18;
   static const int _batteryRefreshMinutes = 5;
 
   StreamSubscription<Position>? _positionStreamSub;
+  Timer? _heartbeatTimer;
   bool _isDutyActive = false;
   bool _isSyncingOffline = false;
   bool _isSendingPosition = false;
   Position? _lastAcceptedPosition;
+  DateTime? _lastSubmittedAt;
+  double? _lastSubmittedLatitude;
+  double? _lastSubmittedLongitude;
   DateTime? _lastBatteryReadAt;
   int? _cachedBatteryLevel;
   bool _cachedIsCharging = false;
@@ -47,7 +53,7 @@ class LiveLocationTrackingService {
 
     if (wasActive && SessionStore.current != null && !isExpired) {
       _isDutyActive = true;
-      _startSession();
+      await _startSession();
     } else if (wasActive) {
       await _clearPersistedDutyState(prefs);
     }
@@ -62,7 +68,7 @@ class LiveLocationTrackingService {
   }
 
   void dispose() {
-    _stopSession();
+    unawaited(_stopSession());
     _connectivitySub?.cancel();
   }
 
@@ -76,13 +82,13 @@ class LiveLocationTrackingService {
     if (cleanAttendanceLogId.isNotEmpty) {
       await prefs.setString(_attendanceLogIdKey, cleanAttendanceLogId);
     }
-    _startSession();
+    await _startSession();
   }
 
   /// Stops tracking when engineer punches out or logs out.
   Future<void> stopDutyTracking() async {
     _isDutyActive = false;
-    _stopSession();
+    await _stopSession();
     final prefs = await SharedPreferences.getInstance();
     await _clearPersistedDutyState(prefs);
   }
@@ -93,25 +99,31 @@ class LiveLocationTrackingService {
     await prefs.remove(_attendanceLogIdKey);
   }
 
-  void _stopSession() {
-    _positionStreamSub?.cancel();
+  Future<void> _stopSession() async {
+    await _positionStreamSub?.cancel();
     _positionStreamSub = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     _lastAcceptedPosition = null;
+    _lastSubmittedAt = null;
+    _lastSubmittedLatitude = null;
+    _lastSubmittedLongitude = null;
   }
 
-  void _startSession() {
-    _positionStreamSub?.cancel();
+  Future<void> _startSession() async {
+    await _positionStreamSub?.cancel();
+    _heartbeatTimer?.cancel();
 
     final LocationSettings settings;
     if (defaultTargetPlatform == TargetPlatform.android) {
       settings = AndroidSettings(
-        accuracy: LocationAccuracy.high,
+        accuracy: LocationAccuracy.medium,
         distanceFilter: _dutyDistanceFilterMeters,
         intervalDuration: const Duration(seconds: _dutyIntervalSeconds),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'JP SitePulse',
           notificationText: 'On-duty location tracking active',
-          enableWakeLock: false,
+          enableWakeLock: true,
           setOngoing: true,
         ),
       );
@@ -120,7 +132,7 @@ class LiveLocationTrackingService {
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.otherNavigation,
         distanceFilter: _dutyDistanceFilterMeters,
-        pauseLocationUpdatesAutomatically: true,
+        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
@@ -140,10 +152,18 @@ class LiveLocationTrackingService {
         }
       },
     );
+
+    // A distance-filtered stream can remain silent or be suspended. A balanced
+    // accuracy fallback fix provides a route point without continuously running
+    // high-accuracy GPS.
+    _heartbeatTimer = Timer.periodic(
+      const Duration(seconds: _heartbeatSeconds),
+      (_) => unawaited(captureAndSendLocation(source: 'LIVE', preferFresh: true)),
+    );
   }
 
   Future<void> _handlePosition(Position position) async {
-    if (!_isDutyActive || position.isMocked || position.accuracy > 100) return;
+    if (!_isDutyActive || position.isMocked || position.accuracy > 200) return;
 
     final previous = _lastAcceptedPosition;
     if (previous != null) {
@@ -154,8 +174,15 @@ class LiveLocationTrackingService {
         position.latitude,
         position.longitude,
       );
-      if (elapsedSeconds < 10 || distanceMeters < 15) return;
-      if (elapsedSeconds > 0 && distanceMeters / elapsedSeconds > 70) return;
+      if (!LocationTrackingPolicy.shouldAccept(
+        isDutyActive: _isDutyActive,
+        isMocked: position.isMocked,
+        accuracyMeters: position.accuracy,
+        elapsedSeconds: elapsedSeconds,
+        distanceMeters: distanceMeters,
+      )) {
+        return;
+      }
     }
 
     _lastAcceptedPosition = position;
@@ -207,8 +234,8 @@ class LiveLocationTrackingService {
         try {
           position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              timeLimit: Duration(seconds: 15),
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 20),
             ),
           );
         } catch (_) {}
@@ -220,7 +247,7 @@ class LiveLocationTrackingService {
         } catch (_) {}
       }
 
-      if (position != null) {
+      if (position != null && !position.isMocked && position.accuracy <= 200) {
         await _sendPosition(position, source: source);
       }
     } catch (e) {
@@ -233,6 +260,32 @@ class LiveLocationTrackingService {
   Future<void> _sendPosition(Position position, {required String source}) async {
     await SessionStore.load();
     if (SessionStore.current == null) return;
+
+    // getCurrentPosition (heartbeat) and getPositionStream can deliver the same
+    // GPS fix concurrently. Reserve it before the network await to avoid two DB
+    // breadcrumbs for one fix.
+    final submittedAt = _lastSubmittedAt;
+    if (submittedAt != null &&
+        _lastSubmittedLatitude != null &&
+        _lastSubmittedLongitude != null) {
+      final elapsedSeconds =
+          position.timestamp.toUtc().difference(submittedAt).inSeconds.abs();
+      final distanceMeters = Geolocator.distanceBetween(
+        _lastSubmittedLatitude!,
+        _lastSubmittedLongitude!,
+        position.latitude,
+        position.longitude,
+      );
+      if (LocationTrackingPolicy.isDuplicate(
+        elapsedSeconds: elapsedSeconds,
+        distanceMeters: distanceMeters,
+      )) {
+        return;
+      }
+    }
+    _lastSubmittedAt = position.timestamp.toUtc();
+    _lastSubmittedLatitude = position.latitude;
+    _lastSubmittedLongitude = position.longitude;
 
     await _refreshBatteryIfNeeded();
     final attendanceLogId = await _getAttendanceLogId();

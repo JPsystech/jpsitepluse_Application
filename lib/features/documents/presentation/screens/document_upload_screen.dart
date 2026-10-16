@@ -1828,7 +1828,7 @@ Set<String> _getRequiredTypesForDepartment(String? department) {
   if (norm == "electrical engineer" || norm == "civil engineer") {
     return _kElectricalCivilRequiredTypes;
   }
-  return _kElectricalCivilRequiredTypes;
+  return const <String>{};
 }
 
 const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[
