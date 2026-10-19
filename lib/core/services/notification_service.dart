@@ -14,6 +14,7 @@ import 'package:sitepulse_engineer/core/router/navigation_service.dart';
 import 'package:sitepulse_engineer/core/router/notification_router.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/services/location_request_response_service.dart';
+import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
 import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
 import 'package:sitepulse_engineer/features/notifications/data/services/notification_center_service.dart';
 
@@ -30,7 +31,6 @@ class NotificationService {
   static const String _channelDesc =
       'Important notifications, shift reminders, and project updates.';
   static const String _lastTokenKey = 'sitepulse_last_synced_fcm_token';
-  static const int _activeShiftNotificationId = 41001;
   static const String _activeShiftChannelId = 'sitepulse_active_shift';
 
   bool _isInitialized = false;
@@ -181,6 +181,11 @@ class NotificationService {
   }
 
   void _onLocalNotificationTap(NotificationResponse response) {
+    if (response.actionId == 'punch_out') {
+      ShiftActionService.requestPunchOut();
+      NavigationService.navigateToTab(0);
+      return;
+    }
     if (response.payload != null && response.payload!.isNotEmpty) {
       try {
         final data = jsonDecode(response.payload!) as Map<String, dynamic>;
@@ -191,40 +196,37 @@ class NotificationService {
     }
   }
 
-  Future<void> showActiveShiftNotification() async {
+  Future<void> showActiveShiftNotification({String? projectName}) async {
     if (!Platform.isAndroid) return;
+
+    final bodyText = (projectName != null && projectName.trim().isNotEmpty)
+        ? 'Project: ${projectName.trim()} • Location tracking active'
+        : 'On-duty location tracking active';
 
     const details = AndroidNotificationDetails(
       _activeShiftChannelId,
       'Active Shift',
       channelDescription: 'On-duty location tracking and shift actions.',
-      importance: Importance.low,
-      priority: Priority.low,
+      importance: Importance.max,
+      priority: Priority.max,
       icon: '@drawable/ic_notification',
       ongoing: true,
       autoCancel: false,
       onlyAlertOnce: true,
-      actions: <AndroidNotificationAction>[
-        AndroidNotificationAction(
-          'punch_out',
-          'Punch Out',
-          showsUserInterface: true,
-          cancelNotification: false,
-        ),
-      ],
+      category: AndroidNotificationCategory.service,
     );
 
     await _localNotifications.show(
-      _activeShiftNotificationId,
-      'JP SitePulse',
-      'On-duty tracking active',
+      754321,
+      'JP SitePulse - On Duty',
+      bodyText,
       const NotificationDetails(android: details),
       payload: jsonEncode({'type': 'SHIFT_PUNCH_OUT'}),
     );
   }
 
   Future<void> cancelActiveShiftNotification() async {
-    await _localNotifications.cancel(_activeShiftNotificationId);
+    await _localNotifications.cancel(754321);
   }
 
   Future<void> _showLocalNotification(RemoteMessage message) async {

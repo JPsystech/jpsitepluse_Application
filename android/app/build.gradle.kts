@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         applicationId = "com.jpsystech.sitepluse"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -39,10 +39,13 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"] as? String
+                keyPassword = keystoreProperties["keyPassword"] as? String
+                val storeFilePath = keystoreProperties["storeFile"] as? String
+                storeFile = storeFilePath?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as? String
+            }
         }
     }
 
@@ -54,7 +57,11 @@ android {
         }
         release {
             resValue("string", "app_name", "JP SitePulse")
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }

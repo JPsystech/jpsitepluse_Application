@@ -9,3 +9,6 @@
 build/
 coverage/
 
+# Widget Preview related
+.widget_preview/
+android/.kotlin/errors/

@@ -9,7 +9,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/services/location_tracking_policy.dart';
+import 'package:sitepulse_engineer/core/services/notification_service.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:workmanager/workmanager.dart';
+
+@pragma('vm:entry-point')
+void locationWorkmanagerCallback() {
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      await LiveLocationTrackingService.instance.captureAndSendLocation(source: 'WORKMANAGER_BG');
+    } catch (_) {}
+    return Future.value(true);
+  });
+}
 
 class LiveLocationTrackingService {
   LiveLocationTrackingService._();
@@ -73,7 +85,7 @@ class LiveLocationTrackingService {
   }
 
   /// Starts tracking when engineer punches in.
-  Future<void> startDutyTracking({String? attendanceLogId}) async {
+  Future<void> startDutyTracking({String? attendanceLogId, String? projectName}) async {
     _isDutyActive = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_dutyActiveKey, true);
@@ -82,13 +94,32 @@ class LiveLocationTrackingService {
     if (cleanAttendanceLogId.isNotEmpty) {
       await prefs.setString(_attendanceLogIdKey, cleanAttendanceLogId);
     }
-    await _startSession();
+
+    // Register WorkManager background task for persistent 8-hour shift tracking when app is closed
+    try {
+      await Workmanager().initialize(locationWorkmanagerCallback, isInDebugMode: kDebugMode);
+      await Workmanager().registerPeriodicTask(
+        'sitepulse_location_sync',
+        'sitepulse_location_task',
+        frequency: const Duration(minutes: 15),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('WorkManager registration error: $e');
+      }
+    }
+
+    await _startSession(projectName: projectName);
   }
 
   /// Stops tracking when engineer punches out or logs out.
   Future<void> stopDutyTracking() async {
     _isDutyActive = false;
     await _stopSession();
+    try {
+      await Workmanager().cancelByUniqueName('sitepulse_location_sync');
+    } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     await _clearPersistedDutyState(prefs);
   }
@@ -108,44 +139,53 @@ class LiveLocationTrackingService {
     _lastSubmittedAt = null;
     _lastSubmittedLatitude = null;
     _lastSubmittedLongitude = null;
+    await NotificationService.instance.cancelActiveShiftNotification();
   }
 
-  Future<void> _startSession() async {
+  Future<void> _startSession({String? projectName}) async {
+    debugPrint('[LiveLocation] _startSession() called. isDutyActive: $_isDutyActive');
     await _positionStreamSub?.cancel();
     _heartbeatTimer?.cancel();
+
+    // Use 5-meter distance filter and 1-second interval in debug mode for rapid route testing
+    final distFilter = kDebugMode ? 5 : _dutyDistanceFilterMeters;
+    final intervalSecs = kDebugMode ? 1 : _dutyIntervalSeconds;
+
+    final bodyText = (projectName != null && projectName.trim().isNotEmpty)
+        ? 'Project: ${projectName.trim()} • Location tracking active'
+        : 'On-duty location tracking active';
 
     final LocationSettings settings;
     if (defaultTargetPlatform == TargetPlatform.android) {
       settings = AndroidSettings(
-        accuracy: LocationAccuracy.medium,
-        distanceFilter: _dutyDistanceFilterMeters,
-        intervalDuration: const Duration(seconds: _dutyIntervalSeconds),
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'JP SitePulse',
-          notificationText: 'On-duty location tracking active',
-          enableWakeLock: true,
-          setOngoing: true,
-        ),
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distFilter,
+        intervalDuration: Duration(seconds: intervalSecs),
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       settings = AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.otherNavigation,
-        distanceFilter: _dutyDistanceFilterMeters,
+        distanceFilter: distFilter,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
-      settings = const LocationSettings(
+      settings = LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: _dutyDistanceFilterMeters,
+        distanceFilter: distFilter,
       );
     }
+
+    await NotificationService.instance.showActiveShiftNotification(projectName: projectName);
 
     _positionStreamSub = Geolocator.getPositionStream(
       locationSettings: settings,
     ).listen(
-      _handlePosition,
+      (pos) {
+        debugPrint('[LiveLocation] Stream position received: lat=${pos.latitude}, lng=${pos.longitude}, mocked=${pos.isMocked}, accuracy=${pos.accuracy}');
+        _handlePosition(pos);
+      },
       onError: (err) {
         if (kDebugMode) {
           debugPrint('Live location stream error: $err');
@@ -153,17 +193,23 @@ class LiveLocationTrackingService {
       },
     );
 
-    // A distance-filtered stream can remain silent or be suspended. A balanced
-    // accuracy fallback fix provides a route point without continuously running
-    // high-accuracy GPS.
+    // Use 15-second heartbeat in debug mode for rapid testing
+    final heartbeatSecs = kDebugMode ? 15 : _heartbeatSeconds;
     _heartbeatTimer = Timer.periodic(
-      const Duration(seconds: _heartbeatSeconds),
-      (_) => unawaited(captureAndSendLocation(source: 'LIVE', preferFresh: true)),
+      Duration(seconds: heartbeatSecs),
+      (_) {
+        debugPrint('[LiveLocation] Heartbeat timer triggered (every ${heartbeatSecs}s)');
+        unawaited(captureAndSendLocation(source: 'LIVE', preferFresh: true));
+      },
     );
   }
 
   Future<void> _handlePosition(Position position) async {
-    if (!_isDutyActive || position.isMocked || position.accuracy > 200) return;
+    final effectiveMocked = kDebugMode ? false : position.isMocked;
+    if (!_isDutyActive || effectiveMocked || position.accuracy > 200) {
+      debugPrint('[LiveLocation] _handlePosition dropped: dutyActive=$_isDutyActive, mocked=$effectiveMocked, accuracy=${position.accuracy}');
+      return;
+    }
 
     final previous = _lastAcceptedPosition;
     if (previous != null) {
@@ -215,40 +261,33 @@ class LiveLocationTrackingService {
     if (SessionStore.current == null) return;
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return;
-      }
-
       Position? position;
-      if (!preferFresh) {
+
+      // 1. Actively query current moving position from emulator GPS provider
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+      } catch (_) {}
+
+      // 2. Fallback to last accepted stream position if query misses
+      position ??= _lastAcceptedPosition;
+
+      // 3. Fallback to recent last known position
+      if (position == null) {
         try {
           position = await _getRecentLastKnownPosition();
         } catch (_) {}
       }
 
-      if (position == null) {
-        try {
-          position = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.medium,
-              timeLimit: Duration(seconds: 20),
-            ),
-          );
-        } catch (_) {}
-      }
-
-      if (position == null) {
-        try {
-          position = await _getRecentLastKnownPosition();
-        } catch (_) {}
-      }
-
-      if (position != null && !position.isMocked && position.accuracy <= 200) {
+      if (position != null && (kDebugMode || !position.isMocked) && position.accuracy <= 200) {
+        debugPrint('[LiveLocation] Captured position via heartbeat: lat=${position.latitude}, lng=${position.longitude}');
         await _sendPosition(position, source: source);
+      } else {
+        debugPrint('[LiveLocation] Captured position discarded (waiting for route movement): position=${position != null}');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -259,7 +298,14 @@ class LiveLocationTrackingService {
 
   Future<void> _sendPosition(Position position, {required String source}) async {
     await SessionStore.load();
-    if (SessionStore.current == null) return;
+    if (SessionStore.current == null) {
+      debugPrint('[LiveLocation] _sendPosition skipped: SessionStore.current is NULL (Not logged in)');
+      return;
+    }
+    if (!_isDutyActive) {
+      debugPrint('[LiveLocation] _sendPosition skipped: _isDutyActive is FALSE (Not punched in)');
+      return;
+    }
 
     // getCurrentPosition (heartbeat) and getPositionStream can deliver the same
     // GPS fix concurrently. Reserve it before the network await to avoid two DB
@@ -372,13 +418,19 @@ class LiveLocationTrackingService {
 
   Future<void> _sendPayload(Map<String, dynamic> payload) async {
     try {
+      final session = SessionStore.current;
+      final tokenPreview = session != null && session.token.length > 10 ? session.token.substring(0, 10) : session?.token;
+      debugPrint('[LiveLocation] Sending payload. Session: ${session != null}, token: $tokenPreview...');
       final dio = await ApiClient.instance.dio;
-      await dio.post(
+      debugPrint('[LiveLocation] BaseUrl: ${dio.options.baseUrl}/api/v1/engineer/live-location');
+      
+      final response = await dio.post(
         '/api/v1/engineer/live-location',
         data: payload,
       );
-
+      debugPrint('[LiveLocation] Successfully sent! Status: ${response.statusCode}');
     } on DioException catch (e) {
+      debugPrint('[LiveLocation] DioException: ${e.message}, type: ${e.type}, status: ${e.response?.statusCode}, data: ${e.response?.data}');
       final statusCode = e.response?.statusCode;
       if (statusCode == null || statusCode >= 500) {
         await _enqueueOffline(payload);
@@ -386,6 +438,7 @@ class LiveLocationTrackingService {
         debugPrint('Live location rejected by server: ${e.response?.data ?? e.message}');
       }
     } catch (e) {
+      debugPrint('[LiveLocation] General Exception: $e');
       // Offline fallback: save to local queue
       await _enqueueOffline(payload);
     }
@@ -446,6 +499,27 @@ class LiveLocationTrackingService {
       }
     } finally {
       _isSyncingOffline = false;
+    }
+  }
+
+  /// Instantly forces a test GPS location ping to the backend (bypassing distance/time filters)
+  /// for immediate verification in the Python console.
+  Future<void> forceSendTestLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      await _sendPosition(position, source: 'TEST_MANUAL');
+      if (kDebugMode) {
+        debugPrint('Force sent test location successfully.');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Force send test location error: $e');
+      }
     }
   }
 }

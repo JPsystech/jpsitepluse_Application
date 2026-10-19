@@ -8,7 +8,7 @@ import "package:flutter/widgets.dart";
 import "package:dio/dio.dart";
 import "package:sitepulse_engineer/core/network/api_client.dart";
 
-import "../../../../core/ist_time.dart";
+import "package:sitepulse_engineer/core/utils/ist_time.dart";
 
 class SitePhotoService {
   final ApiClient api;

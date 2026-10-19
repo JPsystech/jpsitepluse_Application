@@ -20,30 +20,40 @@ class SessionStore {
   static String? expiredReason;
 
   static const String _key = "sitepulse_engineer_session";
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   static Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    // 1. Try reading from FlutterSecureStorage
+    String? raw = await _secureStorage.read(key: _key);
+
+    // 2. Migration fallback: check legacy SharedPreferences if not in secure storage
+    if (raw == null || raw.trim().isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      raw = prefs.getString(_key);
+      if (raw != null && raw.trim().isNotEmpty) {
+        // Migration: Move legacy session to secure storage and delete from SharedPreferences
+        await _secureStorage.write(key: _key, value: raw);
+        await prefs.remove(_key);
+      }
+    }
+
     if (raw == null || raw.trim().isEmpty) {
       current = null;
       notifier.value = null;
       return;
     }
+
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
         final session = AuthSession.fromJson(decoded);
         if (session.token.trim().isEmpty) {
-          current = null;
-          notifier.value = null;
-          await prefs.remove(_key);
+          await _clearStorage();
           return;
         }
         final expMs = session.expiresAtMs;
         if (expMs != null && DateTime.now().millisecondsSinceEpoch >= expMs) {
-          current = null;
-          notifier.value = null;
-          await prefs.remove(_key);
+          await _clearStorage();
           return;
         }
         current = session;
@@ -52,8 +62,8 @@ class SessionStore {
         return;
       }
     } catch (_) {}
-    current = null;
-    notifier.value = null;
+
+    await _clearStorage();
   }
 
   static Future<void> set(AuthSession session) async {
@@ -63,8 +73,14 @@ class SessionStore {
 
     current = session;
     notifier.value = session;
+
+    // Save token & session to secure storage
+    await _secureStorage.write(key: _key, value: jsonEncode(session.toJson()));
+
+    // Clean up legacy SharedPreferences key if present
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(session.toJson()));
+    await prefs.remove(_key);
+
     NotificationService.instance.syncToken();
   }
 
@@ -72,8 +88,13 @@ class SessionStore {
     await LiveLocationTrackingService.instance.stopDutyTracking();
     await NotificationService.instance.cancelActiveShiftNotification();
     await NotificationService.instance.unregisterToken();
+    await _clearStorage();
+  }
+
+  static Future<void> _clearStorage() async {
     current = null;
     notifier.value = null;
+    await _secureStorage.delete(key: _key);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
   }
@@ -105,13 +126,12 @@ class SessionStore {
   }
 
   static Future<String> getDeviceId() async {
-    const storage = FlutterSecureStorage();
     const deviceIdKey = "sitepulse_engineer_device_id";
-    String? deviceId = await storage.read(key: deviceIdKey);
+    String? deviceId = await _secureStorage.read(key: deviceIdKey);
     
     if (deviceId == null || deviceId.trim().isEmpty) {
       deviceId = const Uuid().v4();
-      await storage.write(key: deviceIdKey, value: deviceId);
+      await _secureStorage.write(key: deviceIdKey, value: deviceId);
     }
     return deviceId;
   }

@@ -3,6 +3,7 @@ import "dart:io";
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
+import "package:sitepulse_engineer/core/config/app_environment.dart";
 
 void _log(String message) {
   if (kDebugMode) {
@@ -13,7 +14,7 @@ void _log(String message) {
 String? _inMemoryStore;
 const String _prefsKey = "sitepulse_engineer_api_base_url";
 
-const String productionApiBaseUrl = "https://siteplus-api.jpsystech.in";
+const String productionApiBaseUrl = AppEnvironment.productionBaseUrl;
 
 Future<String?> getStoredApiBaseUrl() async {
   if (_inMemoryStore != null && _inMemoryStore!.trim().isNotEmpty) {
@@ -32,14 +33,12 @@ Future<void> setStoredApiBaseUrl(String value) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString(_prefsKey, cleaned);
   _resolvedApiBaseUrl = null;
+  _syncBaseUrl = null;
 }
 
 const String _apiBaseUrlOverride =
     String.fromEnvironment("API_BASE_URL", defaultValue: "");
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
-
-const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
-const String iosSimulatorApiBaseUrl = "http://192.168.1.12:8011";
 
 Future<String>? _resolvedApiBaseUrl;
 String? _syncBaseUrl;
@@ -87,63 +86,36 @@ String normalizeApiBaseUrlInput(String input) {
 }
 
 Future<String> _resolveApiBaseUrlInner() async {
+  // 1. Check dart-define override (--dart-define=API_BASE_URL=...)
   final override = _apiBaseUrlOverride.trim();
-  _log("[ApiConfig] _apiBaseUrlOverride: '$override'");
   if (override.isNotEmpty) {
     return normalizeApiBaseUrlInput(override);
   }
 
+  // 2. In release mode, always use production API
   if (kReleaseMode) {
     return normalizeApiBaseUrlInput(productionApiBaseUrl);
   }
 
-  if (Platform.isAndroid && kDebugMode) {
-    final okEmulator = await _canConnect(
-        host: "10.0.2.2",
-        port: 8011,
-        timeout: const Duration(milliseconds: 400));
-    if (okEmulator) {
-      return emulatorApiBaseUrl;
-    }
+  // 3. In debug mode, ALWAYS prioritize AppEnvironment.localDevBaseUrl, 
+  // preventing old cached 127.0.0.1 values in SharedPreferences from overriding it.
+  if (kDebugMode) {
+    return normalizeApiBaseUrlInput(AppEnvironment.localDevBaseUrl);
   }
 
+  // 4. Check stored user preference in SharedPreferences
   final stored = await getStoredApiBaseUrl();
-  _log("[ApiConfig] stored: '$stored'");
   if (stored != null && stored.isNotEmpty) {
     return normalizeApiBaseUrlInput(stored);
   }
 
+  // 5. Check PC_IP override if provided
   final pcIp = _pcIpOverride.trim();
-  _log("[ApiConfig] _pcIpOverride: '$pcIp'");
   if (pcIp.isNotEmpty) {
     return normalizeApiBaseUrlInput(pcIp);
   }
 
-  if (Platform.isAndroid) {
-    final okPhysical = await _canConnect(
-        host: "192.168.1.10",
-        port: 8011,
-        timeout: const Duration(milliseconds: 400));
-    if (okPhysical) {
-      return "http://192.168.1.12:8011";
-    }
-    throw ApiConfigException(
-        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.10:8011)");
-  }
-
-  if (Platform.isIOS) {
-    final ok = await _canConnect(
-        host: "127.0.0.1",
-        port: 8011,
-        timeout: const Duration(milliseconds: 400));
-    if (ok) {
-      return iosSimulatorApiBaseUrl;
-    }
-    throw ApiConfigException(
-        "Set server IP: use http://<PC_IP>:8011 (example: http://192.168.1.10:8011)");
-  }
-
-  throw ApiConfigException("API base URL is not configured");
+  return normalizeApiBaseUrlInput(productionApiBaseUrl);
 }
 
 Future<bool> _canConnect(
