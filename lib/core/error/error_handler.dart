@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/api_config.dart';
 import 'app_exception.dart';
 import 'auth_exception.dart';
 import 'error_type.dart';
@@ -17,6 +18,13 @@ class ErrorHandler {
       return AppException(
         userMessage: error.message,
         type: AppErrorType.server,
+      );
+    }
+
+    if (error is ApiConfigException) {
+      return AppException(
+        userMessage: error.message,
+        type: AppErrorType.network,
       );
     }
 

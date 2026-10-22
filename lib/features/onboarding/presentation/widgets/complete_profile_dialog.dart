@@ -118,7 +118,7 @@ class CompleteProfileDialog extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             Text(
-              "Please complete your profile and upload compliance documents to unlock attendance punch-in.",
+              "Please complete your profile and upload compliance documents. You can also tap 'Remind Tomorrow' to continue and punch in today.",
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 height: 1.4,
@@ -194,9 +194,29 @@ class CompleteProfileDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-            if (status.missingDocuments.isNotEmpty) ...[
+            if (status.rejectedDocuments.isNotEmpty) ...[
               Text(
-                "Missing Documents (${status.department ?? 'General'}):",
+                "Rejected — upload a replacement:",
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                status.rejectedDocuments
+                    .map(OnboardingStatusModel.docDisplayName)
+                    .join(" • "),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (status.notUploadedDocuments.isNotEmpty) ...[
+              Text(
+                "Not uploaded (${status.department ?? 'General'}):",
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: colorScheme.onSurface,
@@ -204,23 +224,42 @@ class CompleteProfileDialog extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                status.missingDocuments
+                status.notUploadedDocuments
                     .map(OnboardingStatusModel.docDisplayName)
                     .join(" • "),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 12),
             ],
-            const SizedBox(height: 12),
+            if (status.pendingReviewDocuments.isNotEmpty) ...[
+              Text(
+                "Awaiting approval:",
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                status.pendingReviewDocuments
+                    .map(OnboardingStatusModel.docDisplayName)
+                    .join(" • "),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.amber.shade900,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
-                Icon(Icons.lock_clock_rounded,
+                Icon(Icons.info_outline_rounded,
                     size: 16, color: Colors.amber.shade800),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    "Punch-in is locked until details are submitted.",
+                    "You will be reminded daily until your profile is complete.",
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.amber.shade900,
                       fontWeight: FontWeight.w500,

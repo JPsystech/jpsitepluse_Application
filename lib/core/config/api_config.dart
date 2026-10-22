@@ -1,5 +1,4 @@
 import "dart:async";
-import "dart:io";
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -40,14 +39,22 @@ const String _apiBaseUrlOverride =
     String.fromEnvironment("API_BASE_URL", defaultValue: "");
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
 
+const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
+const String iosSimulatorApiBaseUrl = "http://192.168.1.21:8011";
+
 Future<String>? _resolvedApiBaseUrl;
 String? _syncBaseUrl;
 
 Future<String> resolveApiBaseUrl() async {
   if (_syncBaseUrl != null) return _syncBaseUrl!;
-  _resolvedApiBaseUrl ??= _resolveApiBaseUrlInner();
-  _syncBaseUrl = await _resolvedApiBaseUrl!;
-  return _syncBaseUrl!;
+  try {
+    _resolvedApiBaseUrl ??= _resolveApiBaseUrlInner();
+    _syncBaseUrl = await _resolvedApiBaseUrl!;
+    return _syncBaseUrl!;
+  } catch (e) {
+    _resolvedApiBaseUrl = null;
+    rethrow;
+  }
 }
 
 String get syncApiBaseUrl => _syncBaseUrl ?? productionApiBaseUrl;
@@ -86,8 +93,8 @@ String normalizeApiBaseUrlInput(String input) {
 }
 
 Future<String> _resolveApiBaseUrlInner() async {
-  // 1. Check dart-define override (--dart-define=API_BASE_URL=...)
   final override = _apiBaseUrlOverride.trim();
+  _log("[ApiConfig] _apiBaseUrlOverride: '$override'");
   if (override.isNotEmpty) {
     return normalizeApiBaseUrlInput(override);
   }
@@ -97,7 +104,7 @@ Future<String> _resolveApiBaseUrlInner() async {
     return normalizeApiBaseUrlInput(productionApiBaseUrl);
   }
 
-  // 3. In debug mode, ALWAYS prioritize AppEnvironment.localDevBaseUrl, 
+  // 3. In debug mode, ALWAYS prioritize AppEnvironment.localDevBaseUrl,
   // preventing old cached 127.0.0.1 values in SharedPreferences from overriding it.
   if (kDebugMode) {
     return normalizeApiBaseUrlInput(AppEnvironment.localDevBaseUrl);
@@ -118,19 +125,3 @@ Future<String> _resolveApiBaseUrlInner() async {
   return normalizeApiBaseUrlInput(productionApiBaseUrl);
 }
 
-Future<bool> _canConnect(
-    {required String host,
-    required int port,
-    required Duration timeout}) async {
-  Socket? socket;
-  try {
-    socket = await Socket.connect(host, port, timeout: timeout);
-    return true;
-  } catch (_) {
-    return false;
-  } finally {
-    try {
-      socket?.destroy();
-    } catch (_) {}
-  }
-}

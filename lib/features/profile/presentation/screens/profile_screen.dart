@@ -1,4 +1,6 @@
 import "package:flutter/material.dart";
+import "package:image_picker/image_picker.dart";
+import "package:sitepulse_engineer/core/config/api_config.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 import "package:sitepulse_engineer/core/storage/session_store.dart";
@@ -8,6 +10,7 @@ import "package:sitepulse_engineer/features/settings/presentation/screens/settin
 import "package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/profile_bloc.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
+import "package:sitepulse_engineer/features/onboarding/data/models/onboarding_status_model.dart";
 import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
 import "package:sitepulse_engineer/features/shell/presentation/screens/app_shell.dart";
 import "change_password_screen.dart";
@@ -32,10 +35,220 @@ class _ProfileView extends StatefulWidget {
 }
 
 class _ProfileViewState extends State<_ProfileView> {
+  bool _isUploadingPhoto = false;
+  final ImagePicker _imagePicker = ImagePicker();
+
+  Future<void> _pickAndUploadProfilePhoto(ImageSource source) async {
+    try {
+      final XFile? picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _isUploadingPhoto = true);
+      await SessionStore.uploadProfilePhoto(picked.path);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Profile photo updated successfully"),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to update profile photo: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  Future<void> _removeProfilePhoto() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Remove Profile Photo?"),
+        content: const Text(
+          "Are you sure you want to remove your profile photo? This will not affect your Selfie / Passport Size Photo in My Documents.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text("Remove"),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    try {
+      setState(() => _isUploadingPhoto = true);
+      await SessionStore.removeProfilePhoto();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Profile photo removed")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to remove profile photo: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  void _showFullPhotoDialog(BuildContext context, String fullUrl) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 420,
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    fullUrl,
+                    headers: (SessionStore.current?.token.trim().isNotEmpty ?? false)
+                        ? {"Authorization": "Bearer ${SessionStore.current!.token.trim()}"}
+                        : null,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white54,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: IconButton.filledTonal(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showProfilePhotoOptions(BuildContext context, String? photoUrl) {
+    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+    final fullUrl = hasPhoto ? resolveMaybeRelativeUrl(photoUrl) : "";
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    "Profile Photo",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.photo_camera_rounded),
+                  ),
+                  title: const Text("Take Photo"),
+                  subtitle: const Text("Capture a new profile photo using camera"),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _pickAndUploadProfilePhoto(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.photo_library_rounded),
+                  ),
+                  title: const Text("Choose from Gallery"),
+                  subtitle: const Text("Select an existing photo from your phone"),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _pickAndUploadProfilePhoto(ImageSource.gallery);
+                  },
+                ),
+                if (hasPhoto && fullUrl.isNotEmpty) ...[
+                  ListTile(
+                    leading: const CircleAvatar(
+                      child: Icon(Icons.fullscreen_rounded),
+                    ),
+                    title: const Text("View Full Photo"),
+                    onTap: () {
+                      Navigator.of(sheetCtx).pop();
+                      _showFullPhotoDialog(context, fullUrl);
+                    },
+                  ),
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                      foregroundColor: Colors.redAccent,
+                      child: const Icon(Icons.delete_outline_rounded),
+                    ),
+                    title: const Text(
+                      "Remove Profile Photo",
+                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetCtx).pop();
+                      _removeProfilePhoto();
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   @override
   void initState() {
     super.initState();
     // Synchronize latest profile attributes (bank details, statutory info, weekly off)
+    resolveApiBaseUrl();
     SessionStore.syncProfile().then((_) {
       if (mounted) setState(() {});
     });
@@ -100,6 +313,7 @@ class _ProfileViewState extends State<_ProfileView> {
                         initial: initial,
                         department: department,
                         designation: designation,
+                        profilePhotoUrl: eng.profilePhotoUrl,
                       ),
                       const SizedBox(height: 24),
 
@@ -194,6 +408,7 @@ class _ProfileViewState extends State<_ProfileView> {
     required String initial,
     required String department,
     required String designation,
+    String? profilePhotoUrl,
   }) {
     final cs = Theme.of(context).colorScheme;
     final subtitle = [designation, department]
@@ -226,35 +441,111 @@ class _ProfileViewState extends State<_ProfileView> {
         ),
         child: Column(
           children: [
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.2),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
+            GestureDetector(
+              onTap: _isUploadingPhoto
+                  ? null
+                  : () => _showProfilePhotoOptions(context, profilePhotoUrl),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.2),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        width: 3,
                       ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 40,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: ClipOval(
+                      child: (profilePhotoUrl != null &&
+                              profilePhotoUrl.trim().isNotEmpty &&
+                              resolveMaybeRelativeUrl(profilePhotoUrl).isNotEmpty)
+                          ? Image.network(
+                              resolveMaybeRelativeUrl(profilePhotoUrl),
+                              headers: (SessionStore.current?.token.trim().isNotEmpty ?? false)
+                                  ? {"Authorization": "Bearer ${SessionStore.current!.token.trim()}"}
+                                  : null,
+                              width: 96,
+                              height: 96,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 40,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                initial,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 40,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
-                ),
-              ],
+                  if (_isUploadingPhoto)
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.45),
+                      ),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: cs.primary,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.camera_alt_rounded,
+                      size: 17,
+                      color: cs.primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -499,8 +790,8 @@ class _ProfileViewState extends State<_ProfileView> {
 
   Widget _buildActionsCard(BuildContext context, String sessionToken, String department) {
     final cs = Theme.of(context).colorScheme;
-    final normDept = department.trim().toLowerCase();
-    final int streamTotalRequired = normDept == "mechanical engineer" ? 6 : 5;
+    final requiredTypes = OnboardingStatusModel.getRequiredTypesForDepartment(department);
+    final int streamTotalRequired = requiredTypes.length;
 
     return Card(
       elevation: 0,
@@ -545,33 +836,70 @@ class _ProfileViewState extends State<_ProfileView> {
                   latestDocs.putIfAbsent(d.documentType, () => d);
                 }
               }
-              final uploadedReq = latestDocs.values
-                  .where((d) => d.fileUrl.trim().isNotEmpty && d.verificationStatus != 'REJECTED')
-                  .length;
               final isLoaded = docState.status == DocumentsStatus.loaded;
 
               Widget? trailing;
               if (isLoaded) {
-                final isComplete = uploadedReq >= streamTotalRequired;
-                trailing = Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isComplete
-                        ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                        : cs.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isComplete
-                        ? "$streamTotalRequired/$streamTotalRequired Done ✓"
-                        : "$uploadedReq/$streamTotalRequired Uploaded",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isComplete ? const Color(0xFF10B981) : cs.primary,
+                if (streamTotalRequired == 0) {
+                  final totalUploaded = docState.documents
+                      .where((d) => d.fileUrl.trim().isNotEmpty)
+                      .length;
+                  trailing = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                );
+                    child: Text(
+                      "$totalUploaded Uploaded",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: cs.primary,
+                      ),
+                    ),
+                  );
+                } else {
+                  final approvedReq = requiredTypes
+                      .where((t) =>
+                          latestDocs[t]?.fileUrl.trim().isNotEmpty == true &&
+                          latestDocs[t]?.verificationStatus.toUpperCase() == 'APPROVED')
+                      .length;
+                  final rejectedReq = requiredTypes
+                      .where((t) =>
+                          latestDocs[t]?.verificationStatus.toUpperCase() == 'REJECTED')
+                      .length;
+                  final remainingCount = streamTotalRequired - approvedReq;
+                  final isAllApproved = remainingCount == 0;
+
+                  final badgeColor = isAllApproved
+                      ? const Color(0xFF10B981)
+                      : rejectedReq > 0
+                          ? cs.error
+                          : cs.primary;
+
+                  final badgeLabel = isAllApproved
+                      ? "$streamTotalRequired/$streamTotalRequired Approved ✓"
+                      : rejectedReq > 0
+                          ? "$rejectedReq Rejected · $remainingCount Remaining"
+                          : "$remainingCount Required Remaining";
+
+                  trailing = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      badgeLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: badgeColor,
+                      ),
+                    ),
+                  );
+                }
               }
 
               return _ProfileMenuTile(

@@ -1,4 +1,5 @@
 import "dart:convert";
+import "package:dio/dio.dart";
 import 'package:sitepulse_engineer/core/network/unauthorized_interceptor.dart';
 import 'package:sitepulse_engineer/core/services/notification_service.dart';
 import 'package:sitepulse_engineer/core/services/persistent_background_tracking_service.dart';
@@ -121,6 +122,47 @@ class SessionStore {
       if (kDebugMode) {
         debugPrint('Failed to sync engineer profile: $e');
       }
+    }
+    return current?.engineer;
+  }
+
+  static Future<Engineer?> uploadProfilePhoto(String filePath) async {
+    final session = current;
+    if (session == null || session.token.trim().isEmpty) {
+      throw Exception("Not authenticated");
+    }
+    final client = await ApiClient.instance.dio;
+    final filename = filePath.split(RegExp(r'[/\\]')).last;
+    final formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(filePath, filename: filename),
+    });
+    final response = await client.post(
+      "/api/v1/engineer/profile-photo",
+      data: formData,
+    );
+    if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+      final updatedEngineer =
+          Engineer.fromJson(response.data as Map<String, dynamic>);
+      final updatedSession = session.copyWith(engineer: updatedEngineer);
+      await set(updatedSession);
+      return updatedEngineer;
+    }
+    return current?.engineer;
+  }
+
+  static Future<Engineer?> removeProfilePhoto() async {
+    final session = current;
+    if (session == null || session.token.trim().isEmpty) {
+      throw Exception("Not authenticated");
+    }
+    final client = await ApiClient.instance.dio;
+    final response = await client.delete("/api/v1/engineer/profile-photo");
+    if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+      final updatedEngineer =
+          Engineer.fromJson(response.data as Map<String, dynamic>);
+      final updatedSession = session.copyWith(engineer: updatedEngineer);
+      await set(updatedSession);
+      return updatedEngineer;
     }
     return current?.engineer;
   }

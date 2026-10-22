@@ -134,6 +134,39 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
   }) async {
     if (state.busyKeys.contains(busyKey)) return;
 
+    if (definition.type != "other") {
+      EngineerDocument? existingDoc;
+      for (final d in state.documents) {
+        if (d.documentType == definition.type) {
+          existingDoc = d;
+          break;
+        }
+      }
+      if (existingDoc != null &&
+          existingDoc.verificationStatus.trim().toUpperCase() == "APPROVED") {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Replace Approved Document?"),
+            content: Text(
+              "Your ${definition.displayName} is already approved. Uploading a new file will replace the current document and submit it for Admin review.\n\nDo you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text("Cancel"),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text("Replace & Upload"),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !context.mounted) return;
+      }
+    }
+
     DateTime? ndtExpiryDate;
     if (definition.type == "ndt") {
       ndtExpiryDate = await _pickNdtExpiryDate(context, state.ndtExpiryDate);
@@ -527,12 +560,16 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
         final visibleRequired = requiredDefinitions
             .where((d) => _matchesFilter(_selectedFilter, latestByType[d.type]))
             .toList();
-        final visibleOptional = optionalDefinitions
-            .where((d) => _matchesFilter(_selectedFilter, latestByType[d.type]))
-            .toList();
-        final visibleCustom = customDocuments
-            .where((doc) => _matchesFilter(_selectedFilter, doc))
-            .toList();
+        final visibleOptional = _selectedFilter == _DocFilter.pendingUpload
+            ? const <_DocumentDefinition>[]
+            : optionalDefinitions
+                .where((d) => _matchesFilter(_selectedFilter, latestByType[d.type]))
+                .toList();
+        final visibleCustom = _selectedFilter == _DocFilter.pendingUpload
+            ? const <EngineerDocument>[]
+            : customDocuments
+                .where((doc) => _matchesFilter(_selectedFilter, doc))
+                .toList();
         final totalAllDocs = definitions.length + customDocuments.length;
         final hasAnyVisible = visibleRequired.isNotEmpty ||
             visibleOptional.isNotEmpty ||
@@ -584,18 +621,9 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                             streamName: department,
                             totalRequired: totalRequired,
                             uploadedRequired: validUploadedRequired,
-                            approvedCount: approvedCount,
-                            pendingReviewCount: pendingReviewCount,
-                            pendingUploadRequired: pendingUploadRequired,
-                            rejectedCount: rejectedCount,
                             progress: progress,
-                            activeFilter: _selectedFilter,
-                            onFilterSelected: (filter) {
-                              setState(() {
-                                _selectedFilter =
-                                    _selectedFilter == filter ? _DocFilter.all : filter;
-                              });
-                            },
+                            requiredDefinitions: requiredDefinitions,
+                            latestByType: latestByType,
                           ),
                           if (rejectedCount > 0) ...[
                             const SizedBox(height: 12),
@@ -840,15 +868,15 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
   }
 
   String _statusLabel(EngineerDocument? doc) {
-    if (doc == null) return "Not Uploaded";
+    if (doc == null) return "Not uploaded";
     switch (doc.verificationStatus.trim().toUpperCase()) {
       case "APPROVED":
         return "Approved";
       case "REJECTED":
-        return "Rejected";
+        return "Rejected — upload replacement";
       case "PENDING":
       default:
-        return "Pending";
+        return "Awaiting approval";
     }
   }
 
@@ -870,37 +898,47 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
     String? streamName,
     required int totalRequired,
     required int uploadedRequired,
-    required int approvedCount,
-    required int pendingReviewCount,
-    required int pendingUploadRequired,
-    required int rejectedCount,
     required double progress,
-    required _DocFilter activeFilter,
-    required ValueChanged<_DocFilter> onFilterSelected,
+    required List<_DocumentDefinition> requiredDefinitions,
+    required Map<String, EngineerDocument> latestByType,
   }) {
     final cs = Theme.of(context).colorScheme;
     final percent = (progress * 100).toInt();
-    final isAllComplete = pendingUploadRequired == 0 && rejectedCount == 0;
+
+    // Build exact Admin outstandingRequiredDocuments list:
+    // Any required document whose status is NOT "APPROVED" is still remaining.
+    final outstandingRequired = <MapEntry<String, String>>[];
+    for (final req in requiredDefinitions) {
+      final doc = latestByType[req.type];
+      final statusUpper = doc?.verificationStatus.trim().toUpperCase() ?? "";
+      if (statusUpper == "APPROVED") continue;
+      final statusText = statusUpper == "PENDING"
+          ? "Awaiting approval"
+          : statusUpper == "REJECTED"
+              ? "Rejected — upload a replacement"
+              : "Not uploaded";
+      outstandingRequired.add(MapEntry(req.displayName, statusText));
+    }
+
+    final isAllApproved = totalRequired > 0 && outstandingRequired.isEmpty;
 
     String subtitle;
-    if (isAllComplete) {
-      subtitle = "All required documents uploaded!";
-    } else if (pendingUploadRequired > 0 && rejectedCount > 0) {
+    if (totalRequired == 0) {
       subtitle =
-          "$uploadedRequired of $totalRequired required uploaded · $pendingUploadRequired to upload · $rejectedCount rejected";
-    } else if (rejectedCount > 0) {
-      subtitle =
-          "$uploadedRequired of $totalRequired required uploaded · $rejectedCount rejected (action required)";
+          "Required-document tracking is not configured for this department.";
+    } else if (isAllApproved) {
+      subtitle = "All required documents are approved.";
     } else {
+      final rem = outstandingRequired.length;
       subtitle =
-          "$uploadedRequired of $totalRequired required uploaded · $pendingUploadRequired pending upload";
+          "$rem required document${rem == 1 ? "" : "s"} remaining ($uploadedRequired/$totalRequired uploaded)";
     }
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isAllComplete
+          colors: isAllApproved
               ? [
                   const Color(0xFF10B981).withValues(alpha: 0.12),
                   const Color(0xFF059669).withValues(alpha: 0.05),
@@ -914,7 +952,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isAllComplete
+          color: isAllApproved
               ? const Color(0xFF10B981).withValues(alpha: 0.4)
               : cs.outlineVariant.withValues(alpha: 0.6),
         ),
@@ -927,16 +965,16 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isAllComplete
+                  color: isAllApproved
                       ? const Color(0xFF10B981).withValues(alpha: 0.2)
                       : cs.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  isAllComplete
+                  isAllApproved
                       ? Icons.verified_user_rounded
                       : Icons.folder_shared_rounded,
-                  color: isAllComplete ? const Color(0xFF10B981) : cs.primary,
+                  color: isAllApproved ? const Color(0xFF10B981) : cs.primary,
                   size: 22,
                 ),
               ),
@@ -971,152 +1009,92 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isAllComplete
-                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                      : cs.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  "$percent%",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isAllComplete ? const Color(0xFF10B981) : cs.primary,
+              if (totalRequired > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isAllApproved
+                        ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                        : cs.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    "$percent%",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isAllApproved ? const Color(0xFF10B981) : cs.primary,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isAllComplete ? const Color(0xFF10B981) : cs.primary,
+          if (totalRequired > 0 && outstandingRequired.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryStatPill(
-                  context,
-                  label: "Approved",
-                  count: approvedCount,
-                  color: const Color(0xFF10B981),
-                  icon: Icons.check_circle_outline_rounded,
-                  isSelected: activeFilter == _DocFilter.approved,
-                  onTap: () => onFilterSelected(_DocFilter.approved),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildSummaryStatPill(
-                  context,
-                  label: "In Review",
-                  count: pendingReviewCount,
-                  color: const Color(0xFFF59E0B),
-                  icon: Icons.schedule_rounded,
-                  isSelected: activeFilter == _DocFilter.inReview,
-                  onTap: () => onFilterSelected(_DocFilter.inReview),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryStatPill(
-                  context,
-                  label: "Pending Upload",
-                  count: pendingUploadRequired,
-                  color: const Color(0xFF3B82F6),
-                  icon: Icons.upload_file_rounded,
-                  isSelected: activeFilter == _DocFilter.pendingUpload,
-                  onTap: () => onFilterSelected(_DocFilter.pendingUpload),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildSummaryStatPill(
-                  context,
-                  label: "Rejected",
-                  count: rejectedCount,
-                  color: const Color(0xFFEF4444),
-                  icon: Icons.cancel_outlined,
-                  isSelected: activeFilter == _DocFilter.rejected,
-                  onTap: () => onFilterSelected(_DocFilter.rejected),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryStatPill(
-    BuildContext context, {
-    required String label,
-    required int count,
-    required Color color,
-    required IconData icon,
-    bool isSelected = false,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? color.withValues(alpha: 0.22)
-              : color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? color : color.withValues(alpha: 0.25),
-            width: isSelected ? 1.5 : 1.0,
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 14, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  "$count",
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "${outstandingRequired.length} required document${outstandingRequired.length == 1 ? '' : 's'} remaining",
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: color.withValues(alpha: 0.95),
+                  const SizedBox(height: 6),
+                  ...outstandingRequired.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("• ", style: TextStyle(fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Text(
+                              "${entry.key}: ${entry.value}",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: entry.value.startsWith("Rejected")
+                                        ? cs.error
+                                        : entry.value == "Awaiting approval"
+                                            ? Colors.amber.shade900
+                                            : cs.onSurfaceVariant,
+                                    fontWeight: entry.value.startsWith("Rejected")
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
+          if (totalRequired > 0) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isAllApproved ? const Color(0xFF10B981) : cs.primary,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1440,7 +1418,8 @@ class _DocumentCard extends StatelessWidget {
     final displayRemarks = (remarks ?? "").trim();
     final displayHelper = (helperText ?? "").trim();
     
-    final hasFile = statusLabel != "Not Uploaded";
+    final hasFile = statusLabel.toLowerCase() != "not uploaded";
+    final isApproved = statusLabel.toLowerCase() == "approved";
     final mainIcon = hasFile ? Icons.insert_drive_file_rounded : Icons.file_upload_outlined;
 
     return Card(
@@ -1537,13 +1516,23 @@ class _DocumentCard extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.feedback_rounded, size: 16, color: cs.error),
+                        Icon(
+                          isApproved
+                              ? Icons.verified_user_outlined
+                              : Icons.feedback_rounded,
+                          size: 16,
+                          color: isApproved
+                              ? const Color(0xFF10B981)
+                              : cs.error,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             "Remarks: $displayRemarks",
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: cs.error,
+                                  color: isApproved
+                                      ? const Color(0xFF10B981)
+                                      : cs.error,
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
@@ -1611,10 +1600,15 @@ class _DocumentCard extends StatelessWidget {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white),
                           )
-                        : Icon(hasFile ? Icons.refresh_rounded : Icons.upload_file_rounded, size: 18),
+                        : Icon(
+                            hasFile
+                                ? Icons.refresh_rounded
+                                : Icons.upload_file_rounded,
+                            size: 18),
                     label: Text(uploadLabel),
                     style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       minimumSize: const Size(0, 48),
                     ),
                   ),
@@ -1822,13 +1816,10 @@ const Set<String> _kElectricalCivilRequiredTypes = {
 
 Set<String> _getRequiredTypesForDepartment(String? department) {
   final norm = (department ?? "").trim().toLowerCase();
-  if (norm == "mechanical engineer") {
+  if (norm.contains("mech")) {
     return _kMechanicalRequiredTypes;
   }
-  if (norm == "electrical engineer" || norm == "civil engineer") {
-    return _kElectricalCivilRequiredTypes;
-  }
-  return const <String>{};
+  return _kElectricalCivilRequiredTypes;
 }
 
 const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[

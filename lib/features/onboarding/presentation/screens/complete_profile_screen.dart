@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/features/documents/data/services/documents_service.dart';
 import 'package:sitepulse_engineer/shared/models/engineer_document_model.dart';
@@ -39,26 +40,75 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _dobController = TextEditingController();
   final _panController = TextEditingController();
   final _aadhaarController = TextEditingController();
+  final _ndtExpiryController = TextEditingController();
   final _accHolderController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _accNumController = TextEditingController();
   final _ifscController = TextEditingController();
 
   DateTime? _selectedDob;
+  DateTime? _selectedNdtExpiry;
 
   // Initial values to track dirty/unsaved state
   String _initialDob = '';
   String _initialPan = '';
   String _initialAadhaar = '';
+  String _initialNdtExpiry = '';
   String _initialAccHolder = '';
   String _initialBankName = '';
   String _initialAccNum = '';
   String _initialIfsc = '';
 
+  bool get _isMechanicalStream {
+    final dept =
+        (_status?.department ?? SessionStore.current?.engineer.department ?? "")
+            .trim()
+            .toLowerCase();
+    return dept.contains("mech");
+  }
+
+  String? get _ndtExpiryKey {
+    final engineerId = (SessionStore.current?.engineer.id ?? "").trim();
+    if (engineerId.isEmpty) return null;
+    return "sitepulse_ndt_expiry_$engineerId";
+  }
+
+  Future<void> _loadNdtExpiryDate() async {
+    final key = _ndtExpiryKey;
+    if (key == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(key);
+    if (raw == null || raw.trim().isEmpty) return;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed != null && mounted) {
+      setState(() {
+        _selectedNdtExpiry = DateTime(parsed.year, parsed.month, parsed.day);
+        _ndtExpiryController.text =
+            DateFormat('yyyy-MM-dd').format(_selectedNdtExpiry!);
+        _initialNdtExpiry = _ndtExpiryController.text.trim();
+      });
+    }
+  }
+
+  Future<void> _saveNdtExpiryDate(DateTime date) async {
+    final key = _ndtExpiryKey;
+    if (key == null) return;
+    final normalized = DateTime(date.year, date.month, date.day);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, normalized.toIso8601String());
+    if (mounted) {
+      setState(() {
+        _selectedNdtExpiry = normalized;
+        _ndtExpiryController.text = DateFormat('yyyy-MM-dd').format(normalized);
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _initFieldsFromSession();
+    _loadNdtExpiryDate();
     _loadStatus();
   }
 
@@ -67,6 +117,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     _dobController.dispose();
     _panController.dispose();
     _aadhaarController.dispose();
+    _ndtExpiryController.dispose();
     _accHolderController.dispose();
     _bankNameController.dispose();
     _accNumController.dispose();
@@ -101,6 +152,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     _initialDob = _dobController.text.trim();
     _initialPan = _panController.text.trim();
     _initialAadhaar = _aadhaarController.text.trim();
+    _initialNdtExpiry = _ndtExpiryController.text.trim();
     _initialAccHolder = _accHolderController.text.trim();
     _initialBankName = _bankNameController.text.trim();
     _initialAccNum = _accNumController.text.trim();
@@ -111,6 +163,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     return _dobController.text.trim() != _initialDob ||
         _panController.text.trim() != _initialPan ||
         _aadhaarController.text.trim() != _initialAadhaar ||
+        _ndtExpiryController.text.trim() != _initialNdtExpiry ||
         _accHolderController.text.trim() != _initialAccHolder ||
         _bankNameController.text.trim() != _initialBankName ||
         _accNumController.text.trim() != _initialAccNum ||
@@ -119,6 +172,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   bool get _isStep1Complete {
     if (_status != null && _status!.missingFields.isNotEmpty) {
+      return false;
+    }
+    if (_isMechanicalStream && _ndtExpiryController.text.trim().isEmpty) {
       return false;
     }
     return _dobController.text.trim().isNotEmpty &&
@@ -161,8 +217,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             _isLoading = false;
 
             // Auto-advance to Step 2 if Step 1 details are already complete
+            final mechNeedsNdtDate =
+                _isMechanicalStream && _ndtExpiryController.text.trim().isEmpty;
             if (!_hasAutoAdvancedToStep2 &&
                 status.missingFields.isEmpty &&
+                !mechNeedsNdtDate &&
                 status.missingDocuments.isNotEmpty) {
               _currentStep = 1;
               _hasAutoAdvancedToStep2 = true;
@@ -199,11 +258,66 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
   }
 
+  Future<DateTime?> _selectNdtExpiry() async {
+    final today = DateTime.now();
+    final initial = _selectedNdtExpiry ??
+        DateTime(today.year + 1, today.month, today.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(today) ? today : initial,
+      firstDate: DateTime(today.year - 1, 1, 1),
+      lastDate: DateTime(today.year + 20, 12, 31),
+      helpText: "Select NDT Certificate Expiry Date",
+    );
+
+    if (picked != null) {
+      final normalized = DateTime(picked.year, picked.month, picked.day);
+      await _saveNdtExpiryDate(normalized);
+      return normalized;
+    }
+    return null;
+  }
+
+  String? _ndtReminderText(DateTime? expiry) {
+    if (expiry == null) return null;
+    final today = DateTime.now();
+    final startToday = DateTime(today.year, today.month, today.day);
+    final diffDays = expiry.difference(startToday).inDays;
+    final label = DateFormat('dd-MM-yyyy').format(expiry);
+    if (diffDays < 0) {
+      return "NDT Expired on $label";
+    }
+    if (diffDays <= 30) {
+      return "NDT Expires in $diffDays day${diffDays == 1 ? '' : 's'} ($label)";
+    }
+    return "NDT Expiry Date: $label";
+  }
+
+  Color _ndtReminderColor(BuildContext context, DateTime? expiry) {
+    if (expiry == null) return Theme.of(context).colorScheme.onSurfaceVariant;
+    final today = DateTime.now();
+    final startToday = DateTime(today.year, today.month, today.day);
+    final diffDays = expiry.difference(startToday).inDays;
+    if (diffDays < 0) return Colors.red.shade700;
+    if (diffDays <= 30) return Colors.amber.shade900;
+    return Colors.teal.shade700;
+  }
+
   Future<void> _saveProfileDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
     try {
+      if (_selectedNdtExpiry != null) {
+        await _saveNdtExpiryDate(_selectedNdtExpiry!);
+      } else if (_ndtExpiryController.text.trim().isNotEmpty) {
+        final parsed = DateTime.tryParse(_ndtExpiryController.text.trim());
+        if (parsed != null) {
+          await _saveNdtExpiryDate(parsed);
+        }
+      }
+
       final payload = <String, dynamic>{};
       if (_selectedDob != null) {
         payload['birth_date'] = DateFormat('yyyy-MM-dd').format(_selectedDob!);
@@ -323,6 +437,40 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         const SnackBar(content: Text("Session expired. Please log in again.")),
       );
       return;
+    }
+
+    final existingMatch = _uploadedDocs
+        .where((d) => d.normalizedType == docType.toLowerCase());
+    final existingDoc = existingMatch.isNotEmpty ? existingMatch.first : null;
+    if (existingDoc != null &&
+        existingDoc.verificationStatus.trim().toUpperCase() == "APPROVED") {
+      final docDisplayName = OnboardingStatusModel.docDisplayName(docType);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Replace Approved Document?"),
+          content: Text(
+            "Your $docDisplayName is already approved. Uploading a new file will replace the current document and submit it for Admin review.\n\nDo you want to continue?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text("Cancel"),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text("Replace & Upload"),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    if (docType.toLowerCase() == "ndt") {
+      final pickedNdtDate = await _selectNdtExpiry();
+      if (pickedNdtDate == null) return;
+      if (!mounted) return;
     }
 
     final isCv = docType.toLowerCase() == "cv";
@@ -968,6 +1116,34 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   return null;
                 },
               ),
+              if (_isMechanicalStream) ...[
+                const SizedBox(height: 16),
+                // NDT Certificate Expiry Date (Required for Mechanical Stream)
+                TextFormField(
+                  controller: _ndtExpiryController,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: "NDT Certificate Expiry Date *",
+                    hintText: "YYYY-MM-DD",
+                    prefixIcon: const Icon(Icons.verified_outlined),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.event_available_outlined),
+                      onPressed: _selectNdtExpiry,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: _selectNdtExpiry,
+                  validator: (v) {
+                    if (_isMechanicalStream &&
+                        (v == null || v.trim().isEmpty)) {
+                      return "NDT Certificate expiry date is required for Mechanical stream";
+                    }
+                    return null;
+                  },
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -1250,9 +1426,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     final requiredDocs = _status?.requiredDocuments ?? const [];
     final department = _status?.department ?? "General";
     final uploadedTypes = _status?.uploadedDocuments ?? const [];
+    final approvedTypes = _status?.approvedDocuments ?? const [];
 
     final uploadedCount = requiredDocs.where((d) => uploadedTypes.contains(d)).length;
+    final approvedCount = requiredDocs.where((d) => approvedTypes.contains(d)).length;
     final totalCount = requiredDocs.length;
+    final remainingApprovalCount = totalCount - approvedCount;
     final pct = totalCount > 0 ? (uploadedCount / totalCount) : 1.0;
 
     return Column(
@@ -1290,10 +1469,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   ),
                   const Spacer(),
                   Text(
-                    "$uploadedCount of $totalCount Uploaded",
+                    totalCount == 0
+                        ? "0 Required"
+                        : remainingApprovalCount == 0
+                            ? "All Approved ✓"
+                            : "$remainingApprovalCount required remaining",
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: _isStep2Complete ? Colors.green.shade800 : colorScheme.onSurface,
+                      color: remainingApprovalCount == 0
+                          ? Colors.green.shade800
+                          : colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -1312,9 +1497,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                _isStep2Complete
-                    ? "All required compliance documents have been submitted!"
-                    : "Compliance rules for your department mandate uploading the following documents to unlock attendance punch-in.",
+                totalCount == 0
+                    ? "Required-document tracking is not configured for this department."
+                    : remainingApprovalCount == 0
+                        ? "All required documents are approved."
+                        : _isStep2Complete
+                            ? "$uploadedCount of $totalCount uploaded ($approvedCount approved, ${totalCount - approvedCount} awaiting approval)."
+                            : "$remainingApprovalCount required document${remainingApprovalCount == 1 ? '' : 's'} remaining for your department.",
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -1335,7 +1524,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         if (requiredDocs.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text("No document requirements found for your department.")),
+            child: Center(
+              child: Text(
+                "Required-document tracking is not configured for this department.",
+                textAlign: TextAlign.center,
+              ),
+            ),
           )
         else
           ...requiredDocs.map((docType) {
@@ -1439,6 +1633,66 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 ),
               ],
             ),
+
+            // NDT Expiry Date Badge (for NDT Certificate)
+            if (docType.toLowerCase() == "ndt") ...[
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: _selectNdtExpiry,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _selectedNdtExpiry != null
+                        ? _ndtReminderColor(context, _selectedNdtExpiry)
+                            .withValues(alpha: 0.08)
+                        : Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _selectedNdtExpiry != null
+                          ? _ndtReminderColor(context, _selectedNdtExpiry)
+                              .withValues(alpha: 0.35)
+                          : Colors.amber.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.event_available_outlined,
+                        size: 16,
+                        color: _selectedNdtExpiry != null
+                            ? _ndtReminderColor(context, _selectedNdtExpiry)
+                            : Colors.amber.shade900,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _ndtReminderText(_selectedNdtExpiry) ??
+                              "Tap to set NDT Certificate Expiry Date",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _selectedNdtExpiry != null
+                                ? _ndtReminderColor(
+                                    context, _selectedNdtExpiry)
+                                : Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _selectedNdtExpiry != null ? "Change" : "Set Date",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             // Rejected Remarks Box
             () {
@@ -1544,6 +1798,18 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         ),
                       ],
                     ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      onPressed: () => _pickAndUploadDocument(docType),
+                      icon: const Icon(Icons.replay_rounded, size: 16),
+                      label: const Text("Replace", style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -1584,7 +1850,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
-          "Rejected",
+          "Rejected — upload replacement",
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
@@ -1601,7 +1867,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
-          "Pending Review",
+          "Awaiting approval",
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
@@ -1617,7 +1883,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        "Required",
+        "Not uploaded",
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,

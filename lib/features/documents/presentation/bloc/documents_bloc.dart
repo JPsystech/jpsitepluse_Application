@@ -248,7 +248,15 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
       final appError = ErrorHandler.handle(e);
       final msg = _friendlyUploadError(appError.userMessage);
 
+      // Refresh document list in case Admin already uploaded/approved this document
+      List<EngineerDocument>? refreshedDocs;
+      try {
+        refreshedDocs =
+            await _documentService.listDocuments(token: event.sessionToken);
+      } catch (_) {}
+
       emit(state.copyWith(
+        documents: refreshedDocs ?? state.documents,
         busyKeys: updatedBusyKeys,
         snackbarMessage: msg,
         isErrorSnackbar: true,

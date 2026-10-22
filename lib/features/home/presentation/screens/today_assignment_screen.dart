@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 
+import 'package:sitepulse_engineer/core/config/api_config.dart';
+import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/shared/models/auth_session.dart';
+import 'package:sitepulse_engineer/features/profile/presentation/screens/profile_screen.dart';
+import 'package:sitepulse_engineer/features/shell/presentation/screens/app_shell.dart';
 import 'package:sitepulse_engineer/core/utils/ist_time.dart';
 import 'package:sitepulse_engineer/shared/widgets/primary_button.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
@@ -78,6 +83,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   @override
   void initState() {
     super.initState();
+    resolveApiBaseUrl();
     ShiftActionService.punchOutRequests.addListener(_handlePunchOutAction);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -360,42 +366,100 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     return "$weekday, ${now.day.toString().padLeft(2, "0")} $month ${now.year}";
   }
 
+  void _openProfileTab() {
+    final shell = AppShellScope.maybeOf(context);
+    if (shell != null) {
+      shell.setIndex(4);
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      );
+    }
+  }
+
   Widget _buildGreeting() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            child: Icon(Icons.person_rounded,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                size: 32),
-          ),
-          const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Welcome back",
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+            child: InkWell(
+              onTap: _openProfileTab,
+              borderRadius: BorderRadius.circular(32),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
+                child: Row(
+                  children: [
+                    ValueListenableBuilder<AuthSession?>(
+                      valueListenable: SessionStore.notifier,
+                      builder: (context, session, _) {
+                        final rawPhotoUrl = session?.engineer.profilePhotoUrl;
+                        final fullPhotoUrl = (rawPhotoUrl != null &&
+                                rawPhotoUrl.trim().isNotEmpty)
+                            ? resolveMaybeRelativeUrl(rawPhotoUrl)
+                            : "";
+                        final token = (session?.token ?? widget.sessionToken).trim();
+                        final fallbackIcon = Icon(
+                          Icons.person_rounded,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          size: 32,
+                        );
+
+                        return Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                          ),
+                          child: ClipOval(
+                            child: fullPhotoUrl.isNotEmpty
+                                ? Image.network(
+                                    fullPhotoUrl,
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                    headers: token.isNotEmpty
+                                        ? {"Authorization": "Bearer $token"}
+                                        : null,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: fallbackIcon,
+                                    ),
+                                  )
+                                : Center(child: fallbackIcon),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Welcome back",
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.engineerName,
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.engineerName,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -718,7 +782,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.lock_clock_rounded,
+                  Icon(Icons.info_outline_rounded,
                       color: Colors.amber.shade900, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
@@ -735,7 +799,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          "Upload required compliance documents & details to unlock punch-in.",
+                          "Please upload your compliance documents & details when convenient.",
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.amber.shade900,
@@ -970,24 +1034,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     icon: Icons.logout_rounded,
                   );
                 } else if (!isAnyProjectActive) {
-                  if (!isProfileComplete) {
-                    return PrimaryButton(
-                      label: "Complete Profile to Punch In",
-                      icon: Icons.lock_outline_rounded,
-                      backgroundColor: Colors.amber.shade800,
-                      onPressed: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const CompleteProfileScreen()),
-                        );
-                        if (mounted) {
-                          context
-                              .read<HomeBloc>()
-                              .add(LoadAssignmentsRequested());
-                        }
-                      },
-                    );
-                  }
                   return PrimaryButton(
                     label: "Punch In",
                     isLoading: isThisLoading,

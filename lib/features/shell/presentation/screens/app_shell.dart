@@ -84,6 +84,7 @@ class _AppShellViewState extends State<_AppShellView>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
+        SessionStore.syncProfile();
         await LocationDisclosureDialog.showIfNeeded(context);
         await PersistentBackgroundTrackingService.reconcileWithServer();
         if (mounted) {

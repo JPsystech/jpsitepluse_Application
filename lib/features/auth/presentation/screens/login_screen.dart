@@ -6,7 +6,6 @@ import "package:flutter_bloc/flutter_bloc.dart";
 import "package:http/http.dart" as http;
 import "package:shared_preferences/shared_preferences.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
-
 import "package:sitepulse_engineer/core/config/api_config.dart";
 import "package:sitepulse_engineer/core/network/api_client.dart";
 import "package:sitepulse_engineer/core/storage/terms_store.dart";
@@ -550,6 +549,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
+      errorMaxLines: 4,
       errorText: errorText,
       prefixIcon: Icon(
         icon,

@@ -16,6 +16,7 @@ class Engineer {
   final String? panCardNumber;
   final String? aadhaarCardNumber;
   final double? salary;
+  final String? profilePhotoUrl;
 
   Engineer({
     required this.id,
@@ -35,6 +36,7 @@ class Engineer {
     this.panCardNumber,
     this.aadhaarCardNumber,
     this.salary,
+    this.profilePhotoUrl,
   });
 
   /// Checks if a given date is a weekly off day for this engineer.
@@ -91,6 +93,7 @@ class Engineer {
       panCardNumber: json["pan_card_number"] as String?,
       aadhaarCardNumber: json["aadhaar_card_number"] as String?,
       salary: (json["salary"] as num?)?.toDouble(),
+      profilePhotoUrl: json["profile_photo_url"] as String?,
     );
   }
 
@@ -113,6 +116,7 @@ class Engineer {
       "pan_card_number": panCardNumber,
       "aadhaar_card_number": aadhaarCardNumber,
       "salary": salary,
+      "profile_photo_url": profilePhotoUrl,
     };
   }
 }
