@@ -14,12 +14,149 @@ import 'package:sitepulse_engineer/shared/models/auth_session.dart';
 const _trackingActiveKey = 'sitepulse_duty_tracking_active';
 const _attendanceLogIdKey = 'sitepulse_duty_attendance_log_id';
 const _backgroundSessionKey = 'sitepulse_duty_background_session';
+const _pendingLocationsKey = 'sitepulse_pending_live_locations_v1';
+const _maxPendingLocations = 5000;
+const _locationUploadBatchSize = 200;
 const _minimumMovementMeters = 10;
 const _androidUpdateInterval = Duration(seconds: 15);
 const _stationaryHeartbeatInterval = Duration(minutes: 4);
 
 bool _locationUploadInProgress = false;
 ServiceInstance? _backgroundServiceInstance;
+Future<void> _queueMutation = Future<void>.value();
+
+Future<T> _withQueueLock<T>(Future<T> Function() action) async {
+  final previous = _queueMutation;
+  final completer = Completer<void>();
+  _queueMutation = completer.future;
+  await previous;
+  try {
+    return await action();
+  } finally {
+    completer.complete();
+  }
+}
+
+Future<List<Map<String, dynamic>>> _readPendingLocations(
+  SharedPreferences prefs,
+) async {
+  final raw = prefs.getString(_pendingLocationsKey);
+  if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
+
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <Map<String, dynamic>>[];
+    return decoded
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  } catch (error) {
+    if (kDebugMode) {
+      debugPrint('[BackgroundService] Pending location queue invalid: $error');
+    }
+    return <Map<String, dynamic>>[];
+  }
+}
+
+Future<void> _writePendingLocations(
+  SharedPreferences prefs,
+  List<Map<String, dynamic>> locations,
+) async {
+  if (locations.isEmpty) {
+    await prefs.remove(_pendingLocationsKey);
+  } else {
+    await prefs.setString(_pendingLocationsKey, jsonEncode(locations));
+  }
+}
+
+Future<void> _enqueueLocation(Map<String, dynamic> payload) async {
+  await _withQueueLock(() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pending = await _readPendingLocations(prefs)..add(payload);
+    if (pending.length > _maxPendingLocations) {
+      pending.removeRange(0, pending.length - _maxPendingLocations);
+    }
+    await _writePendingLocations(prefs, pending);
+  });
+}
+
+Future<void> _retainLocationsForAttendance(String attendanceLogId) async {
+  await _withQueueLock(() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pending = await _readPendingLocations(prefs);
+    final matching = pending.where((location) {
+      final queuedId = location['attendance_log_id']?.toString().trim();
+      return queuedId == null ||
+          queuedId.isEmpty ||
+          queuedId == attendanceLogId;
+    }).map((location) {
+      if (location['attendance_log_id'] == null) {
+        location['attendance_log_id'] = attendanceLogId;
+      }
+      return location;
+    }).toList();
+    await _writePendingLocations(prefs, matching);
+  });
+}
+
+Future<void> _flushPendingLocations() async {
+  if (_locationUploadInProgress || SessionStore.current == null) return;
+  _locationUploadInProgress = true;
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    while (prefs.getBool(_trackingActiveKey) ?? false) {
+      final pending = await _withQueueLock(
+        () => _readPendingLocations(prefs),
+      );
+      if (pending.isEmpty) return;
+
+      final count = pending.length > _locationUploadBatchSize
+          ? _locationUploadBatchSize
+          : pending.length;
+      final batch = pending.take(count).toList();
+      final dio = await ApiClient.instance.dio;
+      await dio.post(
+        '/api/v1/engineer/live-locations/batch',
+        data: <String, dynamic>{'locations': batch},
+      );
+
+      // Delete only points acknowledged by the server. Newer points, if any,
+      // remain at the end of the durable queue.
+      final latestPending = await _withQueueLock(() async {
+        final locations = await _readPendingLocations(prefs);
+        final removeCount = count > locations.length ? locations.length : count;
+        locations.removeRange(0, removeCount);
+        await _writePendingLocations(prefs, locations);
+        return locations;
+      });
+
+      if (kDebugMode) {
+        debugPrint(
+          '[BackgroundService] Uploaded $count queued locations; '
+          '${latestPending.length} remaining',
+        );
+      }
+    }
+  } on DioException catch (error) {
+    if (error.response?.statusCode == 409) {
+      final recoveredAttendanceLogId =
+          await _recoverActiveAttendanceAfterConflict();
+      if (recoveredAttendanceLogId == null) {
+        await _stopTrackingAfterAttendanceConflict();
+      }
+    }
+    if (kDebugMode) {
+      debugPrint('[BackgroundService] Queued location upload deferred: $error');
+    }
+  } catch (error) {
+    if (kDebugMode) {
+      debugPrint('[BackgroundService] Queued location upload deferred: $error');
+    }
+  } finally {
+    _locationUploadInProgress = false;
+  }
+}
 
 Future<String?> _recoverActiveAttendanceAfterConflict() async {
   try {
@@ -71,10 +208,6 @@ bool onIosBackground(ServiceInstance service) {
 }
 
 Future<void> _sendLocationPayload(Position position) async {
-  if (_locationUploadInProgress || SessionStore.current == null) return;
-
-  _locationUploadInProgress = true;
-
   try {
     if ((kDebugMode || !position.isMocked) && position.accuracy <= 200) {
       final prefs = await SharedPreferences.getInstance();
@@ -95,60 +228,15 @@ Future<void> _sendLocationPayload(Position position) async {
         'captured_at': position.timestamp.toUtc().toIso8601String(),
       };
 
-      final dio = await ApiClient.instance.dio;
-      final response =
-          await dio.post('/api/v1/engineer/live-location', data: payload);
-      if (kDebugMode) {
-        debugPrint(
-          '[BackgroundService] Location sent successfully: '
-          '${position.latitude}, ${position.longitude} '
-          '(Status: ${response.statusCode})',
-        );
-      }
+      // Persist before attempting the network request so a connection loss,
+      // process restart, or app backgrounding cannot discard this point.
+      await _enqueueLocation(payload);
+      await _flushPendingLocations();
     }
   } catch (e) {
-    if (e is DioException && e.response?.statusCode == 409) {
-      final recoveredAttendanceLogId =
-          await _recoverActiveAttendanceAfterConflict();
-      if (recoveredAttendanceLogId == null) {
-        await _stopTrackingAfterAttendanceConflict();
-        return;
-      }
-
-      try {
-        final retryPayload = Map<String, dynamic>.from(e.requestOptions.data as Map)
-          ..['attendance_log_id'] = recoveredAttendanceLogId;
-        final dio = await ApiClient.instance.dio;
-        final response = await dio.post(
-          '/api/v1/engineer/live-location',
-          data: retryPayload,
-        );
-        if (kDebugMode) {
-          debugPrint(
-            '[BackgroundService] Location sent after attendance recovery '
-            '(Status: ${response.statusCode})',
-          );
-        }
-        return;
-      } catch (retryError) {
-        if (retryError is DioException &&
-            retryError.response?.statusCode == 409) {
-          await _stopTrackingAfterAttendanceConflict();
-        }
-        if (kDebugMode) {
-          debugPrint(
-            '[BackgroundService] Error retrying location after attendance '
-            'recovery: $retryError',
-          );
-        }
-        return;
-      }
-    }
     if (kDebugMode) {
-      debugPrint('[BackgroundService] Error sending location: $e');
+      debugPrint('[BackgroundService] Error queueing location: $e');
     }
-  } finally {
-    _locationUploadInProgress = false;
   }
 }
 
@@ -224,6 +312,7 @@ void onStart(ServiceInstance service) async {
       }
     }
   }
+
   if (SessionStore.current == null) {
     if (kDebugMode) {
       debugPrint(
@@ -234,6 +323,10 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
     return;
   }
+
+  // Resume any upload interrupted by an earlier loss of connectivity or
+  // background-service restart.
+  unawaited(_flushPendingLocations());
 
   if (service is AndroidServiceInstance) {
     service.setAsForegroundService();
@@ -335,7 +428,11 @@ class PersistentBackgroundTrackingService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (attendanceLogId != null && attendanceLogId.trim().isNotEmpty) {
-      await prefs.setString(_attendanceLogIdKey, attendanceLogId.trim());
+      final normalizedAttendanceLogId = attendanceLogId.trim();
+      await prefs.setString(_attendanceLogIdKey, normalizedAttendanceLogId);
+      // A previous completed shift cannot accept more points. Keep only the
+      // durable points belonging to the attendance session being started.
+      await _retainLocationsForAttendance(normalizedAttendanceLogId);
     }
     final session = SessionStore.current;
     if (session != null && session.token.trim().isNotEmpty) {

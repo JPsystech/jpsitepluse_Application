@@ -55,6 +55,9 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   bool rememberMe = false;
   bool obscurePassword = true;
   String? error;
+  String? vendorCodeError;
+  String? empCodeError;
+  String? passwordError;
   int _currentStep = 0;
   bool isFetchingBranding = false;
   String? vendorLogoUrl;
@@ -66,11 +69,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   String _pin = "";
   String _engineerName = "";
   bool isAutoLoggingIn = false;
+  List<String> _recentWorkspaces = [];
 
   @override
   void initState() {
     super.initState();
     serverUrlCtrl.text = productionApiBaseUrl;
+    _loadRecentWorkspaces();
 
     // Capture BEFORE addPostFrameCallback clears it.
     // addPostFrameCallback fires during the first frame, but _loadSavedVendorCode
@@ -101,6 +106,18 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   Future<void> _loadSavedVendorCode({bool wasForceExpired = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final savedCode = prefs.getString("sitepulse_engineer_vendor_code");
+    final savedRememberMe = prefs.getBool("sitepulse_remember_me") ?? false;
+    final creds = await CredentialStore.getCredentials();
+
+    if (mounted) {
+      setState(() {
+        rememberMe = savedRememberMe;
+        if (savedRememberMe && creds != null && creds['empCode'] != null && creds['empCode']!.isNotEmpty) {
+          empCodeCtrl.text = creds['empCode']!;
+        }
+      });
+    }
+
     if (savedCode != null && savedCode.trim().isNotEmpty) {
       setState(() {
         vendorCodeCtrl.text = savedCode.trim();
@@ -132,6 +149,28 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       setState(() {
         isLoadingInitialState = false;
       });
+    }
+  }
+
+  Future<void> _loadRecentWorkspaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('sitepulse_recent_workspaces') ?? [];
+    if (mounted) {
+      setState(() {
+        _recentWorkspaces = list;
+      });
+    }
+  }
+
+  Future<void> _saveRecentWorkspace(String code) async {
+    final clean = code.trim().toUpperCase();
+    if (clean.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('sitepulse_recent_workspaces') ?? [];
+    if (!list.contains(clean)) {
+      list.insert(0, clean);
+      if (list.length > 5) list.removeLast();
+      await prefs.setStringList('sitepulse_recent_workspaces', list);
     }
   }
 
@@ -194,11 +233,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   Future<void> _nextStep() async {
     setState(() {
       error = null;
+      vendorCodeError = null;
     });
     final vendor = vendorCodeCtrl.text.trim();
     if (vendor.isEmpty) {
       setState(() {
-        error = "Enter Vendor Code to continue";
+        vendorCodeError = "Vendor code is required";
       });
       return;
     }
@@ -249,6 +289,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString("sitepulse_engineer_vendor_code", vendor);
+    await _saveRecentWorkspace(vendor);
 
     final hasMpin = await MpinStore.hasMpin();
     final creds = await CredentialStore.getCredentials();
@@ -457,16 +498,27 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   void submit() {
     setState(() {
       error = null;
+      empCodeError = null;
+      passwordError = null;
     });
 
     final vendor = vendorCodeCtrl.text.trim();
     final emp = empCodeCtrl.text.trim();
     final normalizedEmp = emp.toUpperCase();
     final pass = passwordCtrl.text.trim();
-    if (vendor.isEmpty || normalizedEmp.isEmpty || pass.isEmpty) {
-      setState(() {
-        error = "Enter Vendor Code, Emp Code and Password";
-      });
+
+    bool hasErrors = false;
+    if (normalizedEmp.isEmpty) {
+      empCodeError = "Employee code is required";
+      hasErrors = true;
+    }
+    if (pass.isEmpty) {
+      passwordError = "Password is required";
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setState(() {});
       return;
     }
 
@@ -477,6 +529,10 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       );
     }
 
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool("sitepulse_remember_me", rememberMe);
+    });
+
     context.read<AuthBloc>().add(LoginRequested(
       vendorCode: vendor,
       empCode: normalizedEmp,
@@ -486,32 +542,68 @@ class _LoginScreenViewState extends State<LoginScreenView> {
   }
 
   InputDecoration _buildInputDecoration(
-      BuildContext context, String label, String hint, IconData icon) {
+      BuildContext context, String label, String hint, IconData icon,
+      {String? errorText, Widget? suffixIcon}) {
+    final cs = Theme.of(context).colorScheme;
+    final hasError = errorText != null && errorText.isNotEmpty;
+
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      errorText: errorText,
+      prefixIcon: Icon(
+        icon,
+        color: hasError ? cs.error : cs.primary,
+      ),
+      suffixIcon: suffixIcon ??
+          (hasError
+              ? Icon(
+                  Icons.error_rounded,
+                  color: cs.error,
+                )
+              : null),
       filled: true,
-      fillColor: Theme.of(context)
-          .colorScheme
-          .surfaceContainerHighest
-          .withValues(alpha: 0.3),
+      fillColor: hasError
+          ? cs.errorContainer.withValues(alpha: 0.1)
+          : cs.surfaceContainerHighest.withValues(alpha: 0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(
+          color: cs.outline.withValues(alpha: 0.2),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          color: hasError ? cs.error : cs.outline.withValues(alpha: 0.2),
+          width: hasError ? 1.5 : 1.0,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.primary,
+          color: hasError ? cs.error : cs.primary,
           width: 2,
         ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: cs.error,
+          width: 1.5,
+        ),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: cs.error,
+          width: 2,
+        ),
+      ),
+      errorStyle: TextStyle(
+        color: cs.error,
+        fontWeight: FontWeight.w500,
+        fontSize: 12,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
     );
@@ -530,7 +622,16 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         listener: (context, state) async {
           if (state is AuthError) {
             setState(() {
-              error = state.message;
+              final msg = state.message.toLowerCase();
+              if (msg.contains('password')) {
+                passwordError = state.message;
+                error = null;
+              } else if (msg.contains('code') || msg.contains('user') || msg.contains('emp') || msg.contains('account')) {
+                empCodeError = state.message;
+                error = null;
+              } else {
+                error = state.message;
+              }
             });
           } else if (state is AuthSuccess) {
             final session = state.session;
@@ -668,45 +769,41 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                         Hero(
                                           tag: "logo",
                                           child: Center(
-                                            child: Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: _currentStep == 1 &&
+                                            child: _currentStep == 1 &&
                                                     vendorLogoUrl != null
-                                                    ? Colors.white
-                                                    : cs.primary,
-                                                borderRadius:
-                                                BorderRadius.circular(16),
-                                              ),
-                                              child: _currentStep == 1 &&
-                                                  vendorLogoUrl != null
-                                                  ? ClipRRect(
-                                                borderRadius:
-                                                BorderRadius.circular(
-                                                    12),
-                                                child: Image.network(
-                                                  vendorLogoUrl!,
-                                                  width: logoSize,
-                                                  height: logoSize,
-                                                  fit: BoxFit
-                                                      .contain, // Safely bounds any aspect ratio dynamically
-                                                  errorBuilder:
-                                                      (_, __, ___) =>
-                                                      Icon(
-                                                        Icons
-                                                            .business_center_rounded,
-                                                        color: cs.onPrimary,
-                                                        size: logoSize,
+                                                ? ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14),
+                                                    child: Image.network(
+                                                      vendorLogoUrl!,
+                                                      width: logoSize,
+                                                      height: logoSize,
+                                                      fit: BoxFit.contain,
+                                                      errorBuilder:
+                                                          (_, __, ___) =>
+                                                              Image.asset(
+                                                        'assets/icon/JP_SitePlus.png',
+                                                        width: logoSize,
+                                                        height: logoSize,
+                                                        fit: BoxFit.contain,
                                                       ),
-                                                ),
-                                              )
-                                                  : Icon(
-                                                Icons
-                                                    .business_center_rounded,
-                                                color: cs.onPrimary,
-                                                size: logoSize,
-                                              ),
-                                            ),
+                                                    ),
+                                                  )
+                                                : Image.asset(
+                                                    'assets/icon/JP_SitePlus.png',
+                                                    width: logoSize,
+                                                    height: logoSize,
+                                                    fit: BoxFit.contain,
+                                                    errorBuilder:
+                                                        (_, __, ___) =>
+                                                            Icon(
+                                                      Icons
+                                                          .business_center_rounded,
+                                                      color: cs.primary,
+                                                      size: logoSize,
+                                                    ),
+                                                  ),
                                           ),
                                         ),
                                       ],
@@ -822,7 +919,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         TextField(
           controller: vendorCodeCtrl,
           textInputAction: TextInputAction.done,
+          textCapitalization: TextCapitalization.characters,
           clipBehavior: Clip.none,
+          onChanged: (_) {
+            if (vendorCodeError != null) {
+              setState(() => vendorCodeError = null);
+            }
+          },
           onTap: () {
             if (!vendorCodeCtrl.selection.isCollapsed) {
               vendorCodeCtrl.selection = TextSelection.collapsed(
@@ -836,6 +939,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             "Vendor Code",
             "Enter vendor code",
             Icons.domain_outlined,
+            errorText: vendorCodeError,
           ),
         ),
         const SizedBox(height: 32),
@@ -868,6 +972,45 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             ),
           ),
         ),
+        if (_recentWorkspaces.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Recent Workspaces",
+              style: textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _recentWorkspaces.map((code) {
+              return ActionChip(
+                avatar: Icon(Icons.history_rounded, size: 16, color: cs.primary),
+                label: Text(
+                  code,
+                  style: textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
+                  ),
+                ),
+                backgroundColor: cs.surfaceContainerHigh,
+                side: BorderSide.none,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onPressed: () {
+                  vendorCodeCtrl.text = code;
+                  _nextStep();
+                },
+              );
+            }).toList(),
+          ),
+        ],
       ],
     );
   }
@@ -1015,6 +1158,11 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           textInputAction: TextInputAction.next,
           clipBehavior: Clip.none,
           textCapitalization: TextCapitalization.characters,
+          onChanged: (_) {
+            if (empCodeError != null) {
+              setState(() => empCodeError = null);
+            }
+          },
           onTap: () {
             if (!empCodeCtrl.selection.isCollapsed) {
               empCodeCtrl.selection = TextSelection.collapsed(
@@ -1031,6 +1179,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             "Employee Code",
             "Enter your code",
             Icons.badge_outlined,
+            errorText: empCodeError,
           ),
         ),
         const SizedBox(height: 16),
@@ -1039,6 +1188,11 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           obscureText: obscurePassword,
           textInputAction: TextInputAction.done,
           clipBehavior: Clip.none,
+          onChanged: (_) {
+            if (passwordError != null) {
+              setState(() => passwordError = null);
+            }
+          },
           onTap: () {
             if (!passwordCtrl.selection.isCollapsed) {
               passwordCtrl.selection = TextSelection.collapsed(
@@ -1052,7 +1206,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             "Password",
             "••••••••",
             Icons.lock_outline,
-          ).copyWith(
+            errorText: passwordError,
             suffixIcon: IconButton(
               onPressed: () {
                 final currentOffset = passwordCtrl.selection.extentOffset;
@@ -1179,13 +1333,21 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             final isSubmitting = state is AuthLoading;
-            return TextButton(
-              onPressed: isSubmitting ? null : _previousStep,
-              child: Text(
-                "Change Workspace",
-                style: textTheme.bodyMedium?.copyWith(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w600,
+            return Center(
+              child: OutlinedButton.icon(
+                onPressed: isSubmitting ? null : _previousStep,
+                icon: Icon(Icons.swap_horiz_rounded, size: 18, color: cs.primary),
+                label: Text(
+                  "Change Workspace",
+                  style: textTheme.labelLarge?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  side: BorderSide(color: cs.primary.withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
               ),
             );
