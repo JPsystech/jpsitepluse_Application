@@ -16,6 +16,7 @@ import 'package:sitepulse_engineer/features/attendance/presentation/screens/atte
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
+import 'package:sitepulse_engineer/shared/widgets/location_disclosure_dialog.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
@@ -89,7 +90,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   }
 
   void _handlePunchOutAction() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _consumePendingPunchOutAction());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _consumePendingPunchOutAction());
   }
 
   void _consumePendingPunchOutAction() {
@@ -163,14 +165,31 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  void _punchIn(String projectId, {String? exceptionReason}) {
+  Future<void> _punchIn(String projectId, {String? exceptionReason}) async {
+    final locationGranted =
+        await LocationDisclosureDialog.showIfNeeded(context);
+    if (!locationGranted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Location permission is required to punch in. On Android, select "While using the app" instead of "Only this time".',
+          ),
+          duration: Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+
     final state = context.read<HomeBloc>().state;
     double? siteLat;
     double? siteLng;
     double? radius;
     if (state is HomeSuccess) {
       try {
-        final a = state.response.assignments.firstWhere((a) => a.projectId == projectId);
+        final a = state.response.assignments
+            .firstWhere((a) => a.projectId == projectId);
         siteLat = a.latitude;
         siteLng = a.longitude;
         radius = a.allowedRadiusM.toDouble();
@@ -185,12 +204,13 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         ));
   }
 
-  Future<void> _punchOut({String? remarks, String? exceptionReason, bool isRetry = false}) async {
+  Future<void> _punchOut(
+      {String? remarks, String? exceptionReason, bool isRetry = false}) async {
     File? attachedFile;
     if (!isRetry) {
       final result = await _promptRemarks();
       if (result == null) return;
-      
+
       remarks ??= result.remarks;
       _lastPunchOutRemarks = remarks;
       attachedFile = result.attachedFile;
@@ -198,41 +218,14 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       if (!mounted) return;
 
       if (attachedFile != null) {
-      // Show loading overlay
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => const Center(child: CircularProgressIndicator()),
-      );
-
-      try {
-        final homeState = context.read<HomeBloc>().state;
-        String? activeProjectId;
-        String? attendanceLogId;
-        if (homeState is HomeSuccess) {
-          activeProjectId = homeState.response.activeProjectId;
-          attendanceLogId = homeState.response.activeAttendanceLogId;
-        }
-
-        final loc = await context.read<AttendanceBloc>().resolveLocationPublic();
-
-        await SitePhotoService().uploadProgressPhoto(
-          token: widget.sessionToken,
-          file: attachedFile,
-          lat: loc.lat,
-          lng: loc.lng,
-          addressText: remarks,
-          projectName: "",
-          siteName: "",
-          projectId: activeProjectId,
-          attendanceLogId: attendanceLogId,
-          empCode: widget.engineerEmpCode,
-          submissionTypeOverride: "REPORT",
-          submissionContextOverride: "PUNCH_OUT_REPORT",
+        // Show loading overlay
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const Center(child: CircularProgressIndicator()),
         );
-      } catch (e) {
-        final isOffline = ErrorHandler.isOfflineError(e);
-        if (isOffline) {
+
+        try {
           final homeState = context.read<HomeBloc>().state;
           String? activeProjectId;
           String? attendanceLogId;
@@ -240,36 +233,69 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
             activeProjectId = homeState.response.activeProjectId;
             attendanceLogId = homeState.response.activeAttendanceLogId;
           }
-          final loc = await context.read<AttendanceBloc>().resolveLocationPublic().catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
-          await OfflineTimesheetQueue().add(OfflineTimesheet(
-            id:Uuid().v4(),
-            photoPath: attachedFile.path,
+
+          final loc =
+              await context.read<AttendanceBloc>().resolveLocationPublic();
+
+          await SitePhotoService().uploadProgressPhoto(
+            token: widget.sessionToken,
+            file: attachedFile,
             lat: loc.lat,
             lng: loc.lng,
             addressText: remarks,
-            projectName: "-",
-            siteName: "-",
+            projectName: "",
+            siteName: "",
             projectId: activeProjectId,
             attendanceLogId: attendanceLogId,
             empCode: widget.engineerEmpCode,
-            capturedAtIso: DateTime.now().toIso8601String(),
-            submissionType: "REPORT",
-            submissionContext: "PUNCH_OUT_REPORT",
-          ));
-        } else {
-          if (mounted) {
-            Navigator.of(context).pop(); // dismiss loading
-            final appError = ErrorHandler.handle(e);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Failed to upload report: ${appError.userMessage}")),
-            );
+            submissionTypeOverride: "REPORT",
+            submissionContextOverride: "PUNCH_OUT_REPORT",
+          );
+        } catch (e) {
+          final isOffline = ErrorHandler.isOfflineError(e);
+          if (isOffline) {
+            final homeState = context.read<HomeBloc>().state;
+            String? activeProjectId;
+            String? attendanceLogId;
+            if (homeState is HomeSuccess) {
+              activeProjectId = homeState.response.activeProjectId;
+              attendanceLogId = homeState.response.activeAttendanceLogId;
+            }
+            final loc = await context
+                .read<AttendanceBloc>()
+                .resolveLocationPublic()
+                .catchError((_) => (lat: 0.0, lng: 0.0, accuracyM: 0.0));
+            await OfflineTimesheetQueue().add(OfflineTimesheet(
+              id: Uuid().v4(),
+              photoPath: attachedFile.path,
+              lat: loc.lat,
+              lng: loc.lng,
+              addressText: remarks,
+              projectName: "-",
+              siteName: "-",
+              projectId: activeProjectId,
+              attendanceLogId: attendanceLogId,
+              empCode: widget.engineerEmpCode,
+              capturedAtIso: DateTime.now().toIso8601String(),
+              submissionType: "REPORT",
+              submissionContext: "PUNCH_OUT_REPORT",
+            ));
+          } else {
+            if (mounted) {
+              Navigator.of(context).pop(); // dismiss loading
+              final appError = ErrorHandler.handle(e);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        "Failed to upload report: ${appError.userMessage}")),
+              );
+            }
+            return;
           }
-          return;
         }
-      }
 
-      if (mounted) Navigator.of(context).pop(); // dismiss loading
-    }
+        if (mounted) Navigator.of(context).pop(); // dismiss loading
+      }
     } // Close if (!isRetry)
     if (!mounted) return;
     final state = context.read<HomeBloc>().state;
@@ -278,7 +304,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     double? radius;
     if (state is HomeSuccess) {
       try {
-        final a = state.response.assignments.firstWhere((a) => a.projectId == selectedProjectIdForException);
+        final a = state.response.assignments
+            .firstWhere((a) => a.projectId == selectedProjectIdForException);
         siteLat = a.latitude;
         siteLng = a.longitude;
         radius = a.allowedRadiusM.toDouble();
@@ -415,7 +442,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 top: -2,
                 right: -2,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: colorScheme.error,
                     borderRadius: BorderRadius.circular(10),
@@ -449,14 +477,17 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
 
   Widget _buildOfflineBanner() {
     return FutureBuilder<int>(
-      future: Future.wait([OfflinePunchQueue().count(), OfflineTimesheetQueue().count()]).then((v) => v[0] + v[1]),
+      future: Future.wait(
+              [OfflinePunchQueue().count(), OfflineTimesheetQueue().count()])
+          .then((v) => v[0] + v[1]),
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
         if (count == 0) return const SizedBox.shrink();
 
         final ext = Theme.of(context).extension<AppColorsExtension>();
         final warningColor = ext?.warning ?? Colors.orange;
-        final warningBg = ext?.warningBg ?? Colors.orange.withValues(alpha: 0.1);
+        final warningBg =
+            ext?.warningBg ?? Colors.orange.withValues(alpha: 0.1);
 
         return Card(
           elevation: 0,
@@ -599,8 +630,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Colors.amber.shade800,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               visualDensity: VisualDensity.compact,
             ),
             onPressed: () async {
@@ -619,10 +649,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAssignmentsListCard(
-      List<TodayAssignmentModel> assignments,
-      String? activeProjectId,
-      bool isProfileComplete) {
+  Widget _buildAssignmentsListCard(List<TodayAssignmentModel> assignments,
+      String? activeProjectId, bool isProfileComplete) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -748,7 +776,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
             ),
           // Divider
           Divider(
-              height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
 
           // List of Assignments
           ListView.separated(
@@ -842,14 +871,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.timer_outlined, size: 16, color: colorScheme.primary),
+                          Icon(Icons.timer_outlined,
+                              size: 16, color: colorScheme.primary),
                           const SizedBox(width: 6),
                           Text(
                             "Today: ${assignment.todayActiveHours}",
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                           ),
                         ],
                       ),
@@ -874,9 +905,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 4),
-                                  Text(
-                                      assignment.todayPunchInTime!,
-                                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                                  Text(assignment.todayPunchInTime!,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w900)),
                                 ],
                               ),
                             ),
@@ -890,9 +921,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 4),
-                                  Text(
-                                      assignment.todayPunchOutTime ?? "-",
-                                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                                  Text(assignment.todayPunchOutTime ?? "-",
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w900)),
                                 ],
                               ),
                             ),
@@ -977,8 +1008,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color:
-                          colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      color: colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -1010,7 +1041,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAttendanceOverviewCard(AttendanceOverviewModel? overview, int projectCount) {
+  Widget _buildAttendanceOverviewCard(
+      AttendanceOverviewModel? overview, int projectCount) {
     if (overview == null) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
@@ -1267,7 +1299,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.stars_rounded, color: Colors.white, size: 24),
+                child: const Icon(Icons.stars_rounded,
+                    color: Colors.white, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1291,7 +1324,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: cs.primary),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16, color: cs.primary),
             ],
           ),
         ),
@@ -1333,8 +1367,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               const SnackBar(content: Text("Punch Out Successful")));
           context.read<HomeBloc>().add(LoadAssignmentsRequested());
         } else if (state is PunchOfflineQueued) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.message)));
           context.read<HomeBloc>().add(LoadAssignmentsRequested());
           setState(() {});
         }
@@ -1411,7 +1445,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     _buildGreeting(),
                     _buildOfflineBanner(),
                     const SizedBox(height: 24),
-                    _buildAttendanceOverviewCard(resp.attendanceOverview, assignments.length),
+                    _buildAttendanceOverviewCard(
+                        resp.attendanceOverview, assignments.length),
                     const SizedBox(height: 16),
                     _buildWeeklySummaryCard(resp.weeklySummary),
                     const SizedBox(height: 16),
@@ -1425,8 +1460,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         ),
                       _buildEmptyState(),
                     ] else
-                      _buildAssignmentsListCard(
-                          assignments, resp.activeProjectId, resp.isProfileComplete),
+                      _buildAssignmentsListCard(assignments,
+                          resp.activeProjectId, resp.isProfileComplete),
                     const SizedBox(height: 40),
                   ],
                 );
@@ -1581,7 +1616,8 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
       if (mounted) {
         final appError = ErrorHandler.handle(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error selecting file: ${appError.userMessage}")),
+          SnackBar(
+              content: Text("Error selecting file: ${appError.userMessage}")),
         );
       }
     } finally {
@@ -1629,10 +1665,15 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
           if (_selectedFile == null)
             OutlinedButton.icon(
               onPressed: _isPickingFile ? null : _pickFile,
-              icon: _isPickingFile 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              icon: _isPickingFile
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.attach_file_rounded),
-              label: Text(_isPickingFile ? "Opening File Picker..." : "Attach Work Report (Optional)"),
+              label: Text(_isPickingFile
+                  ? "Opening File Picker..."
+                  : "Attach Work Report (Optional)"),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
@@ -1641,13 +1682,21 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.5)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.description_rounded, color: Theme.of(context).colorScheme.primary),
+                  Icon(Icons.description_rounded,
+                      color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -1675,7 +1724,8 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
           FilledButton(
             onPressed: () {
               if (_controller.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Remarks are required")));
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Remarks are required")));
                 return;
               }
               Navigator.of(context).pop((
@@ -1690,7 +1740,3 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
     );
   }
 }
-
-
-
-

@@ -135,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "We collect your device's location data solely during the 'Punch In' and 'Punch Out' actions to verify your presence at the assigned project site radius. We do not track your location continuously in the background.",
+                      "During an active punched-in shift, we collect location data in the background to support attendance verification and field coordination. Background tracking stops when you punch out.",
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),

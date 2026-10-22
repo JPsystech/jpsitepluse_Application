@@ -4,7 +4,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'package:flutter/services.dart';
 import 'package:sitepulse_engineer/core/services/push_notification_registration_service.dart';
 import 'core/services/notification_service.dart';
-import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
+import 'package:sitepulse_engineer/core/services/persistent_background_tracking_service.dart';
 import "app.dart";
 
 void main() async {
@@ -29,12 +29,9 @@ void main() async {
     debugPrint("Firebase / Notification init failed: $e");
   }
 
-  // Shift tracking must initialize even when Firebase or notifications fail.
+  // Shift tracking service configuration
   try {
-    await LiveLocationTrackingService.instance.initialize();
-    if (LiveLocationTrackingService.instance.isTracking) {
-      await NotificationService.instance.showActiveShiftNotification();
-    }
+    await PersistentBackgroundTrackingService.initializeService();
   } catch (e) {
     debugPrint("Live location tracking init failed: $e");
   }

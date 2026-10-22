@@ -9,6 +9,7 @@ import "package:sitepulse_engineer/shared/models/auth_session.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
 import "package:sitepulse_engineer/core/services/offline_timesheet_sync_service.dart";
+import "package:sitepulse_engineer/core/services/persistent_background_tracking_service.dart";
 import "package:sitepulse_engineer/features/home/presentation/screens/today_assignment_screen.dart";
 import "package:sitepulse_engineer/features/history/data/services/history_service.dart";
 import "package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart";
@@ -72,16 +73,19 @@ class _AppShellView extends StatefulWidget {
   State<_AppShellView> createState() => _AppShellViewState();
 }
 
-class _AppShellViewState extends State<_AppShellView> {
+class _AppShellViewState extends State<_AppShellView>
+    with WidgetsBindingObserver {
   Timer? _offlineSyncTimer;
   String? _offlineSyncToken;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         await LocationDisclosureDialog.showIfNeeded(context);
+        await PersistentBackgroundTrackingService.reconcileWithServer();
         if (mounted) {
           await CompleteProfileDialog.showIfNeeded(context);
         }
@@ -91,8 +95,16 @@ class _AppShellViewState extends State<_AppShellView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _offlineSyncTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(PersistentBackgroundTrackingService.reconcileWithServer());
+    }
   }
 
   void _startOfflineSync(String token) {
@@ -102,13 +114,15 @@ class _AppShellViewState extends State<_AppShellView> {
     final svc = OfflinePunchSyncService();
     final timesheetSvc = OfflineTimesheetSyncService();
     final documentSvc = OfflineDocumentSyncService();
-    
+
     // Proactively cache timeline and timesheets on app load.
     // Use fire-and-forget async closures — .catchError((_) => null) is invalid
     // when the Future type is not nullable, causing an Unhandled Exception that
     // blocks Flutter's frame cycle and prevents navigation from working.
     () async {
-      try { await HistoryService().history(token: token); } catch (_) {}
+      try {
+        await HistoryService().history(token: token);
+      } catch (_) {}
     }();
     () async {
       try {
@@ -118,11 +132,14 @@ class _AppShellViewState extends State<_AppShellView> {
         );
       } catch (_) {}
     }();
-    
+
     void runOnce() async {
       final syncedCount = await svc.sync(token: token);
-      if (syncedCount > 0 && mounted) {
-         context.read<HomeBloc>().add(LoadAssignmentsRequested());
+      if (syncedCount > 0) {
+        await PersistentBackgroundTrackingService.reconcileWithServer();
+        if (mounted) {
+          context.read<HomeBloc>().add(LoadAssignmentsRequested());
+        }
       }
       timesheetSvc.sync(token: token);
       documentSvc.sync(token: token);
@@ -182,7 +199,8 @@ class _AppShellViewState extends State<_AppShellView> {
                     context.read<ShellBloc>().add(const ShellTabChanged(0));
                     return;
                   }
-                  final bool shouldPop = await showExitConfirmationDialog(context);
+                  final bool shouldPop =
+                      await showExitConfirmationDialog(context);
                   if (shouldPop) {
                     SystemNavigator.pop();
                   }
@@ -198,37 +216,54 @@ class _AppShellViewState extends State<_AppShellView> {
                   bottomNavigationBar: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(32)),
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.08),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .shadow
+                              .withValues(alpha: 0.08),
                           blurRadius: 24,
                           offset: const Offset(0, -8),
                         ),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(32)),
                       child: NavigationBarTheme(
                         data: NavigationBarThemeData(
-                          backgroundColor: Theme.of(context).colorScheme.surface,
-                          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surface,
+                          indicatorColor:
+                              Theme.of(context).colorScheme.primaryContainer,
                           indicatorShape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                            final screenWidth = MediaQuery.sizeOf(context).width;
-                            final isSelected = states.contains(WidgetState.selected);
+                          labelTextStyle:
+                              WidgetStateProperty.resolveWith((states) {
+                            final screenWidth =
+                                MediaQuery.sizeOf(context).width;
+                            final isSelected =
+                                states.contains(WidgetState.selected);
                             // Scale font dynamically based on screen width to prevent wrapping with 5 tabs
-                            final baseSize = screenWidth < 360 ? 9.5 : (screenWidth < 400 ? 10.5 : 11.5);
-                            
+                            final baseSize = screenWidth < 360
+                                ? 9.5
+                                : (screenWidth < 400 ? 10.5 : 11.5);
+
                             return TextStyle(
-                              color: isSelected 
-                                ? Theme.of(context).colorScheme.primary 
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                               fontSize: baseSize,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                              letterSpacing: -0.5, // Tighter letter spacing to fit
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
+                              letterSpacing:
+                                  -0.5, // Tighter letter spacing to fit
                               overflow: TextOverflow.ellipsis,
                             );
                           }),
@@ -240,7 +275,9 @@ class _AppShellViewState extends State<_AppShellView> {
                               );
                             }
                             return IconThemeData(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                               size: 22,
                             );
                           }),
@@ -248,10 +285,12 @@ class _AppShellViewState extends State<_AppShellView> {
                         child: NavigationBar(
                           selectedIndex: currentIndex,
                           backgroundColor: Colors.transparent,
-                          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+                          indicatorColor:
+                              Theme.of(context).colorScheme.primaryContainer,
                           height: 80, // slightly taller for premium feel
                           elevation: 0, // shadow provided by container
-                          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                          labelBehavior:
+                              NavigationDestinationLabelBehavior.alwaysShow,
                           animationDuration: const Duration(milliseconds: 400),
                           onDestinationSelected: (idx) => context
                               .read<ShellBloc>()
@@ -275,19 +314,24 @@ class _AppShellViewState extends State<_AppShellView> {
                             NavigationDestination(
                               icon: BlocBuilder<DocumentsBloc, DocumentsState>(
                                 builder: (context, docState) {
-                                  final latestDocs = <String, EngineerDocument>{};
+                                  final latestDocs =
+                                      <String, EngineerDocument>{};
                                   for (final d in docState.documents) {
                                     if (d.documentType != 'other') {
-                                      latestDocs.putIfAbsent(d.documentType, () => d);
+                                      latestDocs.putIfAbsent(
+                                          d.documentType, () => d);
                                     }
                                   }
                                   const totalReq = 8;
                                   final uploadedReq = latestDocs.values
                                       .where((d) => d.fileUrl.trim().isNotEmpty)
                                       .length;
-                                  final missing = (totalReq - uploadedReq).clamp(0, totalReq);
+                                  final missing = (totalReq - uploadedReq)
+                                      .clamp(0, totalReq);
 
-                                  if (missing > 0 && docState.status == DocumentsStatus.loaded) {
+                                  if (missing > 0 &&
+                                      docState.status ==
+                                          DocumentsStatus.loaded) {
                                     return Badge(
                                       label: Text('$missing'),
                                       backgroundColor: const Color(0xFFEF4444),
@@ -297,28 +341,36 @@ class _AppShellViewState extends State<_AppShellView> {
                                   return const Icon(Icons.folder_outlined);
                                 },
                               ),
-                              selectedIcon: BlocBuilder<DocumentsBloc, DocumentsState>(
+                              selectedIcon:
+                                  BlocBuilder<DocumentsBloc, DocumentsState>(
                                 builder: (context, docState) {
-                                  final latestDocs = <String, EngineerDocument>{};
+                                  final latestDocs =
+                                      <String, EngineerDocument>{};
                                   for (final d in docState.documents) {
                                     if (d.documentType != 'other') {
-                                      latestDocs.putIfAbsent(d.documentType, () => d);
+                                      latestDocs.putIfAbsent(
+                                          d.documentType, () => d);
                                     }
                                   }
                                   const totalReq = 8;
                                   final uploadedReq = latestDocs.values
                                       .where((d) => d.fileUrl.trim().isNotEmpty)
                                       .length;
-                                  final missing = (totalReq - uploadedReq).clamp(0, totalReq);
+                                  final missing = (totalReq - uploadedReq)
+                                      .clamp(0, totalReq);
 
-                                  if (missing > 0 && docState.status == DocumentsStatus.loaded) {
+                                  if (missing > 0 &&
+                                      docState.status ==
+                                          DocumentsStatus.loaded) {
                                     return Badge(
                                       label: Text('$missing'),
                                       backgroundColor: const Color(0xFFEF4444),
-                                      child: const Icon(Icons.folder_shared_rounded),
+                                      child: const Icon(
+                                          Icons.folder_shared_rounded),
                                     );
                                   }
-                                  return const Icon(Icons.folder_shared_rounded);
+                                  return const Icon(
+                                      Icons.folder_shared_rounded);
                                 },
                               ),
                               label: "Documents",

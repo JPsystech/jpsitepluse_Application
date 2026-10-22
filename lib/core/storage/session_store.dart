@@ -1,7 +1,7 @@
 import "dart:convert";
 import 'package:sitepulse_engineer/core/network/unauthorized_interceptor.dart';
 import 'package:sitepulse_engineer/core/services/notification_service.dart';
-import 'package:sitepulse_engineer/core/services/live_location_tracking_service.dart';
+import 'package:sitepulse_engineer/core/services/persistent_background_tracking_service.dart';
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -85,7 +85,7 @@ class SessionStore {
   }
 
   static Future<void> clear() async {
-    await LiveLocationTrackingService.instance.stopDutyTracking();
+    await PersistentBackgroundTrackingService.stopTracking();
     await NotificationService.instance.cancelActiveShiftNotification();
     await NotificationService.instance.unregisterToken();
     await _clearStorage();

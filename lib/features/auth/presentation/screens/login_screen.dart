@@ -111,19 +111,18 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       if (!wasForceExpired) {
         final hasMpin = await MpinStore.hasMpin();
         final creds = await CredentialStore.getCredentials();
-        final session = SessionStore.current;
 
-        if (hasMpin || (session?.hasMpin ?? false)) {
+        if (hasMpin) {
           setState(() {
             isMpinMode = true;
             _engineerName = creds?['engineerName'] ?? "Engineer";
           });
 
-          // Scenario B fix: app was already on MPIN screen when device binding
-          // changed on another device. No interceptor fired, so sessionExpired
-          // was never set. Silently verify device binding now via /me.
-          // If binding is gone, immediately fall back to full password form.
           _verifyDeviceBindingAndFallback();
+        } else {
+          setState(() {
+            isMpinMode = false;
+          });
         }
       }
 
@@ -253,15 +252,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
     final hasMpin = await MpinStore.hasMpin();
     final creds = await CredentialStore.getCredentials();
-    final session = SessionStore.current;
-
     if (!mounted) return;
 
     setState(() {
-      if (hasMpin || (session?.hasMpin ?? false)) {
+      if (hasMpin) {
         isMpinMode = true;
         _engineerName = creds?['engineerName'] ?? "Engineer";
-        // Clear the network warning since we can proceed with offline MPIN
         if (error == "Network error. Proceeding offline.") {
           error = null;
         }

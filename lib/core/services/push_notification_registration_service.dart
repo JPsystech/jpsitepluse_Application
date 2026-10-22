@@ -16,6 +16,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   await PushNotificationRegistrationService.initializeFirebase();
+
+  // With while-in-use permission Android cannot reliably acquire a new GPS
+  // fix from this background isolate. The visible FCM notification lets the
+  // engineer open the app, and NotificationRouter handles the request then.
+  final type = (message.data['type'] ?? '').toString().trim().toUpperCase();
+  if (type == 'LOCATION_REQUEST') return;
+
   await PushNotificationRegistrationService.handleRemoteMessage(message);
 }
 
