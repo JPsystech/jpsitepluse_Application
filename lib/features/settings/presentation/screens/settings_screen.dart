@@ -1,3 +1,4 @@
+import "package:package_info_plus/package_info_plus.dart";
 import "package:flutter/material.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:sitepulse_engineer/core/storage/session_store.dart";
@@ -15,6 +16,30 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  String _appVersion = "Loading...";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = "v${info.version} (${info.buildNumber})";
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _appVersion = "v1.0.6 (17)";
+        });
+      }
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -76,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     icon: Icons.info_rounded,
                     title: "Version Info",
-                    subtitle: "JP SitePulse Engineer • v1.0.0",
+                    subtitle: "JP SitePulse Engineer • $_appVersion",
                     iconColor: cs.primary,
                     hideChevron: true,
                     onTap: () {},

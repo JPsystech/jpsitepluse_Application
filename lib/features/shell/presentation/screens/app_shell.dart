@@ -24,6 +24,7 @@ import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
 import "../../../../core/services/offline_document_sync_service.dart";
 import "../../../home/presentation/bloc/home_bloc.dart";
+import "package:sitepulse_engineer/features/onboarding/data/models/onboarding_status_model.dart";
 import "package:sitepulse_engineer/shared/widgets/location_disclosure_dialog.dart";
 import "package:sitepulse_engineer/features/onboarding/presentation/widgets/complete_profile_dialog.dart";
 
@@ -323,12 +324,14 @@ class _AppShellViewState extends State<_AppShellView>
                                           d.documentType, () => d);
                                     }
                                   }
-                                  const totalReq = 8;
-                                  final uploadedReq = latestDocs.values
-                                      .where((d) => d.fileUrl.trim().isNotEmpty)
+                                  final dept =
+                                      SessionStore.current?.engineer.department;
+                                  final requiredTypes =
+                                      OnboardingStatusModel.getRequiredTypesForDepartment(dept);
+                                  final missing = requiredTypes
+                                      .where((type) =>
+                                          latestDocs[type]?.fileUrl.trim().isEmpty ?? true)
                                       .length;
-                                  final missing = (totalReq - uploadedReq)
-                                      .clamp(0, totalReq);
 
                                   if (missing > 0 &&
                                       docState.status ==
@@ -353,12 +356,14 @@ class _AppShellViewState extends State<_AppShellView>
                                           d.documentType, () => d);
                                     }
                                   }
-                                  const totalReq = 8;
-                                  final uploadedReq = latestDocs.values
-                                      .where((d) => d.fileUrl.trim().isNotEmpty)
+                                  final dept =
+                                      SessionStore.current?.engineer.department;
+                                  final requiredTypes =
+                                      OnboardingStatusModel.getRequiredTypesForDepartment(dept);
+                                  final missing = requiredTypes
+                                      .where((type) =>
+                                          latestDocs[type]?.fileUrl.trim().isEmpty ?? true)
                                       .length;
-                                  final missing = (totalReq - uploadedReq)
-                                      .clamp(0, totalReq);
 
                                   if (missing > 0 &&
                                       docState.status ==
