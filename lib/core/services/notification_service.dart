@@ -44,6 +44,19 @@ class NotificationService {
     enableVibration: true,
   );
 
+  // The foreground tracking service owns notification id 754321. Creating
+  // its channel here guarantees the channel exists before a shift starts,
+  // while avoiding a second notification that can replace the service's own.
+  static const AndroidNotificationChannel _activeShiftChannel =
+      AndroidNotificationChannel(
+    _activeShiftChannelId,
+    'Active Shift Tracking',
+    description: 'Visible while on-duty location tracking is active.',
+    importance: Importance.low,
+    playSound: false,
+    enableVibration: false,
+  );
+
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -54,6 +67,7 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>();
       if (androidImplementation != null) {
         await androidImplementation.createNotificationChannel(_channel);
+        await androidImplementation.createNotificationChannel(_activeShiftChannel);
       }
 
       // Initialize Flutter Local Notifications

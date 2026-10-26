@@ -422,7 +422,6 @@ class _TimesheetViewState extends State<_TimesheetView> {
           textInputAction: TextInputAction.newline,
           onChanged: (_) => setState(() => descError = null),
           decoration: InputDecoration(
-            hintText: "What work did you complete?",
             errorText: descError,
             filled: true,
             fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),

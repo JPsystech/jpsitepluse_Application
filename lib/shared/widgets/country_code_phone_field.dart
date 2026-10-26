@@ -45,7 +45,6 @@ class CountryCodePhoneField extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isIndia = selectedCountry.iso == 'IN';
-    final dynamicHint = hintText ?? (isIndia ? "10-digit mobile number" : "Mobile number");
     final dynamicMaxLength = isIndia ? 10 : 15;
 
     return TextFormField(
@@ -60,7 +59,7 @@ class CountryCodePhoneField extends StatelessWidget {
       ],
       decoration: InputDecoration(
         labelText: labelText,
-        hintText: dynamicHint,
+        hintText: null,
         border: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
         ),

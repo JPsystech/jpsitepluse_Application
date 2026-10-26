@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'package:sitepulse_engineer/core/config/api_config.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
@@ -77,6 +80,7 @@ class TodayAssignmentScreenView extends StatefulWidget {
 
 class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   String? selectedProjectIdForException;
+  String? _expandedAssignmentId;
   bool isPunchingOutForException = false;
   String? _lastPunchOutRemarks;
 
@@ -103,6 +107,57 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   void _consumePendingPunchOutAction() {
     if (!mounted || !ShiftActionService.consumePendingPunchOut()) return;
     _punchOut();
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }
+
+  Future<double?> _resolveSiteDistance(TodayAssignmentModel assignment) async {
+    if (assignment.latitude == 0 || assignment.longitude == 0) return null;
+    try {
+      Position? pos = await Geolocator.getLastKnownPosition();
+      pos ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 3),
+        ),
+      );
+      return Geolocator.distanceBetween(
+        pos.latitude,
+        pos.longitude,
+        assignment.latitude,
+        assignment.longitude,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _openMapDirections(String siteName) async {
+    try {
+      final query = Uri.encodeComponent(siteName);
+      final geoUrl = Uri.parse("geo:0,0?q=$query");
+      final webUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$query");
+
+      if (await canLaunchUrl(geoUrl)) {
+        await launchUrl(geoUrl, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(webUrl)) {
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(webUrl, mode: LaunchMode.inAppWebView);
+      }
+    } catch (e) {
+      debugPrint("Map launch error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch maps navigation")),
+        );
+      }
+    }
   }
 
   @override
@@ -145,7 +200,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: "Reason for exception punch",
-                  hintText: "e.g., Authorized off-site work",
                   filled: true,
                 ),
               ),
@@ -437,7 +491,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Welcome back",
+                            _getGreeting(),
                             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.w600,
@@ -716,6 +770,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   Widget _buildAssignmentsListCard(List<TodayAssignmentModel> assignments,
       String? activeProjectId, bool isProfileComplete) {
     final colorScheme = Theme.of(context).colorScheme;
+    final defaultExpandedProjectId = activeProjectId ?? assignments.first.projectId;
 
     return Card(
       elevation: 0,
@@ -860,6 +915,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                   activeProjectId == assignment.projectId;
               final isAnyProjectActive = activeProjectId != null;
               final isCompleted = assignment.todayStatus == "COMPLETED";
+              final isExpanded = _expandedAssignmentId == null
+                  ? assignment.projectId == defaultExpandedProjectId
+                  : _expandedAssignmentId == assignment.projectId;
 
               return _buildAssignmentRow(
                 assignment,
@@ -867,6 +925,11 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 isThisProjectActive,
                 isCompleted,
                 isProfileComplete,
+                isExpanded,
+                () => setState(() {
+                  _expandedAssignmentId =
+                      isExpanded ? null : assignment.projectId;
+                }),
               );
             },
           ),
@@ -880,7 +943,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       bool isAnyProjectActive,
       bool isThisProjectActive,
       bool isCompleted,
-      bool isProfileComplete) {
+      bool isProfileComplete,
+      bool isExpanded,
+      VoidCallback onToggle) {
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<AppColorsExtension>();
     final successColor = ext?.success ?? Colors.green;
@@ -895,9 +960,12 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -912,10 +980,18 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.location_on_rounded,
-                          size: 16,
-                          color: colorScheme.onSurfaceVariant,
+                        InkWell(
+                          onTap: () =>
+                              _openMapDirections(assignment.siteName),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.location_on_rounded,
+                              size: 18,
+                              color: colorScheme.primary,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -931,70 +1007,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         ),
                       ],
                     ),
-                    if (assignment.todayActiveHours != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.timer_outlined,
-                              size: 16, color: colorScheme.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            "Today: ${assignment.todayActiveHours}",
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (assignment.todayPunchInTime != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.onSurface.withAlpha(10),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Punch In",
-                                      style: TextStyle(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 4),
-                                  Text(assignment.todayPunchInTime!,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w900)),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Punch Out",
-                                      style: TextStyle(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 4),
-                                  Text(assignment.todayPunchOutTime ?? "-",
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w900)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -1006,9 +1018,30 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 )
               else if (isThisProjectActive)
                 const _PulsingActiveBadge(),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  isExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
-          if (!isCompleted) ...[
+          if (isExpanded && assignment.todayPunchInTime != null) ...[
+            const SizedBox(height: 12),
+            _PunchSummaryCard(
+              punchInTimeStr: assignment.todayPunchInTime,
+              punchOutTimeStr: assignment.todayPunchOutTime,
+              activeHoursStr: assignment.todayActiveHours,
+              isActive: isThisProjectActive,
+              punchInDistanceMeters: assignment.todayPunchInDistanceM,
+              punchOutDistanceMeters: assignment.todayPunchOutDistanceM,
+              allowedRadiusM: assignment.allowedRadiusM,
+            ),
+          ],
+
+          if (isExpanded && !isCompleted) ...[
             const SizedBox(height: 16),
             BlocBuilder<AttendanceBloc, AttendanceState>(
               builder: (context, attendanceState) {
@@ -1087,236 +1120,215 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
-  Widget _buildAttendanceOverviewCard(
-      AttendanceOverviewModel? overview, int projectCount) {
-    if (overview == null) return const SizedBox.shrink();
+
+  int _statsTabIndex = 0;
+
+  Widget _buildCombinedStatsCard(
+      AttendanceOverviewModel? overview, WeeklySummaryModel? summary, int projectCount) {
+    if (overview == null && summary == null) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<AppColorsExtension>();
-    final isOnline = overview.currentStatus == "ON SITE";
+    final isOnline = overview?.currentStatus == "ON SITE";
     final statusColor =
         isOnline ? (ext?.success ?? Colors.green) : cs.onSurfaceVariant;
 
     return Card(
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    AttendanceScreen(sessionToken: widget.sessionToken),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.analytics_outlined,
-                            color: cs.primary, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          "TODAY'S OVERVIEW",
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: cs.primary,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() => _statsTabIndex = 0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _statsTabIndex == 0 ? cs.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            "Today",
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: _statsTabIndex == 0 ? cs.onPrimary : cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
                         ),
-                      ],
-                    ),
-                    _StatusChip(
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => _statsTabIndex = 1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _statsTabIndex == 1 ? cs.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            "Monthly",
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: _statsTabIndex == 1 ? cs.onPrimary : cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_statsTabIndex == 0 && overview != null)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AttendanceScreen(sessionToken: widget.sessionToken),
+                        ),
+                      );
+                    },
+                    child: _StatusChip(
                       icon: Icons.circle,
                       label: overview.currentStatus,
                       color: statusColor,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Projects Assigned",
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "$projectCount",
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: cs.onSurface,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                        width: 1,
-                        height: 40,
-                        color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Active Hours",
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            overview.activeHours,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: cs.primary,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                if (_statsTabIndex == 1)
+                  IconButton(
+                    icon: Icon(Icons.history_rounded, size: 20, color: cs.primary),
+                    tooltip: 'View History',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => HistoryScreen(sessionToken: widget.sessionToken),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
-          ),
-        ));
-  }
-
-  Widget _buildWeeklySummaryCard(WeeklySummaryModel? summary) {
-    if (summary == null) return const SizedBox.shrink();
-
-    final cs = Theme.of(context).colorScheme;
-
-    return Card(
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+            const SizedBox(height: 20),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _statsTabIndex == 0
+                  ? Row(
+                      key: const ValueKey(0),
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Projects Assigned",
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "$projectCount",
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: cs.onSurface,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(width: 1, height: 40, color: cs.outlineVariant.withValues(alpha: 0.5)),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Active Hours",
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                overview?.activeHours ?? '0m',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: cs.primary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      key: const ValueKey(1),
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Total Hours",
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                summary?.totalHours ?? '0m',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: cs.onSurface,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(width: 1, height: 40, color: cs.outlineVariant.withValues(alpha: 0.5)),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Days Active",
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "${summary?.daysActive ?? 0}",
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: cs.primary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
         ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    HistoryScreen(sessionToken: widget.sessionToken),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.date_range_rounded,
-                        color: cs.secondary, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      "MONTHLY SUMMARY",
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: cs.secondary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Total Hours",
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            summary.totalHours,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: cs.onSurface,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                        width: 1,
-                        height: 40,
-                        color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Days Active",
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "${summary.daysActive}",
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: cs.onSurface,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ));
+      ),
+    );
   }
 
   Widget _buildReferralPromoCard() {
@@ -1327,52 +1339,81 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: cs.primary.withValues(alpha: 0.2)),
       ),
-      color: cs.primaryContainer.withValues(alpha: 0.25),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.referrals),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cs.primary.withValues(alpha: 0.15), cs.secondary.withValues(alpha: 0.1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.referrals),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  child: const Icon(Icons.stars_rounded,
+                      color: Colors.white, size: 24),
                 ),
-                child: const Icon(Icons.stars_rounded,
-                    color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Refer & Earn Rewards",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "Refer & Earn Rewards",
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "Refer engineer friends or submit project leads to earn cash rewards!",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "NEW JOBS",
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade800,
+                              ),
+                            ),
                           ),
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Refer candidate resumes for open positions & earn cash bonuses!",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.arrow_forward_ios_rounded,
-                  size: 16, color: cs.primary),
-            ],
+                const SizedBox(width: 8),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    size: 16, color: cs.primary),
+              ],
+            ),
           ),
         ),
       ),
@@ -1491,10 +1532,8 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     _buildGreeting(),
                     _buildOfflineBanner(),
                     const SizedBox(height: 24),
-                    _buildAttendanceOverviewCard(
-                        resp.attendanceOverview, assignments.length),
-                    const SizedBox(height: 16),
-                    _buildWeeklySummaryCard(resp.weeklySummary),
+                    _buildCombinedStatsCard(
+                        resp.attendanceOverview, resp.weeklySummary, assignments.length),
                     const SizedBox(height: 16),
                     _buildReferralPromoCard(),
                     const SizedBox(height: 24),
@@ -1703,7 +1742,6 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
             autofocus: true,
             decoration: const InputDecoration(
               labelText: "Remarks (required)",
-              hintText: "What did you work on?",
               filled: true,
             ),
           ),
@@ -1780,6 +1818,329 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
               ));
             },
             child: const Text("Confirm Punch Out"),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PunchSummaryCard extends StatefulWidget {
+  final String? punchInTimeStr;
+  final String? punchOutTimeStr;
+  final String? activeHoursStr;
+  final bool isActive;
+  final double? punchInDistanceMeters;
+  final double? punchOutDistanceMeters;
+  final int allowedRadiusM;
+
+  const _PunchSummaryCard({
+    required this.punchInTimeStr,
+    required this.punchOutTimeStr,
+    required this.activeHoursStr,
+    required this.isActive,
+    required this.punchInDistanceMeters,
+    required this.punchOutDistanceMeters,
+    required this.allowedRadiusM,
+  });
+
+  @override
+  State<_PunchSummaryCard> createState() => _PunchSummaryCardState();
+}
+
+class _PunchSummaryCardState extends State<_PunchSummaryCard> {
+  Timer? _timer;
+  Duration _elapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDuration();
+    if (widget.isActive && widget.punchOutTimeStr == null) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() {
+            _elapsed += const Duration(seconds: 1);
+          });
+        }
+      });
+    }
+  }
+
+  void _initDuration() {
+    if (widget.activeHoursStr != null) {
+      _elapsed = _parseDurationString(widget.activeHoursStr!);
+    }
+  }
+
+  Duration _parseDurationString(String str) {
+    try {
+      int hours = 0;
+      int minutes = 0;
+      int seconds = 0;
+      final parts = str.toLowerCase().split(RegExp(r'\s+'));
+      for (final p in parts) {
+        if (p.contains('h')) {
+          hours = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        } else if (p.contains('m')) {
+          minutes = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        } else if (p.contains('s')) {
+          seconds = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        }
+      }
+      return Duration(hours: hours, minutes: minutes, seconds: seconds);
+    } catch (_) {
+      return Duration.zero;
+    }
+  }
+
+  String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    if (h > 0) {
+      return '${h}h ${m}m ${s}s';
+    } else if (m > 0) {
+      return '${m}m ${s}s';
+    } else {
+      return '${s}s';
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasDistance = widget.punchInDistanceMeters != null;
+    final isOutOfRadius = hasDistance && widget.allowedRadiusM > 0 && widget.punchInDistanceMeters! > widget.allowedRadiusM;
+    final kmAway = hasDistance ? (widget.punchInDistanceMeters! / 1000).toStringAsFixed(2) : "";
+
+    final statusBgColor = !hasDistance
+        ? colorScheme.surface
+        : (isOutOfRadius
+            ? Colors.orange.shade50
+            : const Color(0xFF10B981).withValues(alpha: 0.12));
+    final statusBorderColor = !hasDistance
+        ? colorScheme.outlineVariant.withValues(alpha: 0.3)
+        : (isOutOfRadius
+            ? Colors.orange.shade300
+            : const Color(0xFF10B981).withValues(alpha: 0.3));
+    final statusTextColor = !hasDistance
+        ? colorScheme.onSurface
+        : (isOutOfRadius
+            ? Colors.orange.shade900
+            : const Color(0xFF047857));
+    final hasPunchOutDistance = widget.punchOutDistanceMeters != null;
+    final isPunchOutOfRadius = hasPunchOutDistance &&
+        widget.allowedRadiusM > 0 &&
+        widget.punchOutDistanceMeters! > widget.allowedRadiusM;
+    final punchOutKmAway = hasPunchOutDistance
+        ? (widget.punchOutDistanceMeters! / 1000).toStringAsFixed(2)
+        : "";
+    final punchOutBgColor = !hasPunchOutDistance
+        ? colorScheme.surface
+        : (isPunchOutOfRadius
+            ? Colors.orange.shade50
+            : const Color(0xFF10B981).withValues(alpha: 0.12));
+    final punchOutBorderColor = !hasPunchOutDistance
+        ? colorScheme.outlineVariant.withValues(alpha: 0.3)
+        : (isPunchOutOfRadius
+            ? Colors.orange.shade300
+            : const Color(0xFF10B981).withValues(alpha: 0.3));
+    final punchOutTextColor = !hasPunchOutDistance
+        ? colorScheme.onSurface
+        : (isPunchOutOfRadius ? Colors.orange.shade900 : const Color(0xFF047857));
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          // PUNCH IN COLUMN
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 70),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: widget.punchInTimeStr != null ? statusBgColor : colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: widget.punchInTimeStr != null
+                      ? statusBorderColor
+                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text("PUNCH IN",
+                          style: TextStyle(
+                              color: widget.punchInTimeStr != null ? statusTextColor : colorScheme.onSurfaceVariant,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5)),
+                      if (widget.punchInTimeStr != null && hasDistance) ...[
+                        const SizedBox(width: 2),
+                        Icon(
+                          isOutOfRadius ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
+                          size: 11,
+                          color: statusTextColor,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.punchInTimeStr ?? "-",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        color: widget.punchInTimeStr != null ? statusTextColor : colorScheme.onSurface),
+                  ),
+                  if (widget.punchInTimeStr != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      !hasDistance
+                          ? "Checking..."
+                          : (isOutOfRadius ? "$kmAway KM" : "In Radius"),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: statusTextColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // PUNCH OUT COLUMN
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 70),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: widget.punchOutTimeStr != null
+                    ? punchOutBgColor
+                    : colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: widget.punchOutTimeStr != null
+                      ? punchOutBorderColor
+                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text("PUNCH OUT",
+                          style: TextStyle(
+                              color: widget.punchOutTimeStr != null ? statusTextColor : colorScheme.onSurfaceVariant,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5)),
+                      if (widget.punchOutTimeStr != null && hasPunchOutDistance) ...[
+                        const SizedBox(width: 2),
+                        Icon(
+                          isPunchOutOfRadius
+                              ? Icons.warning_amber_rounded
+                              : Icons.check_circle_rounded,
+                          size: 11,
+                          color: punchOutTextColor,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.punchOutTimeStr ?? "-",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        color: widget.punchOutTimeStr != null
+                            ? punchOutTextColor
+                            : colorScheme.onSurface),
+                  ),
+                  if (widget.punchOutTimeStr != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      !hasPunchOutDistance
+                          ? "Checking..."
+                          : (isPunchOutOfRadius
+                              ? "$punchOutKmAway KM"
+                              : "In Radius"),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: punchOutTextColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // WORK DURATION COLUMN
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 70),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("WORK DURATION",
+                      style: TextStyle(
+                          color: colorScheme.primary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5)),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.punchOutTimeStr != null
+                        ? (widget.activeHoursStr ?? "-")
+                        : _formatDuration(_elapsed),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        color: colorScheme.primary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.punchOutTimeStr != null ? "Final Shift" : "Live Ticking",
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                    maxLines: 1,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

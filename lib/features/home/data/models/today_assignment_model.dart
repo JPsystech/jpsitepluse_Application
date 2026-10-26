@@ -10,6 +10,8 @@ class TodayAssignmentModel {
   final String? todayActiveHours;
   final String? todayPunchInTime;
   final String? todayPunchOutTime;
+  final double? todayPunchInDistanceM;
+  final double? todayPunchOutDistanceM;
   final String? todayStatus;
 
   TodayAssignmentModel({
@@ -24,6 +26,8 @@ class TodayAssignmentModel {
     this.todayActiveHours,
     this.todayPunchInTime,
     this.todayPunchOutTime,
+    this.todayPunchInDistanceM,
+    this.todayPunchOutDistanceM,
     required this.todayStatus,
   });
 
@@ -40,6 +44,10 @@ class TodayAssignmentModel {
       todayActiveHours: json["today_active_hours"] as String?,
       todayPunchInTime: json["today_punch_in_time"] as String?,
       todayPunchOutTime: json["today_punch_out_time"] as String?,
+      todayPunchInDistanceM:
+          (json["today_punch_in_distance_m"] as num?)?.toDouble(),
+      todayPunchOutDistanceM:
+          (json["today_punch_out_distance_m"] as num?)?.toDouble(),
       todayStatus: json["today_status"] as String?,
     );
   }

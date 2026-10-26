@@ -44,7 +44,6 @@ class AppTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final placeholder = (hint ?? label).trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -86,7 +85,7 @@ class AppTextField extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
           decoration: InputDecoration(
-            hintText: placeholder.isEmpty ? null : placeholder,
+            hintText: null,
             hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),

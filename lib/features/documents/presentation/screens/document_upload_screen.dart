@@ -85,7 +85,6 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               labelText: "Document Name",
-              hintText: "Enter custom document name",
             ),
             onSubmitted: (_) =>
                 Navigator.of(dialogContext).pop(ctrl.text.trim()),
@@ -1377,7 +1376,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
   }
 }
 
-class _DocumentCard extends StatelessWidget {
+class _DocumentCard extends StatefulWidget {
   const _DocumentCard({
     required this.title,
     required this.requiredLabel,
@@ -1413,209 +1412,237 @@ class _DocumentCard extends StatelessWidget {
   final String uploadLabel;
 
   @override
+  State<_DocumentCard> createState() => _DocumentCardState();
+}
+
+class _DocumentCardState extends State<_DocumentCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final displayRemarks = (remarks ?? "").trim();
-    final displayHelper = (helperText ?? "").trim();
+    final displayRemarks = (widget.remarks ?? "").trim();
+    final displayHelper = (widget.helperText ?? "").trim();
     
-    final hasFile = statusLabel.toLowerCase() != "not uploaded";
-    final isApproved = statusLabel.toLowerCase() == "approved";
-    final mainIcon = hasFile ? Icons.insert_drive_file_rounded : Icons.file_upload_outlined;
+    final isApproved = widget.statusLabel.toLowerCase() == "approved";
+    final isRejected = widget.statusLabel.toLowerCase() == "rejected";
+
+    final cardBackgroundColor = isApproved
+        ? const Color(0xFF10B981).withValues(alpha: 0.08)
+        : (isRejected
+            ? cs.errorContainer.withValues(alpha: 0.15)
+            : cs.surface);
+
+    final cardBorderColor = isApproved
+        ? const Color(0xFF10B981).withValues(alpha: 0.3)
+        : (isRejected
+            ? cs.error.withValues(alpha: 0.3)
+            : cs.outlineVariant.withValues(alpha: 0.6));
 
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: cs.surface,
+      color: cardBackgroundColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
+        side: BorderSide(color: cardBorderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: hasFile ? cs.primaryContainer : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(16),
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface,
+                          ),
+                    ),
                   ),
-                  child: Icon(mainIcon, color: hasFile ? cs.primary : cs.onSurfaceVariant, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(width: 12),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: cs.onSurface,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          StatusChip(
-                              label: requiredLabel,
-                              color: requiredColor,
-                              textColor: Colors.white),
-                          StatusChip(
-                              label: statusLabel,
-                              color: statusColor,
-                              textColor: Colors.white),
-                        ],
+                      StatusChip(
+                          label: widget.statusLabel,
+                          color: widget.statusColor,
+                          textColor: Colors.white),
+                      const SizedBox(width: 6),
+                      Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: cs.onSurfaceVariant,
+                        size: 22,
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           
-          if (displayHelper.isNotEmpty || displayRemarks.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                border: Border(
-                  top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                  bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (displayHelper.isNotEmpty)
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline_rounded, size: 16, color: helperColor ?? cs.onSurfaceVariant),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            displayHelper,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: helperColor ?? cs.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (displayHelper.isNotEmpty && displayRemarks.isNotEmpty)
-                    const SizedBox(height: 8),
-                  if (displayRemarks.isNotEmpty)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          isApproved
-                              ? Icons.verified_user_outlined
-                              : Icons.feedback_rounded,
-                          size: 16,
-                          color: isApproved
-                              ? const Color(0xFF10B981)
-                              : cs.error,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "Remarks: $displayRemarks",
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: isApproved
-                                      ? const Color(0xFF10B981)
-                                      : cs.error,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-            
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                if (onView != null) ...[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: isViewing ? null : onView,
-                      icon: isViewing
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: cs.primary),
-                            )
-                          : const Icon(Icons.visibility_rounded, size: 18),
-                      label: const Text("View"),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        minimumSize: const Size(0, 48),
-                        side: BorderSide(color: cs.outlineVariant),
-                      ),
-                    ),
+          if (_isExpanded) ...[
+            if (displayHelper.isNotEmpty || displayRemarks.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isApproved
+                      ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                      : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isApproved
+                        ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                        : cs.outlineVariant.withValues(alpha: 0.5),
                   ),
-                  if (onDownload != null) ...[
-                    const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      tooltip: "Download to Phone",
-                      onPressed: isDownloading ? null : onDownload,
-                      icon: isDownloading
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: cs.primary),
-                            )
-                          : const Icon(Icons.download_rounded, size: 20),
-                      style: IconButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        minimumSize: const Size(48, 48),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (displayHelper.isNotEmpty)
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, size: 16, color: widget.helperColor ?? cs.onSurfaceVariant),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              displayHelper,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: widget.helperColor ?? cs.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                    if (displayHelper.isNotEmpty && displayRemarks.isNotEmpty)
+                      const SizedBox(height: 8),
+                    if (displayRemarks.isNotEmpty)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            isApproved
+                                ? Icons.verified_user_outlined
+                                : Icons.feedback_rounded,
+                            size: 16,
+                            color: isApproved
+                                ? const Color(0xFF10B981)
+                                : cs.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Remarks: $displayRemarks",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: isApproved
+                                        ? const Color(0xFF10B981)
+                                        : cs.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
-                  const SizedBox(width: 8),
-                ],
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: isUploading ? null : onUpload,
-                    icon: isUploading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : Icon(
-                            hasFile
-                                ? Icons.refresh_rounded
-                                : Icons.upload_file_rounded,
-                            size: 18),
-                    label: Text(uploadLabel),
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      minimumSize: const Size(0, 48),
+                ),
+              ),
+              
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
+                border: Border(
+                  top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (widget.onView != null) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.isViewing ? null : widget.onView,
+                        icon: widget.isViewing
+                            ? SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: cs.primary),
+                              )
+                            : const Icon(Icons.visibility_rounded, size: 16),
+                        label: const Text("View", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          side: BorderSide(color: cs.outlineVariant),
+                        ),
+                      ),
+                    ),
+                    if (widget.onDownload != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.isDownloading ? null : widget.onDownload,
+                          icon: widget.isDownloading
+                              ? SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: cs.primary),
+                                )
+                              : const Icon(Icons.download_rounded, size: 16),
+                          label: const Text("Save", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            side: BorderSide(color: cs.outlineVariant),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: widget.isUploading ? null : widget.onUpload,
+                      icon: widget.isUploading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Icon(
+                              widget.statusLabel.toLowerCase() != "not uploaded"
+                                  ? Icons.refresh_rounded
+                                  : Icons.upload_file_rounded,
+                              size: 16),
+                      label: Text(widget.uploadLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(0, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

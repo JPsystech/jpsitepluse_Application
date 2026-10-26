@@ -548,7 +548,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
     return InputDecoration(
       labelText: label,
-      hintText: hint,
+      hintText: null,
       errorMaxLines: 4,
       errorText: errorText,
       prefixIcon: Icon(

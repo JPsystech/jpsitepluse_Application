@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sitepulse_engineer/core/services/offline_punch_queue.dart';
 import 'package:sitepulse_engineer/core/services/persistent_background_tracking_service.dart';
-import 'package:sitepulse_engineer/core/services/notification_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 
 part 'attendance_event.dart';
@@ -104,7 +103,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         attendanceLogId: response.attendanceLogId,
         projectName: event.projectId,
       ));
-      unawaited(NotificationService.instance.showActiveShiftNotification());
       emit(PunchInSuccess(response: response));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);
@@ -121,7 +119,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           exceptionReason: event.exceptionReason,
         ));
         await PersistentBackgroundTrackingService.startTracking();
-        await NotificationService.instance.showActiveShiftNotification();
         emit(const PunchOfflineQueued());
       } else {
         final appError = ErrorHandler.handle(e);
@@ -163,7 +160,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         isOffline: event.isOffline,
       );
       await PersistentBackgroundTrackingService.stopTracking();
-      await NotificationService.instance.cancelActiveShiftNotification();
       emit(PunchOutSuccess(response: response));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);
@@ -180,7 +176,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           exceptionReason: event.exceptionReason,
         ));
         await PersistentBackgroundTrackingService.stopTracking();
-        await NotificationService.instance.cancelActiveShiftNotification();
         emit(const PunchOfflineQueued());
       } else {
         final appError = ErrorHandler.handle(e);

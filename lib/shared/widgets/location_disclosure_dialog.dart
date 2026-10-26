@@ -165,18 +165,19 @@ class LocationDisclosureDialog extends StatelessWidget {
   static Future<bool> _requestPermissions() async {
     try {
       var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      final requiresAlways = defaultTargetPlatform == TargetPlatform.iOS;
-      if (requiresAlways && permission == LocationPermission.whileInUse) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (requiresAlways && permission == LocationPermission.whileInUse) {
+      if (permission == LocationPermission.deniedForever) {
         await Geolocator.openAppSettings();
+        return false;
       }
+
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+        return false;
+      }
+
       return permission == LocationPermission.always ||
-          (!requiresAlways && permission == LocationPermission.whileInUse);
+          permission == LocationPermission.whileInUse;
     } catch (_) {
       return false;
     }

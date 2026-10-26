@@ -15,13 +15,20 @@ const _trackingActiveKey = 'sitepulse_duty_tracking_active';
 const _attendanceLogIdKey = 'sitepulse_duty_attendance_log_id';
 const _backgroundSessionKey = 'sitepulse_duty_background_session';
 const _pendingLocationsKey = 'sitepulse_pending_live_locations_v1';
+const _pendingTrackingEventsKey = 'sitepulse_pending_tracking_events_v1';
+const _trackingEventLastReportedPrefix = 'sitepulse_tracking_event_last_';
 const _maxPendingLocations = 5000;
+const _maxPendingTrackingEvents = 500;
 const _locationUploadBatchSize = 200;
+const _trackingEventUploadBatchSize = 100;
 const _minimumMovementMeters = 10;
 const _androidUpdateInterval = Duration(seconds: 15);
-const _stationaryHeartbeatInterval = Duration(minutes: 4);
+// Three minutes leaves room for a slow GPS fix and network retry before the
+// server declares tracking interrupted, without high-frequency polling.
+const _stationaryHeartbeatInterval = Duration(minutes: 3);
 
 bool _locationUploadInProgress = false;
+bool _trackingEventUploadInProgress = false;
 ServiceInstance? _backgroundServiceInstance;
 Future<void> _queueMutation = Future<void>.value();
 
@@ -66,6 +73,118 @@ Future<void> _writePendingLocations(
     await prefs.remove(_pendingLocationsKey);
   } else {
     await prefs.setString(_pendingLocationsKey, jsonEncode(locations));
+  }
+}
+
+Future<List<Map<String, dynamic>>> _readPendingTrackingEvents(
+  SharedPreferences prefs,
+) async {
+  final raw = prefs.getString(_pendingTrackingEventsKey);
+  if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <Map<String, dynamic>>[];
+    return decoded
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  } catch (_) {
+    return <Map<String, dynamic>>[];
+  }
+}
+
+Future<void> _writePendingTrackingEvents(
+  SharedPreferences prefs,
+  List<Map<String, dynamic>> events,
+) async {
+  if (events.isEmpty) {
+    await prefs.remove(_pendingTrackingEventsKey);
+  } else {
+    await prefs.setString(_pendingTrackingEventsKey, jsonEncode(events));
+  }
+}
+
+String _trackingPlatform() {
+  if (defaultTargetPlatform == TargetPlatform.android) return 'android';
+  if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
+  return defaultTargetPlatform.name;
+}
+
+Future<void> _recordTrackingHealthEvent(
+  String eventType, {
+  String? attendanceLogId,
+  String? details,
+  bool throttle = true,
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  final attendanceId = attendanceLogId ?? prefs.getString(_attendanceLogIdKey);
+  if (attendanceId == null || attendanceId.trim().isEmpty) return;
+
+  final now = DateTime.now().toUtc();
+  final throttleKey = '$_trackingEventLastReportedPrefix$eventType';
+  if (throttle) {
+    final lastMilliseconds = prefs.getInt(throttleKey);
+    if (lastMilliseconds != null &&
+        now.difference(DateTime.fromMillisecondsSinceEpoch(lastMilliseconds, isUtc: true)).inMinutes < 5) {
+      return;
+    }
+    await prefs.setInt(throttleKey, now.millisecondsSinceEpoch);
+  }
+
+  await _withQueueLock(() async {
+    final pending = await _readPendingTrackingEvents(prefs)
+      ..add(<String, dynamic>{
+        'attendance_log_id': attendanceId,
+        'event_type': eventType,
+        'occurred_at': now.toIso8601String(),
+        'details': details,
+        'platform': _trackingPlatform(),
+      });
+    if (pending.length > _maxPendingTrackingEvents) {
+      pending.removeRange(0, pending.length - _maxPendingTrackingEvents);
+    }
+    await _writePendingTrackingEvents(prefs, pending);
+  });
+}
+
+Future<void> _flushTrackingHealthEvents() async {
+  if (_trackingEventUploadInProgress || SessionStore.current == null) return;
+  _trackingEventUploadInProgress = true;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    while (true) {
+      final pending = await _withQueueLock(() => _readPendingTrackingEvents(prefs));
+      if (pending.isEmpty) return;
+      final count = pending.length > _trackingEventUploadBatchSize
+          ? _trackingEventUploadBatchSize
+          : pending.length;
+      await (await ApiClient.instance.dio).post(
+        '/api/v1/engineer/tracking-events/batch',
+        data: <String, dynamic>{'events': pending.take(count).toList()},
+      );
+      await _withQueueLock(() async {
+        final latest = await _readPendingTrackingEvents(prefs);
+        latest.removeRange(0, count > latest.length ? latest.length : count);
+        await _writePendingTrackingEvents(prefs, latest);
+      });
+    }
+  } catch (error) {
+    if (kDebugMode) debugPrint('[BackgroundService] Tracking health upload deferred: $error');
+  } finally {
+    _trackingEventUploadInProgress = false;
+  }
+}
+
+Future<void> _recordLocationReadinessIssue({String? attendanceLogId}) async {
+  if (!await Geolocator.isLocationServiceEnabled()) {
+    await _recordTrackingHealthEvent('GPS_DISABLED', attendanceLogId: attendanceLogId);
+    return;
+  }
+  final permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+    await _recordTrackingHealthEvent('LOCATION_PERMISSION_DENIED', attendanceLogId: attendanceLogId);
+  } else if (defaultTargetPlatform == TargetPlatform.iOS && permission != LocationPermission.always) {
+    await _recordTrackingHealthEvent('BACKGROUND_PERMISSION_MISSING', attendanceLogId: attendanceLogId);
   }
 }
 
@@ -130,6 +249,7 @@ Future<void> _flushPendingLocations() async {
         await _writePendingLocations(prefs, locations);
         return locations;
       });
+      unawaited(_flushTrackingHealthEvents());
 
       if (kDebugMode) {
         debugPrint(
@@ -139,6 +259,15 @@ Future<void> _flushPendingLocations() async {
       }
     }
   } on DioException catch (error) {
+    final statusCode = error.response?.statusCode;
+    await _recordTrackingHealthEvent(
+      statusCode == 401 || statusCode == 403
+          ? 'AUTH_SESSION_EXPIRED'
+          : statusCode == null
+              ? 'NETWORK_OFFLINE'
+              : 'LOCATION_UPLOAD_FAILED',
+      details: statusCode == null ? 'Location upload could not reach the server.' : 'Location upload returned HTTP $statusCode.',
+    );
     if (error.response?.statusCode == 409) {
       final recoveredAttendanceLogId =
           await _recoverActiveAttendanceAfterConflict();
@@ -195,6 +324,13 @@ Future<String?> _recoverActiveAttendanceAfterConflict() async {
 
 Future<void> _stopTrackingAfterAttendanceConflict() async {
   final prefs = await SharedPreferences.getInstance();
+  await _recordTrackingHealthEvent(
+    'TRACKING_STOPPED',
+    attendanceLogId: prefs.getString(_attendanceLogIdKey),
+    details: 'Tracking stopped because the attendance session is no longer active.',
+    throttle: false,
+  );
+  await _flushTrackingHealthEvents();
   await prefs.remove(_trackingActiveKey);
   await prefs.remove(_attendanceLogIdKey);
   await prefs.remove(_backgroundSessionKey);
@@ -209,7 +345,14 @@ bool onIosBackground(ServiceInstance service) {
 
 Future<void> _sendLocationPayload(Position position) async {
   try {
-    if ((kDebugMode || !position.isMocked) && position.accuracy <= 200) {
+    if (position.accuracy > 200) {
+      await _recordTrackingHealthEvent(
+        'LOCATION_ACCURACY_TOO_LOW',
+        details: 'Location accuracy was above 200 metres.',
+      );
+      return;
+    }
+    if (kDebugMode || !position.isMocked) {
       final prefs = await SharedPreferences.getInstance();
       if (!(prefs.getBool(_trackingActiveKey) ?? false)) return;
       final attendanceLogId = prefs.getString(_attendanceLogIdKey);
@@ -234,6 +377,11 @@ Future<void> _sendLocationPayload(Position position) async {
       await _flushPendingLocations();
     }
   } catch (e) {
+    await _recordLocationReadinessIssue();
+    await _recordTrackingHealthEvent(
+      'LOCATION_STREAM_ERROR',
+      details: 'Unable to queue a location update.',
+    );
     if (kDebugMode) {
       debugPrint('[BackgroundService] Error queueing location: $e');
     }
@@ -277,6 +425,9 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
     return;
   }
+  await _recordLocationReadinessIssue(
+    attendanceLogId: prefs.getString(_attendanceLogIdKey),
+  );
 
   // Secure storage can still be busy while the UI isolate is completing a
   // punch-in. Give it a few short retries before deciding the session is gone.
@@ -327,6 +478,7 @@ void onStart(ServiceInstance service) async {
   // Resume any upload interrupted by an earlier loss of connectivity or
   // background-service restart.
   unawaited(_flushPendingLocations());
+  unawaited(_flushTrackingHealthEvents());
 
   if (service is AndroidServiceInstance) {
     service.setAsForegroundService();
@@ -354,6 +506,11 @@ void onStart(ServiceInstance service) async {
   ).listen(
     (position) => unawaited(_sendLocationPayload(position)),
     onError: (Object error) {
+      unawaited(_recordLocationReadinessIssue());
+      unawaited(_recordTrackingHealthEvent(
+        'LOCATION_STREAM_ERROR',
+        details: 'The operating system location stream returned an error.',
+      ));
       if (kDebugMode) {
         debugPrint('[BackgroundService] Stream error: $error');
       }
@@ -372,6 +529,11 @@ void onStart(ServiceInstance service) async {
       );
       await _sendLocationPayload(initialPosition);
     } catch (error) {
+      await _recordLocationReadinessIssue();
+      await _recordTrackingHealthEvent(
+        'LOCATION_STREAM_ERROR',
+        details: 'Unable to get the initial location fix.',
+      );
       if (kDebugMode) {
         debugPrint('[BackgroundService] Initial location deferred: $error');
       }
@@ -391,6 +553,11 @@ void onStart(ServiceInstance service) async {
       );
       await _sendLocationPayload(heartbeatPosition);
     } catch (error) {
+      await _recordLocationReadinessIssue();
+      await _recordTrackingHealthEvent(
+        'LOCATION_STREAM_ERROR',
+        details: 'Unable to get the stationary tracking heartbeat.',
+      );
       if (kDebugMode) {
         debugPrint('[BackgroundService] Heartbeat deferred: $error');
       }
@@ -442,6 +609,13 @@ class PersistentBackgroundTrackingService {
       );
     }
     await prefs.setBool(_trackingActiveKey, true);
+    await _recordTrackingHealthEvent(
+      'TRACKING_STARTED',
+      attendanceLogId: attendanceLogId,
+      details: 'On-duty location tracking started.',
+      throttle: false,
+    );
+    unawaited(_flushTrackingHealthEvents());
 
     try {
       final isRunning = await _service.isRunning().timeout(
@@ -452,6 +626,11 @@ class PersistentBackgroundTrackingService {
         await _service.startService();
       }
     } catch (e) {
+      await _recordTrackingHealthEvent(
+        'LOCATION_STREAM_ERROR',
+        attendanceLogId: attendanceLogId,
+        details: 'Unable to start the background tracking service.',
+      );
       if (kDebugMode) {
         debugPrint('[BackgroundService] startTracking error: $e');
       }
@@ -460,6 +639,14 @@ class PersistentBackgroundTrackingService {
 
   static Future<void> stopTracking() async {
     final prefs = await SharedPreferences.getInstance();
+    final attendanceLogId = prefs.getString(_attendanceLogIdKey);
+    await _recordTrackingHealthEvent(
+      'TRACKING_STOPPED',
+      attendanceLogId: attendanceLogId,
+      details: 'On-duty location tracking stopped.',
+      throttle: false,
+    );
+    await _flushTrackingHealthEvents();
     await prefs.remove(_trackingActiveKey);
     await prefs.remove(_attendanceLogIdKey);
     await prefs.remove(_backgroundSessionKey);
