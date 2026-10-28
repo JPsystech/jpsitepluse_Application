@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
-import 'package:sitepulse_engineer/shared/models/auth_session.dart';
+import 'package:sitepulse_engineer/core/storage/encrypted_file_store.dart';
+import 'package:sitepulse_engineer/core/services/mobile_policy_service.dart';
 
 const _trackingActiveKey = 'sitepulse_duty_tracking_active';
 const _attendanceLogIdKey = 'sitepulse_duty_attendance_log_id';
@@ -21,16 +24,39 @@ const _maxPendingLocations = 5000;
 const _maxPendingTrackingEvents = 500;
 const _locationUploadBatchSize = 200;
 const _trackingEventUploadBatchSize = 100;
-const _minimumMovementMeters = 10;
-const _androidUpdateInterval = Duration(seconds: 15);
 // Three minutes leaves room for a slow GPS fix and network retry before the
 // server declares tracking interrupted, without high-frequency polling.
-const _stationaryHeartbeatInterval = Duration(minutes: 3);
+const _batteryReadInterval = Duration(minutes: 2);
+const _deviceHealthChannel = MethodChannel('com.jpsystech.sitepluse/device_health');
 
 bool _locationUploadInProgress = false;
 bool _trackingEventUploadInProgress = false;
 ServiceInstance? _backgroundServiceInstance;
 Future<void> _queueMutation = Future<void>.value();
+int? _lastBatteryPercent;
+bool _lastBatteryIsCharging = false;
+DateTime? _lastBatteryReadAt;
+
+Future<({int? percent, bool isCharging})> _readBatteryStatus() async {
+  final now = DateTime.now();
+  if (_lastBatteryReadAt != null &&
+      now.difference(_lastBatteryReadAt!) < _batteryReadInterval) {
+    return (percent: _lastBatteryPercent, isCharging: _lastBatteryIsCharging);
+  }
+
+  try {
+    final battery = Battery();
+    _lastBatteryPercent = await battery.batteryLevel;
+    final state = await battery.batteryState;
+    _lastBatteryIsCharging =
+        state == BatteryState.charging || state == BatteryState.full;
+    _lastBatteryReadAt = now;
+  } catch (_) {
+    // Battery information is optional; location tracking must continue when
+    // the platform does not expose it in a background isolate.
+  }
+  return (percent: _lastBatteryPercent, isCharging: _lastBatteryIsCharging);
+}
 
 Future<T> _withQueueLock<T>(Future<T> Function() action) async {
   final previous = _queueMutation;
@@ -47,7 +73,7 @@ Future<T> _withQueueLock<T>(Future<T> Function() action) async {
 Future<List<Map<String, dynamic>>> _readPendingLocations(
   SharedPreferences prefs,
 ) async {
-  final raw = prefs.getString(_pendingLocationsKey);
+  final raw = await _readEncryptedOrLegacy(prefs, _pendingLocationsKey);
   if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
 
   try {
@@ -70,16 +96,21 @@ Future<void> _writePendingLocations(
   List<Map<String, dynamic>> locations,
 ) async {
   if (locations.isEmpty) {
+    await EncryptedFileStore.delete(_pendingLocationsKey);
     await prefs.remove(_pendingLocationsKey);
   } else {
-    await prefs.setString(_pendingLocationsKey, jsonEncode(locations));
+    await _writeEncryptedAndClearLegacy(
+      prefs,
+      _pendingLocationsKey,
+      jsonEncode(locations),
+    );
   }
 }
 
 Future<List<Map<String, dynamic>>> _readPendingTrackingEvents(
   SharedPreferences prefs,
 ) async {
-  final raw = prefs.getString(_pendingTrackingEventsKey);
+  final raw = await _readEncryptedOrLegacy(prefs, _pendingTrackingEventsKey);
   if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
   try {
     final decoded = jsonDecode(raw);
@@ -98,16 +129,69 @@ Future<void> _writePendingTrackingEvents(
   List<Map<String, dynamic>> events,
 ) async {
   if (events.isEmpty) {
+    await EncryptedFileStore.delete(_pendingTrackingEventsKey);
     await prefs.remove(_pendingTrackingEventsKey);
   } else {
-    await prefs.setString(_pendingTrackingEventsKey, jsonEncode(events));
+    await _writeEncryptedAndClearLegacy(
+      prefs,
+      _pendingTrackingEventsKey,
+      jsonEncode(events),
+    );
   }
+}
+
+Future<String?> _readEncryptedOrLegacy(
+  SharedPreferences prefs,
+  String key,
+) async {
+  final encrypted = await EncryptedFileStore.read(key);
+  if (encrypted != null) return encrypted;
+  final legacy = prefs.getString(key);
+  if (legacy != null) {
+    await EncryptedFileStore.write(key, legacy);
+    await prefs.remove(key);
+  }
+  return legacy;
+}
+
+Future<void> _writeEncryptedAndClearLegacy(
+  SharedPreferences prefs,
+  String key,
+  String value,
+) async {
+  await EncryptedFileStore.write(key, value);
+  await prefs.remove(key);
 }
 
 String _trackingPlatform() {
   if (defaultTargetPlatform == TargetPlatform.android) return 'android';
   if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
   return defaultTargetPlatform.name;
+}
+
+/// Android reports whether the app is exempt from the system battery
+/// optimizer. iOS intentionally has no equivalent public API, so it is not
+/// inferred or reported there.
+Future<void> _recordBatteryOptimizationStatus({String? attendanceLogId}) async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+
+  try {
+    final isExempt = await _deviceHealthChannel.invokeMethod<bool>(
+      'isIgnoringBatteryOptimizations',
+    );
+    if (isExempt == false) {
+      await _recordTrackingHealthEvent(
+        'BATTERY_OPTIMIZATION_RESTRICTED',
+        attendanceLogId: attendanceLogId,
+        details:
+            'Android battery optimization is enabled for this app and may delay background tracking.',
+      );
+    }
+  } on PlatformException catch (error) {
+    if (kDebugMode) {
+      debugPrint('[BackgroundService] Battery optimization check failed: $error');
+    }
+  }
 }
 
 Future<void> _recordTrackingHealthEvent(
@@ -145,6 +229,9 @@ Future<void> _recordTrackingHealthEvent(
     }
     await _writePendingTrackingEvents(prefs, pending);
   });
+  // Health events must be sent independently of a successful location
+  // upload. For example, GPS being disabled prevents further location points.
+  unawaited(_flushTrackingHealthEvents());
 }
 
 Future<void> _flushTrackingHealthEvents() async {
@@ -356,6 +443,7 @@ Future<void> _sendLocationPayload(Position position) async {
       final prefs = await SharedPreferences.getInstance();
       if (!(prefs.getBool(_trackingActiveKey) ?? false)) return;
       final attendanceLogId = prefs.getString(_attendanceLogIdKey);
+      final battery = await _readBatteryStatus();
 
       final payload = <String, dynamic>{
         'latitude': position.latitude,
@@ -363,8 +451,8 @@ Future<void> _sendLocationPayload(Position position) async {
         'accuracy_m': position.accuracy,
         'speed_mps': position.speed,
         'heading': position.heading,
-        'battery_percent': null,
-        'is_charging': false,
+        'battery_percent': battery.percent,
+        'is_charging': battery.isCharging,
         'is_mocked': position.isMocked,
         'attendance_log_id': attendanceLogId,
         'source': 'LIVE_BG',
@@ -389,11 +477,13 @@ Future<void> _sendLocationPayload(Position position) async {
 }
 
 LocationSettings _backgroundLocationSettings() {
+  final policy = MobilePolicyService.current;
+  final updateInterval = Duration(seconds: policy.trackingUpdateIntervalSeconds);
   if (defaultTargetPlatform == TargetPlatform.android) {
     return AndroidSettings(
       accuracy: LocationAccuracy.medium,
-      distanceFilter: _minimumMovementMeters,
-      intervalDuration: _androidUpdateInterval,
+      distanceFilter: policy.trackingMinMovementM,
+      intervalDuration: updateInterval,
     );
   }
 
@@ -401,16 +491,16 @@ LocationSettings _backgroundLocationSettings() {
       defaultTargetPlatform == TargetPlatform.macOS) {
     return AppleSettings(
       accuracy: LocationAccuracy.medium,
-      distanceFilter: _minimumMovementMeters,
+      distanceFilter: policy.trackingMinMovementM,
       activityType: ActivityType.other,
       pauseLocationUpdatesAutomatically: false,
       showBackgroundLocationIndicator: true,
     );
   }
 
-  return const LocationSettings(
+  return LocationSettings(
     accuracy: LocationAccuracy.medium,
-    distanceFilter: _minimumMovementMeters,
+    distanceFilter: policy.trackingMinMovementM,
   );
 }
 
@@ -420,6 +510,7 @@ void onStart(ServiceInstance service) async {
   _backgroundServiceInstance = service;
 
   final prefs = await SharedPreferences.getInstance();
+  await MobilePolicyService.loadCached();
   final trackingActive = prefs.getBool(_trackingActiveKey) ?? false;
   if (!trackingActive) {
     service.stopSelf();
@@ -439,30 +530,10 @@ void onStart(ServiceInstance service) async {
       await Future<void>.delayed(const Duration(seconds: 1));
     }
   }
-  if (SessionStore.current == null) {
-    final rawBackgroundSession = prefs.getString(_backgroundSessionKey);
-    if (rawBackgroundSession != null &&
-        rawBackgroundSession.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawBackgroundSession);
-        if (decoded is Map<String, dynamic>) {
-          final session = AuthSession.fromJson(decoded);
-          if (session.token.trim().isNotEmpty &&
-              (session.expiresAtMs == null ||
-                  DateTime.now().millisecondsSinceEpoch <
-                      session.expiresAtMs!)) {
-            SessionStore.current = session;
-          }
-        }
-      } catch (error) {
-        if (kDebugMode) {
-          debugPrint(
-            '[BackgroundService] Background session snapshot invalid: $error',
-          );
-        }
-      }
-    }
-  }
+  // Older app versions kept a duplicate token in SharedPreferences so the
+  // background isolate could recover it. The primary secure SessionStore is
+  // now retried above; remove any legacy plaintext snapshot on startup.
+  await prefs.remove(_backgroundSessionKey);
 
   if (SessionStore.current == null) {
     if (kDebugMode) {
@@ -492,8 +563,10 @@ void onStart(ServiceInstance service) async {
 
   StreamSubscription<Position>? positionSubscription;
   Timer? heartbeatTimer;
+  Timer? readinessCheckTimer;
   service.on('stopService').listen((_) async {
     heartbeatTimer?.cancel();
+    readinessCheckTimer?.cancel();
     await positionSubscription?.cancel();
     service.stopSelf();
   });
@@ -516,6 +589,13 @@ void onStart(ServiceInstance service) async {
       }
     },
   );
+
+  // This checks the OS location setting and permission only; it does not ask
+  // for a GPS position. It gives us a bounded detection time when Android
+  // silently stops the location stream after the user disables Location.
+  readinessCheckTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    unawaited(_recordLocationReadinessIssue());
+  });
 
   // Create the first server row immediately. Subsequent updates stay on the
   // movement/interval-filtered stream and low-frequency heartbeat.
@@ -542,27 +622,30 @@ void onStart(ServiceInstance service) async {
 
   // A low-frequency heartbeat keeps a stationary on-duty engineer from being
   // shown as interrupted without returning to the former 15-second polling.
-  heartbeatTimer = Timer.periodic(_stationaryHeartbeatInterval, (_) async {
-    if (_locationUploadInProgress) return;
-    try {
-      final heartbeatPosition = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
-      await _sendLocationPayload(heartbeatPosition);
-    } catch (error) {
-      await _recordLocationReadinessIssue();
-      await _recordTrackingHealthEvent(
-        'LOCATION_STREAM_ERROR',
-        details: 'Unable to get the stationary tracking heartbeat.',
-      );
-      if (kDebugMode) {
-        debugPrint('[BackgroundService] Heartbeat deferred: $error');
+  heartbeatTimer = Timer.periodic(
+    Duration(seconds: MobilePolicyService.current.trackingStationaryHeartbeatSeconds),
+    (_) async {
+      if (_locationUploadInProgress) return;
+      try {
+        final heartbeatPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 20),
+          ),
+        );
+        await _sendLocationPayload(heartbeatPosition);
+      } catch (error) {
+        await _recordLocationReadinessIssue();
+        await _recordTrackingHealthEvent(
+          'LOCATION_STREAM_ERROR',
+          details: 'Unable to get the stationary tracking heartbeat.',
+        );
+        if (kDebugMode) {
+          debugPrint('[BackgroundService] Heartbeat deferred: $error');
+        }
       }
-    }
-  });
+    },
+  );
 }
 
 class PersistentBackgroundTrackingService {
@@ -601,13 +684,9 @@ class PersistentBackgroundTrackingService {
       // durable points belonging to the attendance session being started.
       await _retainLocationsForAttendance(normalizedAttendanceLogId);
     }
-    final session = SessionStore.current;
-    if (session != null && session.token.trim().isNotEmpty) {
-      await prefs.setString(
-        _backgroundSessionKey,
-        jsonEncode(session.toJson()),
-      );
-    }
+    // SessionStore persists the authenticated session in platform secure
+    // storage. Do not duplicate a bearer token into SharedPreferences.
+    await prefs.remove(_backgroundSessionKey);
     await prefs.setBool(_trackingActiveKey, true);
     await _recordTrackingHealthEvent(
       'TRACKING_STARTED',
@@ -615,6 +694,7 @@ class PersistentBackgroundTrackingService {
       details: 'On-duty location tracking started.',
       throttle: false,
     );
+    await _recordBatteryOptimizationStatus(attendanceLogId: attendanceLogId);
     unawaited(_flushTrackingHealthEvents());
 
     try {

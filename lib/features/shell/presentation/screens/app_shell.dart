@@ -1,22 +1,26 @@
 import "dart:async";
 
+import "package:connectivity_plus/connectivity_plus.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 import "package:sitepulse_engineer/core/storage/session_store.dart";
+import "package:sitepulse_engineer/core/network/network_info.dart";
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
 import "package:sitepulse_engineer/core/services/offline_timesheet_sync_service.dart";
 import "package:sitepulse_engineer/core/services/persistent_background_tracking_service.dart";
+import "package:sitepulse_engineer/core/services/mobile_policy_service.dart";
 import "package:sitepulse_engineer/features/home/presentation/screens/today_assignment_screen.dart";
 import "package:sitepulse_engineer/features/history/data/services/history_service.dart";
 import "package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart";
 import "package:sitepulse_engineer/features/profile/presentation/screens/profile_screen.dart";
 import "package:intl/intl.dart";
 import "package:sitepulse_engineer/features/timeline/presentation/screens/activity_timeline_screen.dart";
-import "package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart";
+import "package:sitepulse_engineer/features/referrals/presentation/screens/referrals_home_screen.dart";
+import "package:sitepulse_engineer/features/referrals/data/services/referral_job_badge_service.dart";
 import "package:sitepulse_engineer/features/documents/presentation/screens/document_upload_screen.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
 import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
@@ -77,15 +81,32 @@ class _AppShellView extends StatefulWidget {
 class _AppShellViewState extends State<_AppShellView>
     with WidgetsBindingObserver {
   Timer? _offlineSyncTimer;
+  StreamSubscription<List<ConnectivityResult>>? _networkStatusSubscription;
   String? _offlineSyncToken;
+  String? _referralBadgeEngineerId;
+  late final NetworkInfo _networkInfo;
+  bool _isOffline = false;
+
+  void _refreshReferralJobBadge(String engineerId) {
+    if (_referralBadgeEngineerId == engineerId) return;
+    _referralBadgeEngineerId = engineerId;
+    unawaited(ReferralJobBadgeService.instance.refresh(engineerId: engineerId));
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _networkInfo = NetworkInfoImpl(Connectivity());
+    _checkNetworkStatus();
+    _networkStatusSubscription = _networkInfo.onConnectivityChanged.listen(
+      (results) => _setOffline(results.contains(ConnectivityResult.none)),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         SessionStore.syncProfile();
+        await MobilePolicyService.loadCached();
+        await MobilePolicyService.refresh();
         await LocationDisclosureDialog.showIfNeeded(context);
         await PersistentBackgroundTrackingService.reconcileWithServer();
         if (mounted) {
@@ -99,6 +120,7 @@ class _AppShellViewState extends State<_AppShellView>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _offlineSyncTimer?.cancel();
+    _networkStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -106,7 +128,19 @@ class _AppShellViewState extends State<_AppShellView>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(PersistentBackgroundTrackingService.reconcileWithServer());
+      unawaited(MobilePolicyService.refresh());
+      _checkNetworkStatus();
     }
+  }
+
+  Future<void> _checkNetworkStatus() async {
+    final isConnected = await _networkInfo.isConnected;
+    _setOffline(!isConnected);
+  }
+
+  void _setOffline(bool offline) {
+    if (!mounted || _isOffline == offline) return;
+    setState(() => _isOffline = offline);
   }
 
   void _startOfflineSync(String token) {
@@ -171,6 +205,7 @@ class _AppShellViewState extends State<_AppShellView>
           if (!context.mounted) return;
           _startOfflineSync(session.token);
         });
+        _refreshReferralJobBadge(session.engineer.id);
 
         final tabs = [
           TodayAssignmentScreen(
@@ -178,9 +213,7 @@ class _AppShellViewState extends State<_AppShellView>
               engineerName: session.engineer.fullName,
               engineerEmpCode: session.engineer.empCode),
           ActivityTimelineScreen(sessionToken: session.token),
-          TimesheetScreen(
-              sessionToken: session.token,
-              engineerEmpCode: session.engineer.empCode),
+          const ReferralsHomeScreen(),
           const DocumentUploadScreen(),
           const ProfileScreen(),
         ];
@@ -208,12 +241,19 @@ class _AppShellViewState extends State<_AppShellView>
                   }
                 },
                 child: Scaffold(
-                  body: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: KeyedSubtree(
-                      key: ValueKey<int>(currentIndex),
-                      child: tabs[currentIndex],
-                    ),
+                  body: Column(
+                    children: [
+                      if (_isOffline) const _NoInternetBanner(),
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: KeyedSubtree(
+                            key: ValueKey<int>(currentIndex),
+                            child: tabs[currentIndex],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   bottomNavigationBar: Container(
                     decoration: BoxDecoration(
@@ -294,24 +334,43 @@ class _AppShellViewState extends State<_AppShellView>
                           labelBehavior:
                               NavigationDestinationLabelBehavior.alwaysShow,
                           animationDuration: const Duration(milliseconds: 400),
-                          onDestinationSelected: (idx) => context
-                              .read<ShellBloc>()
-                              .add(ShellTabChanged(idx)),
+                          onDestinationSelected: (idx) {
+                            context.read<ShellBloc>().add(ShellTabChanged(idx));
+                            if (idx == 2) {
+                              unawaited(ReferralJobBadgeService.instance.markSeen(
+                                engineerId: session.engineer.id,
+                              ));
+                            }
+                          },
                           destinations: [
                             const NavigationDestination(
-                              icon: Icon(Icons.today_outlined),
-                              selectedIcon: Icon(Icons.today_rounded),
-                              label: "Today",
+                              icon: Icon(Icons.dashboard_outlined),
+                              selectedIcon: Icon(Icons.dashboard_rounded),
+                              label: "Dashboard",
                             ),
                             const NavigationDestination(
                               icon: Icon(Icons.timeline_rounded),
                               selectedIcon: Icon(Icons.timeline_rounded),
                               label: "Timeline",
                             ),
-                            const NavigationDestination(
-                              icon: Icon(Icons.edit_note_rounded),
-                              selectedIcon: Icon(Icons.edit_note_rounded),
-                              label: "Work Update",
+                            NavigationDestination(
+                              icon: ValueListenableBuilder<int>(
+                                valueListenable: ReferralJobBadgeService.instance.unseenCount,
+                                builder: (_, count, __) => Badge(
+                                  isLabelVisible: count > 0,
+                                  label: Text(count > 99 ? '99+' : '$count'),
+                                  child: const Icon(Icons.volunteer_activism_outlined),
+                                ),
+                              ),
+                              selectedIcon: ValueListenableBuilder<int>(
+                                valueListenable: ReferralJobBadgeService.instance.unseenCount,
+                                builder: (_, count, __) => Badge(
+                                  isLabelVisible: count > 0,
+                                  label: Text(count > 99 ? '99+' : '$count'),
+                                  child: const Icon(Icons.volunteer_activism_rounded),
+                                ),
+                              ),
+                              label: "Refer & Earn",
                             ),
                             NavigationDestination(
                               icon: BlocBuilder<DocumentsBloc, DocumentsState>(
@@ -397,6 +456,39 @@ class _AppShellViewState extends State<_AppShellView>
           },
         );
       },
+    );
+  }
+}
+
+class _NoInternetBanner extends StatelessWidget {
+  const _NoInternetBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.errorContainer,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, size: 20, color: cs.onErrorContainer),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'No internet connection. Live data may be unavailable; offline actions will sync when you reconnect.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

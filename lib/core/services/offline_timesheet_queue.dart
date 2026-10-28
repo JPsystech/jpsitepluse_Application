@@ -2,6 +2,7 @@ import "dart:convert";
 import "dart:io";
 
 import "package:shared_preferences/shared_preferences.dart";
+import "package:sitepulse_engineer/core/services/mobile_policy_service.dart";
 
 class OfflineTimesheet {
   OfflineTimesheet({
@@ -75,7 +76,6 @@ class OfflineTimesheet {
 
 class OfflineTimesheetQueue {
   static const String _key = "offline_timesheet_queue_v1";
-  static const int _maxItems = 30;
 
   Future<List<OfflineTimesheet>> list() async {
     final prefs = await SharedPreferences.getInstance();
@@ -98,6 +98,7 @@ class OfflineTimesheetQueue {
   }
 
   Future<void> add(OfflineTimesheet timesheet) async {
+    await MobilePolicyService.loadCached();
     final prefs = await SharedPreferences.getInstance();
     final items = await list();
     final exists = items.any((t) => t.id == timesheet.id);
@@ -112,8 +113,9 @@ class OfflineTimesheetQueue {
 
     items.add(timesheet);
     items.sort((a, b) => a.capturedAtIso.compareTo(b.capturedAtIso));
-    final trimmed = items.length > _maxItems
-        ? items.sublist(items.length - _maxItems)
+    final maxItems = MobilePolicyService.current.offlineTimesheetQueueMaxItems;
+    final trimmed = items.length > maxItems
+        ? items.sublist(items.length - maxItems)
         : items;
     await prefs.setString(
         _key, jsonEncode(trimmed.map((e) => e.toJson()).toList()));

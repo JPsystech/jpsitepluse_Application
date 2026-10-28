@@ -213,7 +213,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
         backgroundColor: cs.surface,
         scrolledUnderElevation: 1,
         toolbarHeight: 80,

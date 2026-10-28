@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:sitepulse_engineer/core/services/mobile_policy_service.dart';
 
 class LocationTrackingPolicy {
   const LocationTrackingPolicy._();
@@ -21,13 +22,14 @@ class LocationTrackingPolicy {
   }) {
     // Allow mock locations in debug mode for Android Emulator GPX/KML route testing
     final effectiveMocked = (kDebugMode && !_isTest) ? false : isMocked;
-    if (!isDutyActive || effectiveMocked || accuracyMeters > 200) return false;
+    final policy = MobilePolicyService.current;
+    if (!isDutyActive || effectiveMocked || accuracyMeters > policy.trackingMaxAccuracyM) return false;
     
     // In debug mode, accept all valid positions to test emulator route simulation smoothly
     if (kDebugMode && !_isTest) return true;
 
-    if (elapsedSeconds < 10 || distanceMeters < 15) return false;
-    if (distanceMeters / elapsedSeconds > 70) return false;
+    if (elapsedSeconds < policy.trackingUpdateIntervalSeconds || distanceMeters < policy.trackingMinMovementM) return false;
+    if (distanceMeters / elapsedSeconds > policy.trackingMaxSpeedMps) return false;
     return true;
   }
 

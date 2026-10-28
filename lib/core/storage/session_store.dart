@@ -23,6 +23,11 @@ class SessionStore {
   static const String _key = "sitepulse_engineer_session";
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
+  static bool isExpired(AuthSession session) {
+    final expMs = session.expiresAtMs;
+    return expMs != null && DateTime.now().millisecondsSinceEpoch >= expMs;
+  }
+
   static Future<void> load() async {
     // 1. Try reading from FlutterSecureStorage
     String? raw = await _secureStorage.read(key: _key);
@@ -52,8 +57,7 @@ class SessionStore {
           await _clearStorage();
           return;
         }
-        final expMs = session.expiresAtMs;
-        if (expMs != null && DateTime.now().millisecondsSinceEpoch >= expMs) {
+        if (isExpired(session)) {
           await _clearStorage();
           return;
         }

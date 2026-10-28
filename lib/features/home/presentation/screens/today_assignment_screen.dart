@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:sitepulse_engineer/core/config/api_config.dart';
+import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/shared/models/auth_session.dart';
 import 'package:sitepulse_engineer/features/profile/presentation/screens/profile_screen.dart';
@@ -19,8 +20,8 @@ import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
-import 'package:sitepulse_engineer/features/history/presentation/screens/history_screen.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart';
+import 'package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
@@ -83,11 +84,13 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   String? _expandedAssignmentId;
   bool isPunchingOutForException = false;
   String? _lastPunchOutRemarks;
+  late Future<Map<String, dynamic>> _payoutEstimate;
 
   @override
   void initState() {
     super.initState();
     resolveApiBaseUrl();
+    _payoutEstimate = _loadPayoutEstimate();
     ShiftActionService.punchOutRequests.addListener(_handlePunchOutAction);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -97,6 +100,45 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         _consumePendingPunchOutAction();
       }
     });
+  }
+
+  Future<Map<String, dynamic>> _loadPayoutEstimate() async {
+    final dio = await ApiClient.instance.dio;
+    final response = await dio.get('/api/v1/engineer/payouts/estimate');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  num _payoutAmount(Map<String, dynamic> payout, String key) =>
+      payout[key] as num? ?? 0;
+
+  num _payoutDeductions(Map<String, dynamic> payout) =>
+      _payoutAmount(payout, 'tds_amount') +
+      _payoutAmount(payout, 'professional_tax_amount') +
+      _payoutAmount(payout, 'employee_pf_amount') +
+      _payoutAmount(payout, 'other_deductions');
+
+  String _payoutMoney(dynamic value) =>
+      '₹${(value as num? ?? 0).toStringAsFixed(2)}';
+
+  String _payoutDays(dynamic value) {
+    final amount = value as num? ?? 0;
+    return amount == amount.roundToDouble()
+        ? amount.toInt().toString()
+        : amount.toStringAsFixed(1);
+  }
+
+  Widget _buildPayoutStatChip({required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
   }
 
   void _handlePunchOutAction() {
@@ -1030,14 +1072,23 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           ),
           if (isExpanded && assignment.todayPunchInTime != null) ...[
             const SizedBox(height: 12),
-            _PunchSummaryCard(
-              punchInTimeStr: assignment.todayPunchInTime,
-              punchOutTimeStr: assignment.todayPunchOutTime,
-              activeHoursStr: assignment.todayActiveHours,
-              isActive: isThisProjectActive,
-              punchInDistanceMeters: assignment.todayPunchInDistanceM,
-              punchOutDistanceMeters: assignment.todayPunchOutDistanceM,
-              allowedRadiusM: assignment.allowedRadiusM,
+            FutureBuilder<double?>(
+              future: _resolveSiteDistance(assignment),
+              builder: (context, snapshot) {
+                final resolvedDistance = snapshot.data;
+                final punchInDist = assignment.todayPunchInDistanceM ?? resolvedDistance;
+                final punchOutDist = assignment.todayPunchOutDistanceM ?? (assignment.todayPunchOutTime != null ? resolvedDistance : null);
+
+                return _PunchSummaryCard(
+                  punchInTimeStr: assignment.todayPunchInTime,
+                  punchOutTimeStr: assignment.todayPunchOutTime,
+                  activeHoursStr: assignment.todayActiveHours,
+                  isActive: isThisProjectActive,
+                  punchInDistanceMeters: punchInDist,
+                  punchOutDistanceMeters: punchOutDist,
+                  allowedRadiusM: assignment.allowedRadiusM,
+                );
+              },
             ),
           ],
 
@@ -1050,21 +1101,43 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     selectedProjectIdForException == assignment.projectId;
 
                 if (isThisProjectActive) {
-                  return PrimaryButton(
-                    label: "Punch Out",
-                    isLoading: isThisLoading,
-                    isDestructive: true,
-                    onPressed: isPunching
-                        ? null
-                        : () {
-                            setState(() {
-                              selectedProjectIdForException =
-                                  assignment.projectId;
-                              isPunchingOutForException = true;
-                            });
-                            _punchOut();
-                          },
-                    icon: Icons.logout_rounded,
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: PrimaryButton(
+                          label: "Punch Out",
+                          isLoading: isThisLoading,
+                          isDestructive: true,
+                          onPressed: isPunching
+                              ? null
+                              : () {
+                                  setState(() {
+                                    selectedProjectIdForException = assignment.projectId;
+                                    isPunchingOutForException = true;
+                                  });
+                                  _punchOut();
+                                },
+                          icon: Icons.logout_rounded,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: PrimaryButton(
+                          label: "Work Update",
+                          onPressed: isPunching
+                              ? null
+                              : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => TimesheetScreen(
+                                        sessionToken: widget.sessionToken,
+                                        engineerEmpCode: widget.engineerEmpCode,
+                                      ),
+                                    ),
+                                  ),
+                          icon: Icons.edit_note_rounded,
+                        ),
+                      ),
+                    ],
                   );
                 } else if (!isAnyProjectActive) {
                   return PrimaryButton(
@@ -1120,18 +1193,111 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
+  Widget _buildStatsTab({
+    required String label,
+    required int index,
+    required ColorScheme cs,
+  }) {
+    final selected = _statsTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _statsTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+      ),
+    );
+  }
+
 
   int _statsTabIndex = 0;
+
+  Widget _buildExpectedPayoutTab(ColorScheme cs) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _payoutEstimate,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 76,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return SizedBox(
+            height: 76,
+            child: Center(
+              child: Text(
+                'Expected payout is unavailable.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          );
+        }
+
+        final payout = snapshot.data!;
+        final isEstimate = payout['is_estimate'] == true;
+        final deductions = _payoutDeductions(payout);
+        final paidDays = _payoutDays(payout['attendance_days']);
+        final pendingDays = _payoutDays(payout['pending_exception_days']);
+        return Column(
+          key: const ValueKey(2),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _payoutMoney(payout['net_payout']),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: cs.primary,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Gross: ${_payoutMoney(payout['gross_payout'])}  •  Deductions: ${_payoutMoney(deductions)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _buildPayoutStatChip(label: '$paidDays Paid Days', color: const Color(0xFF047857)),
+                if (pendingDays != '0')
+                  _buildPayoutStatChip(label: '$pendingDays Pending Review', color: const Color(0xFFB45309)),
+              ],
+            ),
+            if (isEstimate) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Estimated amount. Final payout may change after review and adjustments.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildCombinedStatsCard(
       AttendanceOverviewModel? overview, WeeklySummaryModel? summary, int projectCount) {
     if (overview == null && summary == null) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
-    final ext = Theme.of(context).extension<AppColorsExtension>();
-    final isOnline = overview?.currentStatus == "ON SITE";
-    final statusColor =
-        isOnline ? (ext?.success ?? Colors.green) : cs.onSurfaceVariant;
 
     return Card(
       elevation: 0,
@@ -1146,86 +1312,34 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => setState(() => _statsTabIndex = 0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _statsTabIndex == 0 ? cs.primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            "Today",
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: _statsTabIndex == 0 ? cs.onPrimary : cs.onSurfaceVariant,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildStatsTab(label: "Today", index: 0, cs: cs),
+                          _buildStatsTab(label: "Monthly", index: 1, cs: cs),
+                          _buildStatsTab(label: "Expected Payout", index: 2, cs: cs),
+                        ],
                       ),
-                      GestureDetector(
-                        onTap: () => setState(() => _statsTabIndex = 1),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _statsTabIndex == 1 ? cs.primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            "Monthly",
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: _statsTabIndex == 1 ? cs.onPrimary : cs.onSurfaceVariant,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_statsTabIndex == 0 && overview != null)
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => AttendanceScreen(sessionToken: widget.sessionToken),
-                        ),
-                      );
-                    },
-                    child: _StatusChip(
-                      icon: Icons.circle,
-                      label: overview.currentStatus,
-                      color: statusColor,
                     ),
                   ),
-                if (_statsTabIndex == 1)
-                  IconButton(
-                    icon: Icon(Icons.history_rounded, size: 20, color: cs.primary),
-                    tooltip: 'View History',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => HistoryScreen(sessionToken: widget.sessionToken),
-                        ),
-                      );
-                    },
-                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              child: _statsTabIndex == 0
+              child: _statsTabIndex == 2
+                  ? _buildExpectedPayoutTab(cs)
+                  : _statsTabIndex == 0
                   ? Row(
                       key: const ValueKey(0),
                       children: [
@@ -1476,6 +1590,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         body: RefreshIndicator(
           onRefresh: () async {
             context.read<HomeBloc>().add(LoadAssignmentsRequested());
+            setState(() => _payoutEstimate = _loadPayoutEstimate());
           },
           child: BlocBuilder<HomeBloc, HomeState>(
             builder: (context, state) {
@@ -1534,8 +1649,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     const SizedBox(height: 24),
                     _buildCombinedStatsCard(
                         resp.attendanceOverview, resp.weeklySummary, assignments.length),
-                    const SizedBox(height: 16),
-                    _buildReferralPromoCard(),
                     const SizedBox(height: 24),
                     if (!hasAssignment) ...[
                       if (!resp.isProfileComplete)

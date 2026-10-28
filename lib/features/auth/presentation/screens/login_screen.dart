@@ -325,6 +325,16 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
   Future<void> _verifyMpinAndLogin() async {
     setState(() => isAutoLoggingIn = true);
+    if (await MpinStore.isLocked()) {
+      if (mounted) {
+        setState(() {
+          error = "Too many incorrect MPIN attempts. Please try again later.";
+          _pin = "";
+          isAutoLoggingIn = false;
+        });
+      }
+      return;
+    }
     bool isValid = await MpinStore.verifyMpin(_pin);
     if (!isValid && SessionStore.current != null) {
       try {
@@ -382,7 +392,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
 
       // Session is null (user logged out). Try to restore offline session.
       final offlineSession = await OfflineSessionCache.get();
-      if (offlineSession != null) {
+      if (offlineSession != null && !SessionStore.isExpired(offlineSession)) {
         await SessionStore.set(offlineSession);
         if (mounted) {
           Navigator.of(context)
@@ -391,20 +401,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         return;
       }
 
-      final creds = await CredentialStore.getCredentials();
-      if (creds != null) {
-        // We simulate a form submission for the bloc
-        empCodeCtrl.text = creds['empCode']!;
-        passwordCtrl.text = creds['password']!;
-        rememberMe = true;
-        submit();
-      } else {
-        setState(() {
-          error = "No saved credentials found. Please sign in with password.";
-          _pin = "";
-          isAutoLoggingIn = false;
-        });
-      }
+      setState(() {
+        error = "Your saved session has expired. Please sign in with your password.";
+        _pin = "";
+        isAutoLoggingIn = false;
+        isMpinMode = false;
+      });
     } else {
       HapticFeedback.heavyImpact();
       setState(() {

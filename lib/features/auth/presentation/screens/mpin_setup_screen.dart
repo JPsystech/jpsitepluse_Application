@@ -69,11 +69,13 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
 
   Future<void> _verifyAgainstServer(String pin) async {
     setState(() => _errorMessage = "");
+    if (await MpinStore.isLocked()) {
+      setState(() => _errorMessage = "Too many incorrect MPIN attempts. Please try again later.");
+      return;
+    }
     try {
       final session = SessionStore.current;
       if (session != null) {
-        await AuthService().verifyMpin(session.token, pin);
-
         await AuthService().verifyMpin(session.token, pin);
 
         // Normal flow, they entered their existing MPIN successfully
@@ -83,6 +85,7 @@ class _MpinSetupScreenState extends State<MpinSetupScreen> {
               .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
       }
     } catch (e) {
+      await MpinStore.recordFailure();
       setState(() {
         _errorMessage = "Invalid MPIN. Try again.";
         _pin = "";

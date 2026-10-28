@@ -57,13 +57,17 @@ android {
         }
         release {
             resValue("string", "app_name", "JP SitePulse")
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            val buildingRelease = gradle.startParameter.taskNames.any {
+                it.contains("release", ignoreCase = true)
             }
-            isMinifyEnabled = false
-            isShrinkResources = false
+            if (buildingRelease && !keystorePropertiesFile.exists()) {
+                throw GradleException(
+                    "Release signing requires android/key.properties; debug signing is not permitted."
+                )
+            }
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
         }
     }
 }

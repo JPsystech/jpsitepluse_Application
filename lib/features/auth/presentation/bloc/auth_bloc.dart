@@ -38,7 +38,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await CredentialStore.saveCredentials(
         vendorCode: event.vendorCode,
         empCode: event.empCode,
-        password: event.password,
         engineerName: session.engineer.fullName,
       );
       await OfflineSessionCache.save(session);
@@ -53,7 +52,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           final isMatch = await MpinStore.verifyMpin(event.password);
           if (isMatch) {
             final cachedSession = await OfflineSessionCache.get();
-            if (cachedSession != null) {
+            if (cachedSession != null && !SessionStore.isExpired(cachedSession)) {
               final sessionModel = AuthSessionModel(
                 token: cachedSession.token,
                 engineer: cachedSession.engineer,

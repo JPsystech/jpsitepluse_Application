@@ -1,6 +1,7 @@
 import "dart:convert";
 
 import "package:shared_preferences/shared_preferences.dart";
+import "package:sitepulse_engineer/core/services/mobile_policy_service.dart";
 
 enum OfflinePunchType { inPunch, outPunch }
 
@@ -69,7 +70,6 @@ class OfflinePunch {
 
 class OfflinePunchQueue {
   static const String _key = "offline_punch_queue_v1";
-  static const int _maxItems = 60;
 
   Future<List<OfflinePunch>> list() async {
     final prefs = await SharedPreferences.getInstance();
@@ -107,6 +107,7 @@ class OfflinePunchQueue {
   }
 
   Future<void> add(OfflinePunch punch) async {
+    await MobilePolicyService.loadCached();
     final prefs = await SharedPreferences.getInstance();
     final items = await list();
     final exists = items.any(
@@ -114,8 +115,9 @@ class OfflinePunchQueue {
     if (exists) return;
     items.add(punch);
     items.sort((a, b) => a.clientPunchTimeIso.compareTo(b.clientPunchTimeIso));
-    final trimmed = items.length > _maxItems
-        ? items.sublist(items.length - _maxItems)
+    final maxItems = MobilePolicyService.current.offlinePunchQueueMaxItems;
+    final trimmed = items.length > maxItems
+        ? items.sublist(items.length - maxItems)
         : items;
     await prefs.setString(
         _key, jsonEncode(trimmed.map((e) => e.toJson()).toList()));

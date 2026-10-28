@@ -42,11 +42,28 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       throw "Location permission is denied permanently.";
     }
 
-    final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    Position? pos = await Geolocator.getLastKnownPosition();
+    if (pos == null) {
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+      } catch (_) {
+        pos = await Geolocator.getLastKnownPosition();
+      }
+    }
 
-    if (pos.isMocked) {
+    if (pos == null) {
+      if (kDebugMode) {
+        return (lat: 23.126218, lng: 72.580209, accuracyM: 20.0);
+      }
+      throw "Unable to acquire location fix. Please check your GPS and try again.";
+    }
+
+    if (pos.isMocked && !kDebugMode) {
       throw "Fake GPS detected. Please disable mock locations to punch in.";
     }
 

@@ -43,6 +43,19 @@ class ReferralService {
     return [];
   }
 
+  Future<DateTime?> getJobOpeningsSeenAt() async {
+    final client = await api.dio;
+    final response = await client.get('/api/v1/referrals/engineer/job-openings/seen-at');
+    final data = response.data;
+    if (data is Map) return DateTime.tryParse('${data['seen_at'] ?? ''}');
+    return null;
+  }
+
+  Future<void> markJobOpeningsSeen() async {
+    final client = await api.dio;
+    await client.post('/api/v1/referrals/engineer/job-openings/mark-seen');
+  }
+
   Future<CandidateResumePresignModel> presignResume({
     required String originalFilename,
     required String contentType,

@@ -1,4 +1,5 @@
 import "dart:io";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:http/http.dart" as http;
 import "package:path_provider/path_provider.dart";
@@ -25,9 +26,22 @@ class _ImageViewerState extends State<ImageViewer> {
       return;
     }
 
+    final uri = Uri.tryParse(widget.url);
+    final isAllowedRemoteUrl = uri != null &&
+        uri.host.isNotEmpty &&
+        (uri.scheme == 'https' || (kDebugMode && uri.scheme == 'http'));
+    if (!isAllowedRemoteUrl) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This image link is not secure.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isDownloading = true);
     try {
-      final response = await http.get(Uri.parse(widget.url));
+      final response = await http.get(uri!);
       if (response.statusCode == 200) {
         final tempDir = await getTemporaryDirectory();
         final fileName = widget.url.split("/").last.split("?").first;
