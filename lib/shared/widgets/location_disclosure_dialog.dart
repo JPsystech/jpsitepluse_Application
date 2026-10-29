@@ -10,6 +10,8 @@ class LocationDisclosureDialog extends StatelessWidget {
   static Future<bool> shouldShow() async {
     final permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.always) return false;
+    // Android keeps the on-duty foreground service visibly active, so
+    // while-in-use permission is sufficient while that notification is shown.
     return defaultTargetPlatform == TargetPlatform.iOS ||
         permission != LocationPermission.whileInUse;
   }
@@ -91,7 +93,7 @@ class LocationDisclosureDialog extends StatelessWidget {
                   border: Border.all(color: Colors.blue.shade200),
                 ),
                 child: const Text(
-                  'On Android, choose "While using the app". Do not choose "Only this time", because temporary access stops after the app leaves the foreground.',
+                  'On Android, choose "While using the app". Do not choose "Only this time", because temporary access can stop after the app leaves the foreground. During an active shift, the visible tracking notification keeps live location running.',
                   style: TextStyle(fontSize: 12, color: Colors.black87),
                 ),
               ),
@@ -177,7 +179,8 @@ class LocationDisclosureDialog extends StatelessWidget {
       }
 
       return permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse;
+          (defaultTargetPlatform == TargetPlatform.android &&
+              permission == LocationPermission.whileInUse);
     } catch (_) {
       return false;
     }

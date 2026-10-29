@@ -66,9 +66,6 @@ class PushNotificationRegistrationService {
         FirebaseMessaging.instance.onTokenRefresh.listen((freshToken) async {
           await _sendTokenToBackend(freshToken);
         });
-        FirebaseMessaging.onMessage.listen((message) async {
-          await handleRemoteMessage(message);
-        });
       }
     } catch (e) {
       if (kDebugMode) {

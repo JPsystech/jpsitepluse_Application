@@ -30,6 +30,7 @@ import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
 import 'package:sitepulse_engineer/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:sitepulse_engineer/core/services/notification_service.dart';
 import 'package:sitepulse_engineer/features/onboarding/presentation/screens/complete_profile_screen.dart';
 import 'package:uuid/uuid.dart';
 
@@ -1202,18 +1203,23 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     return GestureDetector(
       onTap: () => setState(() => _statsTabIndex = index),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? cs.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected ? cs.onPrimary : cs.onSurfaceVariant,
-                fontWeight: FontWeight.bold,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-        ),
+          ),
       ),
     );
   }
@@ -1320,15 +1326,12 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                       color: cs.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildStatsTab(label: "Today", index: 0, cs: cs),
-                          _buildStatsTab(label: "Monthly", index: 1, cs: cs),
-                          _buildStatsTab(label: "Expected Payout", index: 2, cs: cs),
-                        ],
-                      ),
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildStatsTab(label: "Today", index: 0, cs: cs)),
+                        Expanded(child: _buildStatsTab(label: "Monthly", index: 1, cs: cs)),
+                        Expanded(child: _buildStatsTab(label: "Expected Payout", index: 2, cs: cs)),
+                      ],
                     ),
                   ),
                 ),
@@ -1562,6 +1565,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         } else if (state is PunchInSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Punch In Successful")));
+          unawaited(NotificationService.instance.showPunchInConfirmation());
           context.read<HomeBloc>().add(LoadAssignmentsRequested());
         } else if (state is PunchOutSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(

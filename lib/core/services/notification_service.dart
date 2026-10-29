@@ -243,6 +243,28 @@ class NotificationService {
     await _localNotifications.cancel(754321);
   }
 
+  Future<void> showPunchInConfirmation() async {
+    const details = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@drawable/ic_notification',
+      largeIcon:
+          DrawableResourceAndroidBitmap('@drawable/ic_notification_large'),
+      color: Color(0xFF0D47A1),
+    );
+
+    await _localNotifications.show(
+      754320,
+      'Punch in successful',
+      'You are now on duty. Location tracking is active.',
+      const NotificationDetails(android: details),
+      payload: jsonEncode({'type': 'ATTENDANCE'}),
+    );
+  }
+
   Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
     final title = notification?.title ?? message.data['title'] ?? 'JP SitePulse';

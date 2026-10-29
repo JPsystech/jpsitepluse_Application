@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:sitepulse_engineer/features/attendance/data/models/punch_response_model.dart';
 import 'package:sitepulse_engineer/features/attendance/data/repositories/attendance_repository.dart';
 import 'package:safe_device/safe_device.dart';
@@ -84,6 +85,21 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   Future<({double lat, double lng, double accuracyM})>
       resolveLocationPublic() => _resolveLocation();
 
+  Future<({int? percent, bool isCharging})> _readBatteryStatus() async {
+    try {
+      final battery = Battery();
+      final percent = await battery.batteryLevel;
+      final state = await battery.batteryState;
+      return (
+        percent: percent,
+        isCharging: state == BatteryState.charging || state == BatteryState.full,
+      );
+    } catch (_) {
+      // Battery information is supplementary; it must not block attendance.
+      return (percent: null, isCharging: false);
+    }
+  }
+
   Future<void> _onPunchInRequested(
       PunchInRequested event, Emitter<AttendanceState> emit) async {
     emit(AttendanceLoading());
@@ -106,6 +122,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         }
       }
 
+      final battery = await _readBatteryStatus();
       final response = await _repository.punchIn(
         lat: lat,
         lng: lng,
@@ -115,6 +132,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         clientPunchId: event.clientPunchId,
         clientPunchTimeIso: event.clientPunchTimeIso,
         isOffline: event.isOffline,
+        batteryPercent: battery.percent,
+        isCharging: battery.isCharging,
       );
       unawaited(PersistentBackgroundTrackingService.startTracking(
         attendanceLogId: response.attendanceLogId,
@@ -166,6 +185,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         }
       }
 
+      final battery = await _readBatteryStatus();
       final response = await _repository.punchOut(
         lat: lat,
         lng: lng,
@@ -175,6 +195,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         clientPunchId: event.clientPunchId,
         clientPunchTimeIso: event.clientPunchTimeIso,
         isOffline: event.isOffline,
+        batteryPercent: battery.percent,
+        isCharging: battery.isCharging,
       );
       await PersistentBackgroundTrackingService.stopTracking();
       emit(PunchOutSuccess(response: response));

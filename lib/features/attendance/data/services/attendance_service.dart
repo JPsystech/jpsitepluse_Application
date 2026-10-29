@@ -12,6 +12,8 @@ class AttendanceService {
     String? clientPunchId,
     String? clientPunchTimeIso,
     bool? isOffline,
+    int? batteryPercent,
+    bool isCharging = false,
   }) async {
     final client = await ApiClient.instance.dio;
     final body = <String, dynamic>{"lat": lat, "lng": lng};
@@ -25,6 +27,8 @@ class AttendanceService {
     final ctime = (clientPunchTimeIso ?? "").trim();
     if (ctime.isNotEmpty) body["client_punch_time"] = ctime;
     if (isOffline != null) body["is_offline"] = isOffline;
+    if (batteryPercent != null) body["battery_percent"] = batteryPercent;
+    body["is_charging"] = isCharging;
 
     try {
       final response =
@@ -48,6 +52,8 @@ class AttendanceService {
     String? clientPunchId,
     String? clientPunchTimeIso,
     bool? isOffline,
+    int? batteryPercent,
+    bool isCharging = false,
   }) async {
     final client = await ApiClient.instance.dio;
     final body = <String, dynamic>{"lat": lat, "lng": lng, "remarks": remarks};
@@ -59,6 +65,8 @@ class AttendanceService {
     final ctime = (clientPunchTimeIso ?? "").trim();
     if (ctime.isNotEmpty) body["client_punch_time"] = ctime;
     if (isOffline != null) body["is_offline"] = isOffline;
+    if (batteryPercent != null) body["battery_percent"] = batteryPercent;
+    body["is_charging"] = isCharging;
 
     try {
       final response =

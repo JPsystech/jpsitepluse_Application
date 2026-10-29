@@ -16,6 +16,8 @@ class AttendanceRepository {
     String? clientPunchId,
     String? clientPunchTimeIso,
     bool? isOffline,
+    int? batteryPercent,
+    bool isCharging = false,
   }) async {
     return await _attendanceService.punchIn(
       lat: lat,
@@ -26,6 +28,8 @@ class AttendanceRepository {
       clientPunchId: clientPunchId,
       clientPunchTimeIso: clientPunchTimeIso,
       isOffline: isOffline,
+      batteryPercent: batteryPercent,
+      isCharging: isCharging,
     );
   }
 
@@ -38,6 +42,8 @@ class AttendanceRepository {
     String? clientPunchId,
     String? clientPunchTimeIso,
     bool? isOffline,
+    int? batteryPercent,
+    bool isCharging = false,
   }) async {
     return await _attendanceService.punchOut(
       lat: lat,
@@ -48,6 +54,8 @@ class AttendanceRepository {
       clientPunchId: clientPunchId,
       clientPunchTimeIso: clientPunchTimeIso,
       isOffline: isOffline,
+      batteryPercent: batteryPercent,
+      isCharging: isCharging,
     );
   }
 }

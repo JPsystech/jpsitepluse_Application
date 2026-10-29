@@ -44,6 +44,24 @@ Future<({int? percent, bool isCharging})> _readBatteryStatus() async {
     return (percent: _lastBatteryPercent, isCharging: _lastBatteryIsCharging);
   }
 
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      final nativeStatus = await _deviceHealthChannel
+          .invokeMapMethod<String, dynamic>('getBatteryStatus');
+      final nativePercent = (nativeStatus?['percent'] as num?)?.toInt();
+      if (nativePercent != null && nativePercent >= 0 && nativePercent <= 100) {
+        _lastBatteryPercent = nativePercent;
+        _lastBatteryIsCharging = nativeStatus?['isCharging'] == true;
+        _lastBatteryReadAt = now;
+        return (percent: _lastBatteryPercent, isCharging: _lastBatteryIsCharging);
+      }
+    } on PlatformException catch (error) {
+      if (kDebugMode) {
+        debugPrint('[BackgroundService] Native battery read failed: $error');
+      }
+    }
+  }
+
   try {
     final battery = Battery();
     _lastBatteryPercent = await battery.batteryLevel;
@@ -270,7 +288,12 @@ Future<void> _recordLocationReadinessIssue({String? attendanceLogId}) async {
   final permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
     await _recordTrackingHealthEvent('LOCATION_PERMISSION_DENIED', attendanceLogId: attendanceLogId);
-  } else if (defaultTargetPlatform == TargetPlatform.iOS && permission != LocationPermission.always) {
+  } else if (defaultTargetPlatform != TargetPlatform.android &&
+      permission != LocationPermission.always) {
+    // Android location updates are performed by the visible location
+    // foreground service. Its while-in-use grant remains valid while the
+    // service notification is active; iOS still requires Always permission
+    // for continuous background updates.
     await _recordTrackingHealthEvent('BACKGROUND_PERMISSION_MISSING', attendanceLogId: attendanceLogId);
   }
 }
@@ -506,6 +529,7 @@ LocationSettings _backgroundLocationSettings() {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   _backgroundServiceInstance = service;
 

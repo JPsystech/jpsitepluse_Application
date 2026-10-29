@@ -3,6 +3,7 @@ import "dart:io";
 
 import "package:shared_preferences/shared_preferences.dart";
 import "package:sitepulse_engineer/core/services/mobile_policy_service.dart";
+import "package:sitepulse_engineer/core/storage/encrypted_file_store.dart";
 
 class OfflineTimesheet {
   OfflineTimesheet({
@@ -77,9 +78,28 @@ class OfflineTimesheet {
 class OfflineTimesheetQueue {
   static const String _key = "offline_timesheet_queue_v1";
 
-  Future<List<OfflineTimesheet>> list() async {
+  Future<String?> _readRaw() async {
+    final encrypted = await EncryptedFileStore.read(_key);
+    if (encrypted != null) return encrypted;
+
+    // Move legacy plaintext queue data to encrypted app-private storage.
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final legacy = prefs.getString(_key);
+    if (legacy != null) {
+      await EncryptedFileStore.write(_key, legacy);
+      await prefs.remove(_key);
+    }
+    return legacy;
+  }
+
+  Future<void> _writeRaw(String value) async {
+    await EncryptedFileStore.write(_key, value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
+
+  Future<List<OfflineTimesheet>> list() async {
+    final raw = await _readRaw();
     if (raw == null || raw.trim().isEmpty) return [];
     final decoded = jsonDecode(raw);
     if (decoded is! List) return [];
@@ -99,7 +119,6 @@ class OfflineTimesheetQueue {
 
   Future<void> add(OfflineTimesheet timesheet) async {
     await MobilePolicyService.loadCached();
-    final prefs = await SharedPreferences.getInstance();
     final items = await list();
     final exists = items.any((t) => t.id == timesheet.id);
     if (exists) return;
@@ -117,12 +136,10 @@ class OfflineTimesheetQueue {
     final trimmed = items.length > maxItems
         ? items.sublist(items.length - maxItems)
         : items;
-    await prefs.setString(
-        _key, jsonEncode(trimmed.map((e) => e.toJson()).toList()));
+    await _writeRaw(jsonEncode(trimmed.map((e) => e.toJson()).toList()));
   }
 
   Future<void> remove({required String id}) async {
-    final prefs = await SharedPreferences.getInstance();
     final items = await list();
     
     // Try to delete the file if it exists to save space
@@ -137,11 +154,11 @@ class OfflineTimesheetQueue {
     }
 
     final next = items.where((t) => t.id != id).toList();
-    await prefs.setString(
-        _key, jsonEncode(next.map((e) => e.toJson()).toList()));
+    await _writeRaw(jsonEncode(next.map((e) => e.toJson()).toList()));
   }
 
   Future<void> clear() async {
+    await EncryptedFileStore.delete(_key);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
   }

@@ -12,6 +12,7 @@ import "package:uuid/uuid.dart";
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
 import "package:sitepulse_engineer/shared/models/engineer.dart";
 import "package:sitepulse_engineer/core/network/api_client.dart";
+import "package:sitepulse_engineer/core/storage/offline_session_cache.dart";
 
 class SessionStore {
   static AuthSession? current;
@@ -100,6 +101,7 @@ class SessionStore {
     current = null;
     notifier.value = null;
     await _secureStorage.delete(key: _key);
+    await OfflineSessionCache.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
   }
