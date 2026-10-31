@@ -1594,7 +1594,9 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
         body: RefreshIndicator(
           onRefresh: () async {
             context.read<HomeBloc>().add(LoadAssignmentsRequested());
-            setState(() => _payoutEstimate = _loadPayoutEstimate());
+            setState(() {
+              _payoutEstimate = _loadPayoutEstimate();
+            });
           },
           child: BlocBuilder<HomeBloc, HomeState>(
             builder: (context, state) {

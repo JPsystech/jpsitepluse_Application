@@ -120,6 +120,41 @@ class AuthService {
       throw AuthException('Password change failed: ${e.message}');
     }
   }
+
+  Future<AuthSessionModel> loginWithMpin({
+    required String companyCode,
+    required String empCode,
+    required String mpin,
+    required String deviceId,
+  }) async {
+    final client = await ApiClient.instance.dio;
+    try {
+      final deviceInfoStr = await _getDeviceInfo();
+      final response = await client.post('/api/v1/engineer/login-mpin', data: {
+        'vendor_code': companyCode,
+        'emp_code': empCode,
+        'mpin': mpin,
+        'device_id': deviceId,
+        'device_info': deviceInfoStr,
+      });
+      return AuthSessionModel(
+        token: response.data['access_token'] ?? '',
+        engineer: Engineer.fromJson(response.data['engineer']),
+        mustChangePassword: response.data['must_change_password'] ?? false,
+        expiresAtMs: response.data['expires_at_ms'],
+        hasMpin: response.data['has_mpin'] ?? true,
+        acceptedTerms: response.data['accepted_terms'] ?? false,
+      );
+    } on DioException catch (e) {
+      if (e.response == null) rethrow;
+      final data = e.response?.data;
+      if (data is Map) {
+        final detail = data['error']?['message'] ?? data['detail'] ?? data['message'];
+        if (detail != null) throw AuthException(detail.toString());
+      }
+      throw AuthException('MPIN login failed');
+    }
+  }
   Future<void> setMpin(String token, String mpin) async {
     final client = await ApiClient.instance.dio;
     try {

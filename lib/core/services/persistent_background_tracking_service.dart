@@ -5,12 +5,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:geolocator_android/geolocator_android.dart';
+import 'package:path_provider_android/path_provider_android.dart';
+import 'package:shared_preferences_android/shared_preferences_android.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/storage/duty_session_store.dart';
 import 'package:sitepulse_engineer/core/storage/encrypted_file_store.dart';
 import 'package:sitepulse_engineer/core/services/mobile_policy_service.dart';
 
@@ -42,24 +46,6 @@ Future<({int? percent, bool isCharging})> _readBatteryStatus() async {
   if (_lastBatteryReadAt != null &&
       now.difference(_lastBatteryReadAt!) < _batteryReadInterval) {
     return (percent: _lastBatteryPercent, isCharging: _lastBatteryIsCharging);
-  }
-
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    try {
-      final nativeStatus = await _deviceHealthChannel
-          .invokeMapMethod<String, dynamic>('getBatteryStatus');
-      final nativePercent = (nativeStatus?['percent'] as num?)?.toInt();
-      if (nativePercent != null && nativePercent >= 0 && nativePercent <= 100) {
-        _lastBatteryPercent = nativePercent;
-        _lastBatteryIsCharging = nativeStatus?['isCharging'] == true;
-        _lastBatteryReadAt = now;
-        return (percent: _lastBatteryPercent, isCharging: _lastBatteryIsCharging);
-      }
-    } on PlatformException catch (error) {
-      if (kDebugMode) {
-        debugPrint('[BackgroundService] Native battery read failed: $error');
-      }
-    }
   }
 
   try {
@@ -444,6 +430,7 @@ Future<void> _stopTrackingAfterAttendanceConflict() async {
   await prefs.remove(_trackingActiveKey);
   await prefs.remove(_attendanceLogIdKey);
   await prefs.remove(_backgroundSessionKey);
+  await DutySessionStore.clear();
   _backgroundServiceInstance?.stopSelf();
 }
 
@@ -530,7 +517,17 @@ LocationSettings _backgroundLocationSettings() {
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
+  // Do not use DartPluginRegistrant here: it also registers the UI-only
+  // flutter_background_service plugin and emits an exception in this isolate.
+  // Register only the Dart-side implementations used by tracking; their
+  // Android plugins are already attached to the service's Flutter engine.
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    GeolocatorAndroid.registerWith();
+    PathProviderAndroid.registerWith();
+    SharedPreferencesAndroid.registerWith();
+  } else {
+    DartPluginRegistrant.ensureInitialized();
+  }
   _backgroundServiceInstance = service;
 
   final prefs = await SharedPreferences.getInstance();
@@ -543,6 +540,11 @@ void onStart(ServiceInstance service) async {
   await _recordLocationReadinessIssue(
     attendanceLogId: prefs.getString(_attendanceLogIdKey),
   );
+
+  // Load the duty token first.  It is deliberately kept in its own secure
+  // storage entry so a fresh background isolate can authenticate while the UI
+  // session entry is temporarily unavailable during punch-in.
+  await DutySessionStore.load();
 
   // Secure storage can still be busy while the UI isolate is completing a
   // punch-in. Give it a few short retries before deciding the session is gone.
@@ -559,7 +561,7 @@ void onStart(ServiceInstance service) async {
   // now retried above; remove any legacy plaintext snapshot on startup.
   await prefs.remove(_backgroundSessionKey);
 
-  if (SessionStore.current == null) {
+  if (SessionStore.current == null && DutySessionStore.token == null) {
     if (kDebugMode) {
       debugPrint(
         '[BackgroundService] Secure session unavailable after retries; '
@@ -701,6 +703,11 @@ class PersistentBackgroundTrackingService {
     String? projectName,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    final sessionToken = SessionStore.current?.token.trim();
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Cannot start duty tracking without an authenticated session.');
+    }
+    await DutySessionStore.save(sessionToken);
     if (attendanceLogId != null && attendanceLogId.trim().isNotEmpty) {
       final normalizedAttendanceLogId = attendanceLogId.trim();
       await prefs.setString(_attendanceLogIdKey, normalizedAttendanceLogId);
@@ -721,6 +728,12 @@ class PersistentBackgroundTrackingService {
     await _recordBatteryOptimizationStatus(attendanceLogId: attendanceLogId);
     unawaited(_flushTrackingHealthEvents());
 
+    // Capture a point while the punch-in screen is still visible. Android can
+    // briefly defer a newly-created foreground service, especially on recent
+    // releases, and that used to leave a shift with no initial breadcrumb.
+    // The background stream takes over after this immediate hand-off.
+    unawaited(_captureInitialLocation());
+
     try {
       final isRunning = await _service.isRunning().timeout(
             const Duration(seconds: 1),
@@ -728,6 +741,22 @@ class PersistentBackgroundTrackingService {
           );
       if (!isRunning) {
         await _service.startService();
+        // startService() can return before Android has accepted the foreground
+        // service. Verify that it came up and persist a diagnostic event rather
+        // than failing silently and leaving the engineer untracked.
+        await Future<void>.delayed(const Duration(seconds: 2));
+        final started = await _service.isRunning().timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => false,
+            );
+        if (!started) {
+          await _recordTrackingHealthEvent(
+            'LOCATION_STREAM_ERROR',
+            attendanceLogId: attendanceLogId,
+            details: 'Android did not start the foreground location service.',
+            throttle: false,
+          );
+        }
       }
     } catch (e) {
       await _recordTrackingHealthEvent(
@@ -741,8 +770,40 @@ class PersistentBackgroundTrackingService {
     }
   }
 
+  static Future<void> _captureInitialLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        await _recordLocationReadinessIssue();
+        return;
+      }
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        await _recordLocationReadinessIssue();
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      await _sendLocationPayload(position);
+    } catch (error) {
+      await _recordLocationReadinessIssue();
+      await _recordTrackingHealthEvent(
+        'LOCATION_STREAM_ERROR',
+        details: 'Unable to get the punch-in location for live tracking.',
+      );
+      if (kDebugMode) {
+        debugPrint('[BackgroundService] Immediate location deferred: $error');
+      }
+    }
+  }
+
   static Future<void> stopTracking() async {
     final prefs = await SharedPreferences.getInstance();
+    await DutySessionStore.clear();
     final attendanceLogId = prefs.getString(_attendanceLogIdKey);
     await _recordTrackingHealthEvent(
       'TRACKING_STOPPED',

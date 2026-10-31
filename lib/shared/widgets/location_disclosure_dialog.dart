@@ -99,6 +99,21 @@ class LocationDisclosureDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
+            if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: const Text(
+                  'On iPhone, choose “Allow While Using App” first, then choose “Change to Always Allow” when iOS asks again. “Always Allow” is required to record your active shift after the app is backgrounded or the screen is locked.',
+                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(

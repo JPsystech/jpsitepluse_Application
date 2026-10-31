@@ -1,14 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
+import 'package:sitepulse_engineer/core/storage/duty_session_store.dart';
 
 class TenantInterceptor extends Interceptor {
   @override
   Future<void> onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
     final session = SessionStore.current;
-    if (session != null && session.token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer ${session.token}';
+    final token = session?.token.isNotEmpty == true ? session!.token : DutySessionStore.token;
+    if (token != null && token.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $token';
 
       // Optionally, if the backend expects a specific tenant header directly:
       // options.headers['X-Tenant-ID'] = session.tenantId;

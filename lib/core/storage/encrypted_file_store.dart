@@ -57,7 +57,10 @@ class EncryptedFileStore {
       ..setRange(nonce.length, nonce.length + encrypted.length, encrypted);
 
     final file = await _fileFor(name);
-    final temp = File('${file.path}.tmp');
+    // The foreground app and the tracking service run in separate isolates.
+    // A shared ``.tmp`` name lets one isolate rename the other one's file,
+    // which presents as a misleading "No such file or directory" error.
+    final temp = File('${file.path}.${base64UrlEncode(_randomBytes(8))}.tmp');
     await temp.writeAsBytes(payload, flush: true);
     if (await file.exists()) await file.delete();
     await temp.rename(file.path);

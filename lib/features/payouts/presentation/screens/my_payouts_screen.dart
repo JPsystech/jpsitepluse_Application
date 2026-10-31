@@ -149,7 +149,11 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
           final totalDeductions = _totalDeductions(estimate);
 
           return RefreshIndicator(
-            onRefresh: () async => setState(() => _data = _load()),
+            onRefresh: () async {
+              setState(() {
+                _data = _load();
+              });
+            },
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [

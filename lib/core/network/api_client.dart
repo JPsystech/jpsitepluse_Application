@@ -18,6 +18,7 @@ class ApiClient {
             final deviceId = await SessionStore.getDeviceId();
             options.headers['X-Device-ID'] = deviceId;
           } catch (_) {}
+
           return handler.next(options);
         },
       ),

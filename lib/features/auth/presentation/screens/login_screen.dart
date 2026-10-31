@@ -346,6 +346,57 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       }
     }
     if (isValid) {
+      // A valid MPIN creates a new server session. It must not depend on an
+      // old access token still being present on the device.
+      final credentials = await CredentialStore.getCredentials();
+      if (credentials != null) {
+        try {
+          final freshSession = await AuthService().loginWithMpin(
+            companyCode: credentials['vendorCode']!,
+            empCode: credentials['empCode']!,
+            mpin: _pin,
+            deviceId: await SessionStore.getDeviceId(),
+          );
+          await SessionStore.set(freshSession);
+          await OfflineSessionCache.save(freshSession);
+          if (mounted) {
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil(AppRoutes.app, (route) => false);
+          }
+          return;
+        } on DioException catch (e) {
+          // Only a connection failure may use the encrypted offline cache.
+          if (e.response == null) {
+            final offlineSession = await OfflineSessionCache.get();
+            if (offlineSession != null && !SessionStore.isExpired(offlineSession)) {
+              await SessionStore.set(offlineSession);
+              if (mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                    AppRoutes.app, (route) => false);
+              }
+              return;
+            }
+            if (mounted) {
+              setState(() {
+                error = 'You are offline and no saved session is available.';
+                _pin = '';
+                isAutoLoggingIn = false;
+              });
+            }
+            return;
+          }
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              error = e.toString().replaceFirst('AuthException: ', '');
+              _pin = '';
+              isAutoLoggingIn = false;
+            });
+          }
+          return;
+        }
+      }
+
       if (SessionStore.current != null) {
         // Device binding check: before entering the app, verify the device
         // binding is still valid. If the admin released this device and another

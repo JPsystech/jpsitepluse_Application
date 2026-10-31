@@ -68,6 +68,11 @@ class NotificationService {
       if (androidImplementation != null) {
         await androidImplementation.createNotificationChannel(_channel);
         await androidImplementation.createNotificationChannel(_activeShiftChannel);
+        // Firebase's permission API does not consistently surface the Android
+        // 13+ POST_NOTIFICATIONS prompt on every device/OEM. Request it from
+        // the Android notifications implementation too, so FCM alerts (such
+        // as a geofence exit) are not silently suppressed on a fresh install.
+        await androidImplementation.requestNotificationsPermission();
       }
 
       // Initialize Flutter Local Notifications
