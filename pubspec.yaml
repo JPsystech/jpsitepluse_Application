@@ -1,7 +1,7 @@
 name: sitepulse_engineer
 description: JP SitePulse Engineer App
 publish_to: none
-version: 1.0.6+17
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -39,7 +39,7 @@ dependencies:
   in_app_update: ^4.2.5
   uuid: ^4.6.0
   cached_network_image: ^3.4.1
-  connectivity_plus: ^7.3.1
+  connectivity_plus: 6.1.1
   pointycastle: ^4.0.0
   device_info_plus: ^11.5.0
   firebase_core: ^3.6.0
