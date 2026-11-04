@@ -28,6 +28,7 @@ class UploadDocumentRequested extends DocumentsEvent {
   final int sizeBytes;
   final String fileExtension;
   final DateTime? ndtExpiryDate;
+  final Map<String, dynamic> fieldValues;
   final String busyKey;
 
   const UploadDocumentRequested({
@@ -40,6 +41,7 @@ class UploadDocumentRequested extends DocumentsEvent {
     required this.sizeBytes,
     required this.fileExtension,
     this.ndtExpiryDate,
+    this.fieldValues = const {},
     required this.busyKey,
   });
 
@@ -54,6 +56,7 @@ class UploadDocumentRequested extends DocumentsEvent {
         sizeBytes,
         fileExtension,
         ndtExpiryDate,
+        fieldValues,
         busyKey,
       ];
 }

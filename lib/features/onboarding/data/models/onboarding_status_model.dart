@@ -70,30 +70,6 @@ class OnboardingStatusModel {
     );
   }
 
-  /// Required document rules:
-  /// - Mechanical ("Mechanical Engineer", "MECH", etc.) -> 6 required documents (includes NDT)
-  /// - All other engineers -> 5 base required documents (CV, Degree, PAN, Aadhaar, Bank Passbook)
-  static Set<String> getRequiredTypesForDepartment(String? department) {
-    final norm = (department ?? "").trim().toLowerCase();
-    if (norm.contains("mech")) {
-      return const {
-        "cv",
-        "degree",
-        "ndt",
-        "pan",
-        "aadhaar",
-        "bank_passbook",
-      };
-    }
-    return const {
-      "cv",
-      "degree",
-      "pan",
-      "aadhaar",
-      "bank_passbook",
-    };
-  }
-
   static String fieldDisplayName(String field) {
     switch (field) {
       case "birth_date":

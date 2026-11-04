@@ -7,7 +7,7 @@ class MobilePolicy {
   const MobilePolicy({
     this.trackingMinMovementM = 10,
     this.trackingUpdateIntervalSeconds = 15,
-    this.trackingStationaryHeartbeatSeconds = 180,
+    this.trackingStationaryHeartbeatSeconds = 90,
     this.trackingMaxAccuracyM = 200,
     this.trackingMaxSpeedMps = 70,
     this.documentMaxBytes = 15 * 1024 * 1024,
@@ -28,7 +28,7 @@ class MobilePolicy {
         trackingMinMovementM: (json['tracking_min_movement_m'] as num?)?.toInt() ?? 10,
         trackingUpdateIntervalSeconds: (json['tracking_update_interval_seconds'] as num?)?.toInt() ?? 15,
         trackingStationaryHeartbeatSeconds:
-            (json['tracking_stationary_heartbeat_seconds'] as num?)?.toInt() ?? 180,
+            (json['tracking_stationary_heartbeat_seconds'] as num?)?.toInt() ?? 90,
         trackingMaxAccuracyM: (json['tracking_max_accuracy_m'] as num?)?.toInt() ?? 200,
         trackingMaxSpeedMps: (json['tracking_max_speed_mps'] as num?)?.toInt() ?? 70,
         documentMaxBytes: (json['document_max_bytes'] as num?)?.toInt() ?? 15 * 1024 * 1024,

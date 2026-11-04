@@ -14,6 +14,7 @@ import "package:sitepulse_engineer/shared/widgets/image_viewer.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
 import "package:sitepulse_engineer/core/error/error_handler.dart";
+import "package:sitepulse_engineer/core/services/required_documents_store.dart";
 
 import "../../../../core/theme/app_colors_extension.dart";
 
@@ -58,8 +59,29 @@ class _DocumentUploadView extends StatefulWidget {
 
 class _DocumentUploadViewState extends State<_DocumentUploadView> {
   _DocFilter _selectedFilter = _DocFilter.all;
+  Set<String>? _requiredDocumentTypes;
 
   String get _token => (SessionStore.current?.token ?? "").trim();
+
+  @override
+  void initState() {
+    super.initState();
+    _requiredDocumentTypes = RequiredDocumentsStore.requiredTypes.value;
+    RequiredDocumentsStore.requiredTypes.addListener(_onRequiredDocumentsChanged);
+    RequiredDocumentsStore.refresh(token: _token);
+  }
+
+  @override
+  void dispose() {
+    RequiredDocumentsStore.requiredTypes.removeListener(_onRequiredDocumentsChanged);
+    super.dispose();
+  }
+
+  void _onRequiredDocumentsChanged() {
+    if (mounted) {
+      setState(() => _requiredDocumentTypes = RequiredDocumentsStore.requiredTypes.value);
+    }
+  }
 
   void _showSnackBar(BuildContext context, String message,
       {bool isError = false}) {
@@ -166,11 +188,14 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
       }
     }
 
-    DateTime? ndtExpiryDate;
-    if (definition.type == "ndt") {
-      ndtExpiryDate = await _pickNdtExpiryDate(context, state.ndtExpiryDate);
-      if (ndtExpiryDate == null) return;
-    }
+    final fieldDefinitions = await DocumentsService().documentFields(
+      token: _token,
+      documentType: definition.type,
+    );
+    if (!context.mounted) return;
+    final fieldValues = await _collectDocumentFieldValues(context, fieldDefinitions);
+    if (fieldValues == null) return;
+    final ndtExpiryDate = DateTime.tryParse(fieldValues["expiry_date"]?.toString() ?? "");
 
     if (!context.mounted) return;
     final selected = await _pickFile(context, definition);
@@ -205,8 +230,23 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
           sizeBytes: selected.sizeBytes,
           fileExtension: selected.fileExtension,
           ndtExpiryDate: ndtExpiryDate,
+          fieldValues: fieldValues,
           busyKey: busyKey,
         ));
+  }
+
+  Future<Map<String, dynamic>?> _collectDocumentFieldValues(BuildContext context, List<DocumentFieldDefinition> fields) async {
+    if (fields.isEmpty) return {};
+    final controllers = {for (final field in fields.where((field) => field.fieldType != "checkbox" && field.fieldType != "select")) field.key: TextEditingController()};
+    final values = <String, dynamic>{for (final field in fields.where((field) => field.fieldType == "checkbox")) field.key: false};
+    final result = await showDialog<Map<String, dynamic>>(context: context, builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text("Document details"), content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: fields.map((field) {
+      final label = field.required ? "${field.label} *" : field.label;
+      if (field.fieldType == "select") return DropdownButtonFormField<String>(value: values[field.key] as String?, decoration: InputDecoration(labelText: label, helperText: field.helpText), items: field.options.map((option) => DropdownMenuItem(value: option, child: Text(option))).toList(), onChanged: (value) => setDialogState(() => values[field.key] = value));
+      if (field.fieldType == "checkbox") return CheckboxListTile(contentPadding: EdgeInsets.zero, title: Text(label), subtitle: field.helpText == null ? null : Text(field.helpText!), value: values[field.key] == true, onChanged: (value) => setDialogState(() => values[field.key] = value == true));
+      return TextField(controller: controllers[field.key], keyboardType: field.fieldType == "number" ? TextInputType.number : TextInputType.text, readOnly: field.fieldType == "date", onTap: field.fieldType == "date" ? () async { final date = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100)); if (date != null) setDialogState(() => controllers[field.key]!.text = "${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}"); } : null, maxLines: field.fieldType == "textarea" ? 3 : 1, decoration: InputDecoration(labelText: label, helperText: field.helpText));
+    }).toList())), actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Cancel")), FilledButton(onPressed: () { for (final field in fields) { if (field.fieldType != "checkbox" && field.fieldType != "select") values[field.key] = controllers[field.key]!.text.trim(); if (field.required && (values[field.key] == null || values[field.key] == "" || (field.fieldType == "checkbox" && values[field.key] != true))) { _showSnackBar(dialogContext, "${field.label} is required", isError: true); return; } } Navigator.pop(dialogContext, values); }, child: const Text("Continue"))])));
+    for (final controller in controllers.values) { controller.dispose(); }
+    return result;
   }
 
   Future<_SelectedUploadFile?> _pickFile(
@@ -469,6 +509,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final department = SessionStore.current?.engineer.department;
     return BlocConsumer<DocumentsBloc, DocumentsState>(
       listenWhen: (previous, current) =>
           current.snackbarMessage != previous.snackbarMessage ||
@@ -506,8 +547,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
         }
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
-        final department = SessionStore.current?.engineer.department;
-        final definitions = _getDefinitionsForDepartment(department);
+        final definitions = _getDefinitionsForRequiredTypes(_requiredDocumentTypes);
         final requiredDefinitions = definitions.where((d) => d.isRequired).toList();
         final optionalDefinitions = definitions.where((d) => !d.isRequired).toList();
 
@@ -1824,31 +1864,6 @@ class _DocumentDefinition {
   }
 }
 
-const Set<String> _kMechanicalRequiredTypes = {
-  "cv",
-  "degree",
-  "ndt",
-  "pan",
-  "aadhaar",
-  "bank_passbook",
-};
-
-const Set<String> _kElectricalCivilRequiredTypes = {
-  "cv",
-  "degree",
-  "pan",
-  "aadhaar",
-  "bank_passbook",
-};
-
-Set<String> _getRequiredTypesForDepartment(String? department) {
-  final norm = (department ?? "").trim().toLowerCase();
-  if (norm.contains("mech")) {
-    return _kMechanicalRequiredTypes;
-  }
-  return _kElectricalCivilRequiredTypes;
-}
-
 const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[
   _DocumentDefinition(
     type: "cv",
@@ -1905,11 +1920,20 @@ const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[
   ),
 ];
 
-List<_DocumentDefinition> _getDefinitionsForDepartment(String? department) {
-  final requiredTypes = _getRequiredTypesForDepartment(department);
-  return _allStandardDefinitions.map((def) {
-    return def.copyWith(isRequired: requiredTypes.contains(def.type));
-  }).toList();
+List<_DocumentDefinition> _getDefinitionsForRequiredTypes(
+    Set<String>? requiredTypes) {
+  if (requiredTypes == null) return const <_DocumentDefinition>[];
+  final standardDefinitions = {
+    for (final definition in _allStandardDefinitions) definition.type: definition,
+  };
+  return requiredTypes
+      .map((type) => standardDefinitions[type]?.copyWith(isRequired: true) ??
+          _DocumentDefinition(
+            type: type,
+            displayName: type.replaceAll("_", " "),
+            isRequired: true,
+          ))
+      .toList();
 }
 
 const _DocumentDefinition _customDefinition = _DocumentDefinition(

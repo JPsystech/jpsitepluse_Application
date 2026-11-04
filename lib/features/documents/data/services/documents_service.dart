@@ -17,6 +17,23 @@ class DocumentsService {
 
   static const int maxBytes = 15 * 1024 * 1024;
 
+  Future<List<DocumentFieldDefinition>> documentFields({
+    required String token,
+    required String documentType,
+  }) async {
+    final client = await api.dio;
+    final response = await client.get("/api/v1/engineer/document-types");
+    final rows = response.data is List ? response.data as List : const [];
+    final match = rows.whereType<Map>().cast<Map>().firstWhere(
+      (row) => row["code"]?.toString().toLowerCase() == documentType.toLowerCase(),
+      orElse: () => const {},
+    );
+    final fields = match["field_definitions"];
+    return fields is List
+        ? fields.whereType<Map>().map((row) => DocumentFieldDefinition.fromJson(Map<String, dynamic>.from(row))).toList()
+        : const [];
+  }
+
   Future<List<EngineerDocument>> listDocuments({required String token}) async {
     final cacheKey = "cached_documents_v1";
 
@@ -63,6 +80,7 @@ class DocumentsService {
     required int sizeBytes,
     required String originalFileName,
     required String? fileExtension,
+    Map<String, dynamic> fieldValues = const {},
   }) async {
     final client = await api.dio;
     final res = await client.post(
@@ -74,6 +92,7 @@ class DocumentsService {
         "size_bytes": sizeBytes,
         if (fileExtension != null) "file_extension": fileExtension,
         "original_filename": originalFileName,
+        "field_values": fieldValues,
       },
     );
     final json = res.data;
@@ -92,6 +111,7 @@ class DocumentsService {
     required String contentType,
     required int sizeBytes,
     required String originalFileName,
+    Map<String, dynamic> fieldValues = const {},
   }) async {
     final client = await api.dio;
     final res = await client.post(
@@ -104,6 +124,7 @@ class DocumentsService {
         "content_type": contentType,
         "size_bytes": sizeBytes,
         "original_filename": originalFileName,
+        "field_values": fieldValues,
       },
     );
     final json = res.data;
@@ -122,6 +143,7 @@ class DocumentsService {
     required String contentType,
     required int sizeBytes,
     required String? fileExtension,
+    Map<String, dynamic> fieldValues = const {},
   }) async {
     final presigned = await presign(
       token: token,
@@ -131,6 +153,7 @@ class DocumentsService {
       sizeBytes: sizeBytes,
       originalFileName: originalFileName,
       fileExtension: fileExtension,
+      fieldValues: fieldValues,
     );
 
     if (presigned.uploadUrl.trim().isEmpty) {
@@ -199,6 +222,7 @@ class DocumentsService {
       contentType: contentType,
       sizeBytes: sizeBytes,
       originalFileName: originalFileName,
+      fieldValues: fieldValues,
     );
   }
 
@@ -220,4 +244,24 @@ class DocumentsService {
       throw Exception("Failed to delete document (status ${res.statusCode})");
     }
   }
+}
+
+class DocumentFieldDefinition {
+  final String key;
+  final String label;
+  final String fieldType;
+  final bool required;
+  final List<String> options;
+  final String? helpText;
+
+  const DocumentFieldDefinition({required this.key, required this.label, required this.fieldType, required this.required, required this.options, this.helpText});
+
+  factory DocumentFieldDefinition.fromJson(Map<String, dynamic> json) => DocumentFieldDefinition(
+    key: json["key"]?.toString() ?? "",
+    label: json["label"]?.toString() ?? "Field",
+    fieldType: json["field_type"]?.toString() ?? "text",
+    required: json["required"] == true,
+    options: json["options"] is List ? (json["options"] as List).map((value) => value.toString()).toList() : const [],
+    helpText: json["help_text"]?.toString(),
+  );
 }

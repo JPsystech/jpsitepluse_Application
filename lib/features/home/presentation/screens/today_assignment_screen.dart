@@ -779,7 +779,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  "Upload compliance documents and bank details to unlock punch-in.",
+                  "Complete your profile, compliance documents, and bank details to keep your records ready for review and payroll.",
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.amber.shade900,
@@ -869,73 +869,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               ],
             ),
           ),
-          if (!isProfileComplete)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade300),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: Colors.amber.shade900, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Profile Incomplete",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "Please upload your compliance documents & details when convenient.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      backgroundColor: Colors.amber.shade200,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                    ),
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const CompleteProfileScreen()),
-                      );
-                      if (mounted) {
-                        context
-                            .read<HomeBloc>()
-                            .add(LoadAssignmentsRequested());
-                      }
-                    },
-                    child: Text(
-                      "Complete",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Colors.amber.shade900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           // Divider
           Divider(
               height: 1,
@@ -1651,17 +1584,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   children: [
                     _buildGreeting(),
+                    if (!resp.isProfileComplete) ...[
+                      const SizedBox(height: 12),
+                      _buildIncompleteProfileCard(context),
+                    ],
                     _buildOfflineBanner(),
                     const SizedBox(height: 24),
                     _buildCombinedStatsCard(
                         resp.attendanceOverview, resp.weeklySummary, assignments.length),
                     const SizedBox(height: 24),
                     if (!hasAssignment) ...[
-                      if (!resp.isProfileComplete)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _buildIncompleteProfileCard(context),
-                        ),
                       _buildEmptyState(),
                     ] else
                       _buildAssignmentsListCard(assignments,

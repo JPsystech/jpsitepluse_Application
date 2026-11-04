@@ -28,7 +28,7 @@ import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 import "package:sitepulse_engineer/features/shell/presentation/bloc/shell_bloc.dart";
 import "../../../../core/services/offline_document_sync_service.dart";
 import "../../../home/presentation/bloc/home_bloc.dart";
-import "package:sitepulse_engineer/features/onboarding/data/models/onboarding_status_model.dart";
+import "package:sitepulse_engineer/core/services/required_documents_store.dart";
 import "package:sitepulse_engineer/shared/widgets/location_disclosure_dialog.dart";
 import "package:sitepulse_engineer/features/onboarding/presentation/widgets/complete_profile_dialog.dart";
 
@@ -105,6 +105,8 @@ class _AppShellViewState extends State<_AppShellView>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         SessionStore.syncProfile();
+        unawaited(RequiredDocumentsStore.refresh(
+            token: (SessionStore.current?.token ?? "").trim()));
         await MobilePolicyService.loadCached();
         await MobilePolicyService.refresh();
         await LocationDisclosureDialog.showIfNeeded(context);
@@ -373,7 +375,9 @@ class _AppShellViewState extends State<_AppShellView>
                               label: "Refer & Earn",
                             ),
                             NavigationDestination(
-                              icon: BlocBuilder<DocumentsBloc, DocumentsState>(
+                              icon: ValueListenableBuilder<Set<String>?>(
+                                valueListenable: RequiredDocumentsStore.requiredTypes,
+                                builder: (context, requiredTypes, _) => BlocBuilder<DocumentsBloc, DocumentsState>(
                                 builder: (context, docState) {
                                   final latestDocs =
                                       <String, EngineerDocument>{};
@@ -383,11 +387,7 @@ class _AppShellViewState extends State<_AppShellView>
                                           d.documentType, () => d);
                                     }
                                   }
-                                  final dept =
-                                      SessionStore.current?.engineer.department;
-                                  final requiredTypes =
-                                      OnboardingStatusModel.getRequiredTypesForDepartment(dept);
-                                  final missing = requiredTypes
+                                  final missing = (requiredTypes ?? const <String>{})
                                       .where((type) =>
                                           latestDocs[type]?.fileUrl.trim().isEmpty ?? true)
                                       .length;
@@ -404,8 +404,10 @@ class _AppShellViewState extends State<_AppShellView>
                                   return const Icon(Icons.folder_outlined);
                                 },
                               ),
-                              selectedIcon:
-                                  BlocBuilder<DocumentsBloc, DocumentsState>(
+                              ),
+                              selectedIcon: ValueListenableBuilder<Set<String>?>(
+                                valueListenable: RequiredDocumentsStore.requiredTypes,
+                                builder: (context, requiredTypes, _) => BlocBuilder<DocumentsBloc, DocumentsState>(
                                 builder: (context, docState) {
                                   final latestDocs =
                                       <String, EngineerDocument>{};
@@ -415,11 +417,7 @@ class _AppShellViewState extends State<_AppShellView>
                                           d.documentType, () => d);
                                     }
                                   }
-                                  final dept =
-                                      SessionStore.current?.engineer.department;
-                                  final requiredTypes =
-                                      OnboardingStatusModel.getRequiredTypesForDepartment(dept);
-                                  final missing = requiredTypes
+                                  final missing = (requiredTypes ?? const <String>{})
                                       .where((type) =>
                                           latestDocs[type]?.fileUrl.trim().isEmpty ?? true)
                                       .length;
@@ -437,6 +435,7 @@ class _AppShellViewState extends State<_AppShellView>
                                   return const Icon(
                                       Icons.folder_shared_rounded);
                                 },
+                              ),
                               ),
                               label: "Documents",
                             ),

@@ -15,7 +15,7 @@ class MyPayoutsScreen extends StatefulWidget {
 }
 
 class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
-  late Future<({Map<String, dynamic> estimate, List<dynamic> history})> _data;
+  late Future<({Map<String, dynamic>? estimate, List<dynamic> history})> _data;
 
   @override
   void initState() {
@@ -23,19 +23,31 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
     _data = _load();
   }
 
-  Future<({Map<String, dynamic> estimate, List<dynamic> history})> _load() async {
+  Future<({Map<String, dynamic>? estimate, List<dynamic> history})> _load() async {
     final dio = await ApiClient.instance.dio;
     final year = DateTime.now().year;
-    final responses = await Future.wait([
-      dio.get('/api/v1/engineer/payouts/estimate'),
-      dio.get('/api/v1/engineer/payouts', queryParameters: {'year': year}),
-    ]);
-    final estData = Map<String, dynamic>.from(responses[0].data as Map);
-    final histData = List<dynamic>.from(responses[1].data as List);
-    debugPrint('[Payouts] Estimate response: $estData');
+    final historyRequest = dio.get(
+      '/api/v1/engineer/payouts',
+      queryParameters: {'year': year},
+    );
+
+    Map<String, dynamic>? estimate;
+    try {
+      final response = await dio.get('/api/v1/engineer/payouts/estimate');
+      estimate = Map<String, dynamic>.from(response.data as Map);
+      debugPrint('[Payouts] Estimate response: $estimate');
+    } on DioException catch (error) {
+      if (error.response?.statusCode != 404) rethrow;
+      // A 404 here is a valid business state: no payable, approved
+      // attendance exists for the selected wage month yet.
+      debugPrint('[Payouts] No payout estimate available yet.');
+    }
+
+    final historyResponse = await historyRequest;
+    final histData = List<dynamic>.from(historyResponse.data as List);
     debugPrint('[Payouts] History response: $histData');
     return (
-      estimate: estData,
+      estimate: estimate,
       history: histData,
     );
   }
@@ -140,13 +152,14 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
           final data = snapshot.data!;
           final estimate = data.estimate;
           final history = data.history;
+          final payout = estimate ?? <String, dynamic>{};
 
-          final isEstimate = estimate['is_estimate'] == true;
-          final netPayoutVal = estimate['net_payout'];
-          final paidDays = _formatNumber(estimate['attendance_days']);
-          final pendingReviewDays = _formatNumber(estimate['pending_exception_days']);
-          final deductions = _deductionLabels(estimate);
-          final totalDeductions = _totalDeductions(estimate);
+          final isEstimate = payout['is_estimate'] == true;
+          final netPayoutVal = payout['net_payout'];
+          final paidDays = _formatNumber(payout['attendance_days']);
+          final pendingReviewDays = _formatNumber(payout['pending_exception_days']);
+          final deductions = _deductionLabels(payout);
+          final totalDeductions = _totalDeductions(payout);
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -195,7 +208,11 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
                             ),
                             const SizedBox(width: 10),
                             Text(
-                              isEstimate ? 'Expected Net Payout' : 'Current Net Payout',
+                              estimate == null
+                                  ? 'Expected Payout'
+                                  : isEstimate
+                                      ? 'Expected Net Payout'
+                                      : 'Current Net Payout',
                               style: textTheme.labelLarge?.copyWith(
                                 color: cs.primary,
                                 fontWeight: FontWeight.bold,
@@ -204,6 +221,22 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
+                        if (estimate == null) ...[
+                          Text(
+                            'Not available yet',
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Your payout will appear after at least one completed shift is payroll-approved.',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ] else ...[
                         Text(
                           _money(netPayoutVal),
                           style: textTheme.headlineLarge?.copyWith(
@@ -213,7 +246,7 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Gross Amount: ${_money(estimate['gross_payout'])}',
+                          'Gross Amount: ${_money(payout['gross_payout'])}',
                           style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                         ),
                         Text(
@@ -283,6 +316,7 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
                               ),
                             ],
                           ),
+                        ],
                         ],
                       ],
                     ),

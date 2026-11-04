@@ -38,6 +38,9 @@ class OfflineDocumentSyncService {
             contentType: doc['content_type'],
             sizeBytes: doc['size_bytes'],
             fileExtension: doc['file_extension'],
+            fieldValues: doc['field_values'] is Map
+                ? Map<String, dynamic>.from(doc['field_values'] as Map)
+                : const {},
           );
 
           await OfflineSyncStore.removeDocumentFromQueue(filePath);
