@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:in_app_update/in_app_update.dart";
+import "package:package_info_plus/package_info_plus.dart";
 
 import "package:sitepulse_engineer/features/splash/presentation/bloc/splash_bloc.dart";
 
@@ -43,6 +44,7 @@ class _SplashViewState extends State<_SplashView>
   late final Animation<double> _scaleAnim;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
+  String _appVersion = "";
 
   @override
   void initState() {
@@ -82,6 +84,18 @@ class _SplashViewState extends State<_SplashView>
     });
 
     _checkForUpdate();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = "v${info.version} (${info.buildNumber})";
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkForUpdate() async {
@@ -265,6 +279,16 @@ class _SplashViewState extends State<_SplashView>
                         letterSpacing: 0.5,
                       ),
                 ),
+                if (_appVersion.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _appVersion,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -36,6 +36,13 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
           return;
         }
 
+        final isDevMode = await SafeDevice.isDevelopmentModeEnable;
+        if (isDevMode) {
+          emit(const SplashSecurityBlocked(
+              "Security Risk Detected: Developer Options are enabled on this device. Please disable Developer Options in your phone settings to use JP Siteplus."));
+          return;
+        }
+
         final isJailBroken = await SafeDevice.isJailBroken;
         if (isJailBroken) {
           emit(const SplashSecurityBlocked(
