@@ -1908,17 +1908,36 @@ class _PunchSummaryCardState extends State<_PunchSummaryCard> {
     super.initState();
     _initDuration();
     if (widget.isActive && widget.punchOutTimeStr == null) {
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) {
         if (mounted) {
           setState(() {
-            _elapsed += const Duration(seconds: 1);
+            _elapsed += const Duration(minutes: 1);
           });
         }
       });
     }
   }
 
+  @override
+  void didUpdateWidget(covariant _PunchSummaryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.punchInTimeStr != oldWidget.punchInTimeStr || widget.isActive != oldWidget.isActive) {
+      _initDuration();
+    }
+  }
+
   void _initDuration() {
+    if (widget.punchInTimeStr != null) {
+      final punchInDt = DateTime.tryParse(widget.punchInTimeStr!);
+      if (punchInDt != null) {
+        final now = DateTime.now();
+        if (now.isAfter(punchInDt)) {
+          _elapsed = now.difference(punchInDt);
+          return;
+        }
+      }
+    }
+
     if (widget.activeHoursStr != null) {
       _elapsed = _parseDurationString(widget.activeHoursStr!);
     }
@@ -1926,36 +1945,43 @@ class _PunchSummaryCardState extends State<_PunchSummaryCard> {
 
   Duration _parseDurationString(String str) {
     try {
+      final trimmed = str.trim();
+      if (trimmed.contains(':')) {
+        final parts = trimmed.split(':');
+        if (parts.length == 3) {
+          final h = int.tryParse(parts[0]) ?? 0;
+          final m = int.tryParse(parts[1]) ?? 0;
+          return Duration(hours: h, minutes: m);
+        } else if (parts.length == 2) {
+          final h = int.tryParse(parts[0]) ?? 0;
+          final m = int.tryParse(parts[1]) ?? 0;
+          return Duration(hours: h, minutes: m);
+        }
+      }
+
       int hours = 0;
       int minutes = 0;
-      int seconds = 0;
-      final parts = str.toLowerCase().split(RegExp(r'\s+'));
+      final parts = trimmed.toLowerCase().split(RegExp(r'\s+'));
       for (final p in parts) {
         if (p.contains('h')) {
           hours = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         } else if (p.contains('m')) {
           minutes = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        } else if (p.contains('s')) {
-          seconds = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         }
       }
-      return Duration(hours: hours, minutes: minutes, seconds: seconds);
+      return Duration(hours: hours, minutes: minutes);
     } catch (_) {
       return Duration.zero;
     }
   }
 
   String _formatDuration(Duration d) {
+    if (d.inMinutes <= 0 && d.inSeconds <= 0) {
+      return '0';
+    }
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) {
-      return '${h}h ${m}m ${s}s';
-    } else if (m > 0) {
-      return '${m}m ${s}s';
-    } else {
-      return '${s}s';
-    }
+    return '${h}h ${m}m';
   }
 
   @override
