@@ -72,7 +72,7 @@ class UnauthorizedInterceptor extends Interceptor {
             await prefs.remove('sitepulse_engineer_vendor_code');
           } catch (_) {}
 
-          SessionStore.expireSession(reason);
+          await SessionStore.expireSession(reason);
         }
       }
     }

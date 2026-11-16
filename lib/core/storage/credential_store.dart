@@ -1,8 +1,6 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sitepulse_engineer/core/storage/safe_secure_storage.dart';
 
 class CredentialStore {
-  static const _storage = FlutterSecureStorage();
-  
   static const _vendorCodeKey = "sitepulse_engineer_vendor_code";
   static const _empCodeKey = "sitepulse_engineer_emp_code";
   // Legacy key retained only so it can be removed from devices upgraded from
@@ -15,20 +13,20 @@ class CredentialStore {
     required String empCode,
     required String engineerName,
   }) async {
-    await _storage.write(key: _vendorCodeKey, value: vendorCode);
-    await _storage.write(key: _empCodeKey, value: empCode);
-    await _storage.write(key: _engineerNameKey, value: engineerName);
-    await _storage.delete(key: _passwordKey);
+    await SafeSecureStorage.write(key: _vendorCodeKey, value: vendorCode);
+    await SafeSecureStorage.write(key: _empCodeKey, value: empCode);
+    await SafeSecureStorage.write(key: _engineerNameKey, value: engineerName);
+    await SafeSecureStorage.delete(key: _passwordKey);
   }
 
   static Future<Map<String, String>?> getCredentials() async {
-    final vendorCode = await _storage.read(key: _vendorCodeKey);
-    final empCode = await _storage.read(key: _empCodeKey);
-    final engineerName = await _storage.read(key: _engineerNameKey);
+    final vendorCode = await SafeSecureStorage.read(key: _vendorCodeKey);
+    final empCode = await SafeSecureStorage.read(key: _empCodeKey);
+    final engineerName = await SafeSecureStorage.read(key: _engineerNameKey);
 
     // Remove the password left by previous app versions as soon as it is
     // encountered, while retaining the non-secret values used by MPIN reset.
-    await _storage.delete(key: _passwordKey);
+    await SafeSecureStorage.delete(key: _passwordKey);
 
     if (vendorCode != null && empCode != null) {
       return {
@@ -41,9 +39,9 @@ class CredentialStore {
   }
 
   static Future<void> clearCredentials() async {
-    await _storage.delete(key: _vendorCodeKey);
-    await _storage.delete(key: _empCodeKey);
-    await _storage.delete(key: _passwordKey);
-    await _storage.delete(key: _engineerNameKey);
+    await SafeSecureStorage.delete(key: _vendorCodeKey);
+    await SafeSecureStorage.delete(key: _empCodeKey);
+    await SafeSecureStorage.delete(key: _passwordKey);
+    await SafeSecureStorage.delete(key: _engineerNameKey);
   }
 }

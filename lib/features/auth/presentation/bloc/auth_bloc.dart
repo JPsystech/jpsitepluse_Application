@@ -35,12 +35,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         deviceId: deviceId,
       );
       await SessionStore.set(session);
-      await CredentialStore.saveCredentials(
-        vendorCode: event.vendorCode,
-        empCode: event.empCode,
-        engineerName: session.engineer.fullName,
-      );
-      await OfflineSessionCache.save(session);
+      try {
+        await CredentialStore.saveCredentials(
+          vendorCode: event.vendorCode,
+          empCode: event.empCode,
+          engineerName: session.engineer.fullName,
+        );
+      } catch (_) {}
+      try {
+        await OfflineSessionCache.save(session);
+      } catch (_) {}
       emit(AuthSuccess(session: session));
     } catch (e) {
       final isOffline = ErrorHandler.isOfflineError(e);
