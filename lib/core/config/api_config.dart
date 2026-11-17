@@ -40,7 +40,7 @@ const String _apiBaseUrlOverride =
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
 
 const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
-const String iosSimulatorApiBaseUrl = "http://192.168.1.21:8011";
+const String iosSimulatorApiBaseUrl = "http://192.168.1.15:8011";
 
 Future<String>? _resolvedApiBaseUrl;
 String? _syncBaseUrl;
@@ -104,16 +104,18 @@ Future<String> _resolveApiBaseUrlInner() async {
     return normalizeApiBaseUrlInput(productionApiBaseUrl);
   }
 
-  // 3. In debug mode, ALWAYS prioritize AppEnvironment.localDevBaseUrl,
-  // preventing old cached 127.0.0.1 values in SharedPreferences from overriding it.
-  if (kDebugMode) {
-    return normalizeApiBaseUrlInput(AppEnvironment.localDevBaseUrl);
-  }
-
-  // 4. Check stored user preference in SharedPreferences
+  // 2. Check stored user preference in SharedPreferences (e.g. from Change Workspace)
   final stored = await getStoredApiBaseUrl();
   if (stored != null && stored.isNotEmpty) {
     return normalizeApiBaseUrlInput(stored);
+  }
+
+  // 3. In debug mode fallback:
+  if (kDebugMode) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return normalizeApiBaseUrlInput("http://127.0.0.1:8011");
+    }
+    return normalizeApiBaseUrlInput(AppEnvironment.localDevBaseUrl);
   }
 
   // 5. Check PC_IP override if provided

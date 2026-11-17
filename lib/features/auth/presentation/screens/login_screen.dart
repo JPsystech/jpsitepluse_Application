@@ -134,7 +134,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             _engineerName = creds?['engineerName'] ?? "Engineer";
           });
 
-          _verifyDeviceBindingAndFallback();
+          await _verifyDeviceBindingAndFallback();
         } else {
           setState(() {
             isMpinMode = false;
@@ -190,8 +190,11 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         final data = e.response?.data;
         String? detail;
         try {
-          if (data is Map && data['detail'] != null) {
-            detail = data['detail'].toString();
+          if (data is Map) {
+            final rawDetail = data['error']?['message'] ?? data['detail'] ?? data['message'];
+            if (rawDetail != null) {
+              detail = rawDetail.toString();
+            }
           }
         } catch (_) {}
 
@@ -204,15 +207,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           // Device binding was revoked. Wipe local auth and force full login.
           await MpinStore.clearMpin();
           await CredentialStore.clearCredentials();
-          final p = await SharedPreferences.getInstance();
-          await p.remove('sitepulse_engineer_vendor_code');
           await SessionStore.clear();
 
           if (!mounted) return;
           setState(() {
             isMpinMode = false;
             _engineerName = '';
-            vendorCodeCtrl.clear();
           });
 
           ScaffoldMessenger.of(context).clearSnackBars();
@@ -407,11 +407,9 @@ class _LoginScreenViewState extends State<LoginScreenView> {
         } on DioException catch (e) {
           final statusCode = e.response?.statusCode;
           if (statusCode == 401) {
-            // Device binding was revoked — wipe everything and force password login.
+            // Device binding was revoked — wipe auth and force password login.
             await MpinStore.clearMpin();
             await CredentialStore.clearCredentials();
-            final p = await SharedPreferences.getInstance();
-            await p.remove('sitepulse_engineer_vendor_code');
             await SessionStore.clear();
             if (!mounted) return;
             setState(() {
@@ -419,7 +417,6 @@ class _LoginScreenViewState extends State<LoginScreenView> {
               isAutoLoggingIn = false;
               _pin = '';
               error = null;
-              vendorCodeCtrl.clear();
             });
             ScaffoldMessenger.of(context).clearSnackBars();
             ScaffoldMessenger.of(context).showSnackBar(
@@ -554,10 +551,22 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       passwordError = null;
     });
 
-    final vendor = vendorCodeCtrl.text.trim();
+    var vendor = vendorCodeCtrl.text.trim();
+    if (vendor.isEmpty && _recentWorkspaces.isNotEmpty) {
+      vendor = _recentWorkspaces.first.trim();
+      vendorCodeCtrl.text = vendor;
+    }
     final emp = empCodeCtrl.text.trim();
     final normalizedEmp = emp.toUpperCase();
     final pass = passwordCtrl.text.trim();
+
+    if (vendor.isEmpty) {
+      setState(() {
+        _currentStep = 0;
+        vendorCodeError = "Vendor code is required";
+      });
+      return;
+    }
 
     bool hasErrors = false;
     if (normalizedEmp.isEmpty) {

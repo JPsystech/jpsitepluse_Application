@@ -2,11 +2,10 @@ import "dart:convert";
 import "dart:math";
 import "dart:typed_data";
 
-import "package:flutter_secure_storage/flutter_secure_storage.dart";
 import "package:pointycastle/export.dart";
+import "package:sitepulse_engineer/core/storage/safe_secure_storage.dart";
 
 class MpinStore {
-  static const _storage = FlutterSecureStorage();
   static const _legacyMpinKey = "sitepulse_engineer_mpin";
   static const _mpinHashKey = "sitepulse_engineer_mpin_hash_v1";
   static const _mpinSaltKey = "sitepulse_engineer_mpin_salt_v1";
@@ -16,9 +15,9 @@ class MpinStore {
 
   /// Checks if an MPIN is currently saved
   static Future<bool> hasMpin() async {
-    final hash = await _storage.read(key: _mpinHashKey);
+    final hash = await SafeSecureStorage.read(key: _mpinHashKey);
     if (hash != null && hash.isNotEmpty) return true;
-    final legacy = await _storage.read(key: _legacyMpinKey);
+    final legacy = await SafeSecureStorage.read(key: _legacyMpinKey);
     return legacy != null && legacy.trim().isNotEmpty;
   }
 
@@ -26,14 +25,14 @@ class MpinStore {
   static Future<bool> verifyMpin(String mpin) async {
     if (await isLocked()) return false;
 
-    final savedHash = await _storage.read(key: _mpinHashKey);
-    final savedSalt = await _storage.read(key: _mpinSaltKey);
+    final savedHash = await SafeSecureStorage.read(key: _mpinHashKey);
+    final savedSalt = await SafeSecureStorage.read(key: _mpinSaltKey);
     bool matches = false;
     if (savedHash != null && savedSalt != null) {
       matches = _constantTimeEquals(savedHash, _hash(mpin.trim(), savedSalt));
     } else {
       // Migrate the legacy plaintext MPIN only after a successful check.
-      final legacy = await _storage.read(key: _legacyMpinKey);
+      final legacy = await SafeSecureStorage.read(key: _legacyMpinKey);
       matches = legacy != null && _constantTimeEquals(legacy, mpin.trim());
       if (matches) await setMpin(mpin);
     }
@@ -47,7 +46,7 @@ class MpinStore {
   }
 
   static Future<bool> isLocked() async {
-    final raw = await _storage.read(key: _attemptStateKey);
+    final raw = await SafeSecureStorage.read(key: _attemptStateKey);
     if (raw == null) return false;
     try {
       final state = jsonDecode(raw) as Map<String, dynamic>;
@@ -55,7 +54,7 @@ class MpinStore {
       return lockedUntil != null &&
           DateTime.now().millisecondsSinceEpoch < lockedUntil;
     } catch (_) {
-      await _storage.delete(key: _attemptStateKey);
+      await SafeSecureStorage.delete(key: _attemptStateKey);
       return false;
     }
   }
@@ -63,7 +62,7 @@ class MpinStore {
   static Future<void> recordFailure() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     var attempts = 0;
-    final raw = await _storage.read(key: _attemptStateKey);
+    final raw = await SafeSecureStorage.read(key: _attemptStateKey);
     if (raw != null) {
       try {
         attempts = (jsonDecode(raw) as Map<String, dynamic>)['attempts'] as int? ?? 0;
@@ -73,7 +72,7 @@ class MpinStore {
     final lockedUntil = attempts >= _maximumFailures
         ? now + _lockout.inMilliseconds
         : 0;
-    await _storage.write(
+    await SafeSecureStorage.write(
       key: _attemptStateKey,
       value: jsonEncode({
         'attempts': attempts >= _maximumFailures ? 0 : attempts,
@@ -89,22 +88,22 @@ class MpinStore {
       16,
       (_) => random.nextInt(256),
     ).map((value) => value.toRadixString(16).padLeft(2, '0')).join();
-    await _storage.write(key: _mpinSaltKey, value: salt);
-    await _storage.write(key: _mpinHashKey, value: _hash(mpin.trim(), salt));
-    await _storage.delete(key: _legacyMpinKey);
+    await SafeSecureStorage.write(key: _mpinSaltKey, value: salt);
+    await SafeSecureStorage.write(key: _mpinHashKey, value: _hash(mpin.trim(), salt));
+    await SafeSecureStorage.delete(key: _legacyMpinKey);
     await _clearFailures();
   }
 
   /// Deletes the MPIN from secure storage
   static Future<void> clearMpin() async {
-    await _storage.delete(key: _legacyMpinKey);
-    await _storage.delete(key: _mpinHashKey);
-    await _storage.delete(key: _mpinSaltKey);
+    await SafeSecureStorage.delete(key: _legacyMpinKey);
+    await SafeSecureStorage.delete(key: _mpinHashKey);
+    await SafeSecureStorage.delete(key: _mpinSaltKey);
     await _clearFailures();
   }
 
   static Future<void> _clearFailures() =>
-      _storage.delete(key: _attemptStateKey);
+      SafeSecureStorage.delete(key: _attemptStateKey);
 
   static String _hash(String mpin, String salt) {
     final digest = SHA256Digest().process(

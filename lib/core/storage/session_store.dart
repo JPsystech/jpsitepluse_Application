@@ -6,13 +6,13 @@ import 'package:sitepulse_engineer/core/services/persistent_background_tracking_
 
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
-import "package:flutter_secure_storage/flutter_secure_storage.dart";
 import "package:uuid/uuid.dart";
 
 import "package:sitepulse_engineer/shared/models/auth_session.dart";
 import "package:sitepulse_engineer/shared/models/engineer.dart";
 import "package:sitepulse_engineer/core/network/api_client.dart";
 import "package:sitepulse_engineer/core/storage/offline_session_cache.dart";
+import "package:sitepulse_engineer/core/storage/safe_secure_storage.dart";
 
 class SessionStore {
   static AuthSession? current;
@@ -22,7 +22,6 @@ class SessionStore {
   static String? expiredReason;
 
   static const String _key = "sitepulse_engineer_session";
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   static bool isExpired(AuthSession session) {
     final expMs = session.expiresAtMs;
@@ -30,17 +29,19 @@ class SessionStore {
   }
 
   static Future<void> load() async {
-    // 1. Try reading from FlutterSecureStorage
-    String? raw = await _secureStorage.read(key: _key);
+    // 1. Try reading from SafeSecureStorage
+    String? raw = await SafeSecureStorage.read(key: _key);
 
-    // 2. Migration fallback: check legacy SharedPreferences if not in secure storage
+    // 2. Migration/fallback: check SharedPreferences if not in secure storage
     if (raw == null || raw.trim().isEmpty) {
       final prefs = await SharedPreferences.getInstance();
       raw = prefs.getString(_key);
       if (raw != null && raw.trim().isNotEmpty) {
-        // Migration: Move legacy session to secure storage and delete from SharedPreferences
-        await _secureStorage.write(key: _key, value: raw);
-        await prefs.remove(_key);
+        // Migration: Move legacy session to secure storage and delete from SharedPreferences if write succeeds
+        final migrated = await SafeSecureStorage.write(key: _key, value: raw);
+        if (migrated) {
+          await prefs.remove(_key);
+        }
       }
     }
 
@@ -80,27 +81,36 @@ class SessionStore {
     current = session;
     notifier.value = session;
 
-    // Save token & session to secure storage
-    await _secureStorage.write(key: _key, value: jsonEncode(session.toJson()));
-
-    // Clean up legacy SharedPreferences key if present
+    final encoded = jsonEncode(session.toJson());
+    // Save token & session to secure storage, falling back to SharedPreferences if Keychain fails
+    final wroteSecure = await SafeSecureStorage.write(key: _key, value: encoded);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
+    if (wroteSecure) {
+      await prefs.remove(_key);
+    } else {
+      await prefs.setString(_key, encoded);
+    }
 
     NotificationService.instance.syncToken();
   }
 
   static Future<void> clear() async {
-    await PersistentBackgroundTrackingService.stopTracking();
-    await NotificationService.instance.cancelActiveShiftNotification();
-    await NotificationService.instance.unregisterToken();
+    try {
+      await PersistentBackgroundTrackingService.stopTracking();
+    } catch (_) {}
+    try {
+      await NotificationService.instance.cancelActiveShiftNotification();
+    } catch (_) {}
+    try {
+      await NotificationService.instance.unregisterToken();
+    } catch (_) {}
     await _clearStorage();
   }
 
   static Future<void> _clearStorage() async {
     current = null;
     notifier.value = null;
-    await _secureStorage.delete(key: _key);
+    await SafeSecureStorage.delete(key: _key);
     await OfflineSessionCache.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
@@ -175,12 +185,24 @@ class SessionStore {
 
   static Future<String> getDeviceId() async {
     const deviceIdKey = "sitepulse_engineer_device_id";
-    String? deviceId = await _secureStorage.read(key: deviceIdKey);
-    
+    String? deviceId = await SafeSecureStorage.read(key: deviceIdKey);
+
+    if (deviceId == null || deviceId.trim().isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        deviceId = prefs.getString(deviceIdKey);
+      } catch (_) {}
+    }
+
     if (deviceId == null || deviceId.trim().isEmpty) {
       deviceId = const Uuid().v4();
-      await _secureStorage.write(key: deviceIdKey, value: deviceId);
     }
+
+    await SafeSecureStorage.write(key: deviceIdKey, value: deviceId);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(deviceIdKey, deviceId);
+    } catch (_) {}
     return deviceId;
   }
 }

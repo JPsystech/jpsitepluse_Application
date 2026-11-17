@@ -3,9 +3,9 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointycastle/export.dart';
+import 'package:sitepulse_engineer/core/storage/safe_secure_storage.dart';
 
 /// Encrypted, app-private storage for offline data that is too large for the
 /// platform keychain/keystore. The AES-256 key remains in secure storage.
@@ -14,7 +14,6 @@ class EncryptedFileStore {
 
   static const _keyName = 'sitepulse_engineer_offline_data_key_v1';
   static const _directoryName = 'secure_offline_data';
-  static const _storage = FlutterSecureStorage();
 
   static Future<String?> read(String name) async {
     final file = await _fileFor(name);
@@ -82,14 +81,16 @@ class EncryptedFileStore {
   }
 
   static Future<Uint8List> _key() async {
-    final existing = await _storage.read(key: _keyName);
+    final existing = await SafeSecureStorage.read(key: _keyName);
     if (existing != null && existing.isNotEmpty) {
-      final key = base64Url.decode(existing);
-      if (key.length == 32) return Uint8List.fromList(key);
+      try {
+        final key = base64Url.decode(existing);
+        if (key.length == 32) return Uint8List.fromList(key);
+      } catch (_) {}
     }
 
     final key = _randomBytes(32);
-    await _storage.write(key: _keyName, value: base64UrlEncode(key));
+    await SafeSecureStorage.write(key: _keyName, value: base64UrlEncode(key));
     return key;
   }
 
