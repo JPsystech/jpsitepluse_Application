@@ -65,7 +65,9 @@ class SessionStore {
         }
         current = session;
         notifier.value = session;
-        NotificationService.instance.syncToken();
+        try {
+          NotificationService.instance.syncToken();
+        } catch (_) {}
         return;
       }
     } catch (_) {}
@@ -81,17 +83,21 @@ class SessionStore {
     current = session;
     notifier.value = session;
 
-    final encoded = jsonEncode(session.toJson());
-    // Save token & session to secure storage, falling back to SharedPreferences if Keychain fails
-    final wroteSecure = await SafeSecureStorage.write(key: _key, value: encoded);
-    final prefs = await SharedPreferences.getInstance();
-    if (wroteSecure) {
-      await prefs.remove(_key);
-    } else {
-      await prefs.setString(_key, encoded);
-    }
+    try {
+      final encoded = jsonEncode(session.toJson());
+      // Save token & session to secure storage, falling back to SharedPreferences if Keychain fails
+      final wroteSecure = await SafeSecureStorage.write(key: _key, value: encoded);
+      final prefs = await SharedPreferences.getInstance();
+      if (wroteSecure) {
+        await prefs.remove(_key);
+      } else {
+        await prefs.setString(_key, encoded);
+      }
+    } catch (_) {}
 
-    NotificationService.instance.syncToken();
+    try {
+      NotificationService.instance.syncToken();
+    } catch (_) {}
   }
 
   static Future<void> clear() async {

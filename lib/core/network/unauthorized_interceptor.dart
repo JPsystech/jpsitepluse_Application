@@ -22,6 +22,7 @@ class UnauthorizedInterceptor extends Interceptor {
     '/api/v1/engineer/change-password',
     '/api/v1/engineer/reset-mpin',
     '/api/v1/engineer/login',
+    '/api/v1/engineer/accept-terms',
   };
 
   static bool _isExcluded(RequestOptions options) {

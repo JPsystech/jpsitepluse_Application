@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,7 +23,15 @@ class NotificationService {
   NotificationService._internal();
   static final NotificationService instance = NotificationService._internal();
 
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  FirebaseMessaging? get _fcm {
+    try {
+      if (Firebase.apps.isEmpty) return null;
+      return FirebaseMessaging.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -78,8 +87,10 @@ class NotificationService {
       // Initialize Flutter Local Notifications
       const initializationSettingsAndroid =
           AndroidInitializationSettings('@drawable/ic_notification');
+      const initializationSettingsDarwin = DarwinInitializationSettings();
       const initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
       );
 
       await _localNotifications.initialize(
@@ -87,13 +98,15 @@ class NotificationService {
         onDidReceiveNotificationResponse: _onLocalNotificationTap,
       );
 
-      // Request notification permissions
-      await _requestPermissions();
+      if (_fcm != null) {
+        // Request notification permissions
+        await _requestPermissions();
 
-      // Setup listeners
-      _setupForegroundListener();
-      _setupNotificationOpenListeners();
-      _setupTokenRefreshListener();
+        // Setup listeners
+        _setupForegroundListener();
+        _setupNotificationOpenListeners();
+        _setupTokenRefreshListener();
+      }
 
       _isInitialized = true;
       debugPrint('[NotificationService] Initialized successfully');
@@ -104,13 +117,20 @@ class NotificationService {
 
   Future<void> _requestPermissions() async {
     try {
-      final settings = await _fcm.requestPermission(
+      final fcm = _fcm;
+      if (fcm == null) return;
+      final settings = await fcm.requestPermission(
         alert: true,
         announcement: false,
         badge: true,
         carPlay: false,
         criticalAlert: false,
         provisional: false,
+        sound: true,
+      );
+      await fcm.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
         sound: true,
       );
       debugPrint('[NotificationService] Permission status: ${settings.authorizationStatus}');
@@ -142,6 +162,7 @@ class NotificationService {
   }
 
   void _setupForegroundListener() {
+    if (_fcm == null) return;
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('[FCM Foreground] Received: ${message.notification?.title} - ${message.notification?.body}');
       final type = message.data['type']?.toString().toUpperCase();
@@ -161,6 +182,8 @@ class NotificationService {
   }
 
   void _setupNotificationOpenListeners() {
+    final fcm = _fcm;
+    if (fcm == null) return;
     // App opened from background state by tapping notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       debugPrint('[FCM OpenedApp] User tapped notification: ${message.data}');
@@ -175,7 +198,7 @@ class NotificationService {
     });
 
     // App launched from terminated state by tapping notification
-    _fcm.getInitialMessage().then((RemoteMessage? message) {
+    fcm.getInitialMessage().then((RemoteMessage? message) {
       if (message != null) {
         debugPrint('[FCM InitialMessage] App launched from notification: ${message.data}');
         final payloadMap = Map<String, dynamic>.from(message.data);
@@ -193,7 +216,9 @@ class NotificationService {
   }
 
   void _setupTokenRefreshListener() {
-    _fcm.onTokenRefresh.listen((String newToken) {
+    final fcm = _fcm;
+    if (fcm == null) return;
+    fcm.onTokenRefresh.listen((String newToken) {
       debugPrint('[FCM Token] Token refreshed');
       syncToken(newToken);
     });
@@ -260,12 +285,17 @@ class NotificationService {
           DrawableResourceAndroidBitmap('@drawable/ic_notification_large'),
       color: Color(0xFF0D47A1),
     );
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
 
     await _localNotifications.show(
       754320,
       'Punch in successful',
       'You are now on duty. Location tracking is active.',
-      const NotificationDetails(android: details),
+      const NotificationDetails(android: details, iOS: darwinDetails),
       payload: jsonEncode({'type': 'ATTENDANCE'}),
     );
   }
@@ -287,9 +317,15 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
     );
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
 
     final notificationDetails = NotificationDetails(
       android: androidDetails,
+      iOS: darwinDetails,
     );
 
     final int id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
@@ -313,13 +349,27 @@ class NotificationService {
 
   Future<void> syncToken([String? token]) async {
     try {
+      final fcm = _fcm;
+      if (fcm == null) return;
       final session = SessionStore.current;
       if (session == null || session.token.trim().isEmpty) {
         debugPrint('[NotificationService] User not logged in, skipping token sync');
         return;
       }
 
-      final fcmToken = token ?? await _fcm.getToken();
+      if (token == null && Platform.isIOS) {
+        String? apnsToken = await fcm.getAPNSToken();
+        for (int i = 0; i < 6 && apnsToken == null; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          apnsToken = await fcm.getAPNSToken();
+        }
+        if (apnsToken == null) {
+          debugPrint('[NotificationService] APNs token not ready yet on iOS, will retry on refresh');
+          return;
+        }
+      }
+
+      final fcmToken = token ?? await fcm.getToken();
       if (fcmToken == null || fcmToken.trim().isEmpty) {
         debugPrint('[NotificationService] FCM token is null or empty');
         return;
@@ -359,7 +409,8 @@ class NotificationService {
   Future<void> unregisterToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final fcmToken = prefs.getString(_lastTokenKey) ?? await _fcm.getToken();
+      final fcm = _fcm;
+      final fcmToken = prefs.getString(_lastTokenKey) ?? (fcm != null ? await fcm.getToken() : null);
       final session = SessionStore.current;
 
       if (session != null && fcmToken != null && fcmToken.isNotEmpty) {
