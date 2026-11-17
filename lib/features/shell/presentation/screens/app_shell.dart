@@ -131,6 +131,8 @@ class _AppShellViewState extends State<_AppShellView>
     if (state == AppLifecycleState.resumed) {
       unawaited(PersistentBackgroundTrackingService.reconcileWithServer());
       unawaited(MobilePolicyService.refresh());
+      unawaited(RequiredDocumentsStore.refresh(
+          token: (SessionStore.current?.token ?? "").trim()));
       _checkNetworkStatus();
     }
   }

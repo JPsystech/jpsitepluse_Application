@@ -17,7 +17,7 @@ class DocumentsService {
 
   static const int maxBytes = 15 * 1024 * 1024;
 
-  Future<List<DocumentFieldDefinition>> documentFields({
+  Future<DocumentTypeDefinition?> documentType({
     required String token,
     required String documentType,
   }) async {
@@ -28,11 +28,14 @@ class DocumentsService {
       (row) => row["code"]?.toString().toLowerCase() == documentType.toLowerCase(),
       orElse: () => const {},
     );
-    final fields = match["field_definitions"];
-    return fields is List
-        ? fields.whereType<Map>().map((row) => DocumentFieldDefinition.fromJson(Map<String, dynamic>.from(row))).toList()
-        : const [];
+    if (match.isEmpty) return null;
+    return DocumentTypeDefinition.fromJson(Map<String, dynamic>.from(match));
   }
+
+  Future<List<DocumentFieldDefinition>> documentFields({
+    required String token,
+    required String documentType,
+  }) async => (await this.documentType(token: token, documentType: documentType))?.fields ?? const [];
 
   Future<List<EngineerDocument>> listDocuments({required String token}) async {
     final cacheKey = "cached_documents_v1";
@@ -253,8 +256,17 @@ class DocumentFieldDefinition {
   final bool required;
   final List<String> options;
   final String? helpText;
+  final bool isExpiry;
 
-  const DocumentFieldDefinition({required this.key, required this.label, required this.fieldType, required this.required, required this.options, this.helpText});
+  const DocumentFieldDefinition({
+    required this.key,
+    required this.label,
+    required this.fieldType,
+    required this.required,
+    required this.options,
+    this.helpText,
+    this.isExpiry = false,
+  });
 
   factory DocumentFieldDefinition.fromJson(Map<String, dynamic> json) => DocumentFieldDefinition(
     key: json["key"]?.toString() ?? "",
@@ -263,5 +275,22 @@ class DocumentFieldDefinition {
     required: json["required"] == true,
     options: json["options"] is List ? (json["options"] as List).map((value) => value.toString()).toList() : const [],
     helpText: json["help_text"]?.toString(),
+    isExpiry: json["is_expiry"] == true,
   );
+}
+
+class DocumentTypeDefinition {
+  const DocumentTypeDefinition({required this.fields, required this.extensions, required this.sources});
+  final List<DocumentFieldDefinition> fields;
+  final List<String> extensions;
+  final List<String> sources;
+
+  factory DocumentTypeDefinition.fromJson(Map<String, dynamic> json) {
+    final rules = json["upload_rules"] is Map ? Map<String, dynamic>.from(json["upload_rules"] as Map) : const <String, dynamic>{};
+    return DocumentTypeDefinition(
+      fields: json["field_definitions"] is List ? (json["field_definitions"] as List).whereType<Map>().map((row) => DocumentFieldDefinition.fromJson(Map<String, dynamic>.from(row))).toList() : const [],
+      extensions: rules["extensions"] is List ? (rules["extensions"] as List).map((value) => value.toString().toLowerCase()).toList() : const [],
+      sources: rules["sources"] is List ? (rules["sources"] as List).map((value) => value.toString().toLowerCase()).toList() : const [],
+    );
+  }
 }
