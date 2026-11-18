@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "package:sitepulse_engineer/features/auth/presentation/screens/login_screen.dart";
 import "package:sitepulse_engineer/features/documents/presentation/screens/document_upload_screen.dart";
+import "package:sitepulse_engineer/features/leave/presentation/screens/leave_screen.dart";
 import "package:sitepulse_engineer/features/shell/presentation/screens/app_shell.dart";
 import "package:sitepulse_engineer/features/splash/presentation/screens/splash_screen.dart";
 import "package:sitepulse_engineer/features/terms/presentation/screens/terms_screen.dart";
@@ -24,6 +25,7 @@ class AppRoutes {
   static const String terms = "/terms";
   static const String app = "/app";
   static const String documents = "/documents";
+  static const String leave = "/leave";
   static const String completeProfile = "/complete-profile";
   static const String notifications = "/notifications";
   static const String notificationDetail = "/notifications/detail";
@@ -98,6 +100,8 @@ class AppRoutes {
         );
       case documents:
         return MaterialPageRoute(builder: (_) => const DocumentUploadScreen());
+      case leave:
+        return MaterialPageRoute(builder: (_) => const LeaveScreen());
       case completeProfile:
         return MaterialPageRoute(builder: (_) => const CompleteProfileScreen());
       case changeMpin:

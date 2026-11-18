@@ -67,6 +67,10 @@ class NotificationRouter {
         NavigationService.navigateToTab(3);
         break;
 
+      case 'LEAVE':
+        NavigationService.navigateTo(AppRoutes.leave);
+        break;
+
       case 'SUBMISSION':
       case 'WORK_SUBMISSION':
       case 'TIMESHEET':

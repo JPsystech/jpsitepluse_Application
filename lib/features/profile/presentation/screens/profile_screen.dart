@@ -9,6 +9,7 @@ import "package:sitepulse_engineer/features/help/presentation/screens/help_suppo
 import "package:sitepulse_engineer/features/settings/presentation/screens/settings_screen.dart";
 import "package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart";
 import "package:sitepulse_engineer/features/payouts/presentation/screens/my_payouts_screen.dart";
+import "package:sitepulse_engineer/features/leave/presentation/screens/leave_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/profile_bloc.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
 import "package:sitepulse_engineer/features/onboarding/data/models/onboarding_status_model.dart";
@@ -828,6 +829,14 @@ class _ProfileViewState extends State<_ProfileView> {
             title: "My Payouts",
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const MyPayoutsScreen()),
+            ),
+          ),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
+          _ProfileMenuTile(
+            icon: Icons.event_available_rounded,
+            title: "Leave Management",
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LeaveScreen()),
             ),
           ),
           Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),

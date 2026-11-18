@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:sitepulse_engineer/core/router/notification_router.dart';
 import 'package:sitepulse_engineer/features/notifications/data/models/engineer_notification_model.dart';
@@ -24,13 +23,6 @@ class NotificationDetailScreen extends StatelessWidget {
         (payload['title']?.toString() ?? 'Notice / Circular');
     final String body = notif?.body ??
         (payload['body']?.toString() ?? '');
-    final String type = (notif?.notificationType ??
-            payload['type'] ??
-            payload['notification_type'] ??
-            'GENERAL')
-        .toString()
-        .toUpperCase();
-
     DateTime? createdAt = notif?.createdAt;
     if (createdAt == null && payload['created_at'] != null) {
       createdAt = DateTime.tryParse(payload['created_at'].toString())?.toLocal();
@@ -38,9 +30,6 @@ class NotificationDetailScreen extends StatelessWidget {
 
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-
-    // Visual attributes
-    final (IconData icon, Color color, String label) = _getCategoryDetails(type);
 
     final String formattedDate = createdAt != null
         ? DateFormat('EEEE, MMMM d, yyyy • hh:mm a').format(createdAt)
@@ -52,28 +41,26 @@ class NotificationDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text(
-          'Notice Details',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        toolbarHeight: 72,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              formattedDate,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_rounded, size: 20),
-            tooltip: 'Copy Message',
-            onPressed: () {
-              final copyText = '$title\n\n$body';
-              Clipboard.setData(ClipboardData(text: copyText));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Circular text copied to clipboard'),
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -81,7 +68,7 @@ class NotificationDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. Category Badge & Issuer Banner
+              /* Category badge intentionally omitted from notification details.
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -144,7 +131,8 @@ class NotificationDetailScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // 2. Main Content Card
+              */
+              // Main Content Card
               Card(
                 elevation: 0,
                 color: cs.surfaceContainerLow,
@@ -159,40 +147,6 @@ class NotificationDetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Date Row
-                      Row(
-                        children: [
-                          Icon(Icons.schedule_rounded, size: 15, color: cs.onSurfaceVariant),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              formattedDate,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Full Title
-                      SelectableText(
-                        title,
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                          color: cs.onSurface,
-                          height: 1.3,
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-                      Divider(color: cs.outlineVariant.withValues(alpha: 0.4), height: 1),
-                      const SizedBox(height: 16),
-
                       // Full Body Content
                       SelectableText(
                         body.isEmpty ? '(No message body provided)' : body,
@@ -225,58 +179,11 @@ class NotificationDetailScreen extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
 
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                label: const Text('Back to Notifications'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
-  }
-
-  (IconData, Color, String) _getCategoryDetails(String type) {
-    switch (type) {
-      case 'ANNOUNCEMENT':
-      case 'CIRCULAR':
-        return (Icons.campaign_rounded, const Color(0xFF6366F1), 'Announcement');
-      case 'URGENT':
-      case 'URGENT_ALERT':
-        return (Icons.warning_amber_rounded, const Color(0xFFDC2626), 'Urgent Alert');
-      case 'SAFETY':
-      case 'SAFETY_ALERT':
-        return (Icons.health_and_safety_rounded, const Color(0xFFEA580C), 'Safety Alert');
-      case 'PROJECT':
-      case 'PROJECT_UPDATE':
-        return (Icons.business_center_rounded, const Color(0xFF0D9488), 'Project Update');
-      case 'ASSIGNMENT':
-        return (Icons.assignment_outlined, const Color(0xFF2563EB), 'Assignment');
-      case 'DOCUMENT':
-      case 'DOCUMENT_VERIFICATION':
-        return (Icons.description_outlined, const Color(0xFFD97706), 'Document Notice');
-      case 'TIMESHEET':
-      case 'WORK_SUBMISSION':
-      case 'SUBMISSION':
-        return (Icons.access_time_rounded, const Color(0xFF0D9488), 'Work Submission');
-      case 'ATTENDANCE':
-      case 'SHIFT_REMINDER':
-      case 'OVERDUE_PUNCH_OUT':
-        return (Icons.touch_app_rounded, const Color(0xFF7C3AED), 'Attendance Notice');
-      case 'SECURITY':
-        return (Icons.security_rounded, const Color(0xFFDC2626), 'Security Notice');
-      case 'GENERAL':
-      default:
-        return (Icons.info_outline_rounded, const Color(0xFF2563EB), 'General Notice');
-    }
   }
 
   String _getActionLabel(String actionType) {
