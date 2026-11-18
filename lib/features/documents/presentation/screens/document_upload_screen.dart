@@ -60,6 +60,7 @@ class _DocumentUploadView extends StatefulWidget {
 class _DocumentUploadViewState extends State<_DocumentUploadView> {
   _DocFilter _selectedFilter = _DocFilter.all;
   Set<String>? _requiredDocumentTypes;
+  Map<String, DocumentTypeDefinition> _configuredDocumentTypes = const {};
 
   String get _token => (SessionStore.current?.token ?? "").trim();
 
@@ -69,6 +70,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
     _requiredDocumentTypes = RequiredDocumentsStore.requiredTypes.value;
     RequiredDocumentsStore.requiredTypes.addListener(_onRequiredDocumentsChanged);
     RequiredDocumentsStore.refresh(token: _token);
+    _loadConfiguredDocumentTypes();
   }
 
   @override
@@ -82,6 +84,30 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
       setState(() => _requiredDocumentTypes = RequiredDocumentsStore.requiredTypes.value);
     }
   }
+
+  Future<void> _loadConfiguredDocumentTypes() async {
+    if (_token.isEmpty) return;
+    try {
+      final types = await DocumentsService().documentTypes(token: _token);
+      if (!mounted) return;
+      setState(() {
+        _configuredDocumentTypes = {
+          for (final type in types) type.code.trim().toLowerCase(): type,
+        };
+      });
+    } catch (_) {
+      // Keep built-in labels as an offline fallback.
+    }
+  }
+
+  List<_DocumentDefinition> _configuredDefinitions() =>
+      _getDefinitionsForRequiredTypes(_requiredDocumentTypes).map((definition) {
+        final configured =
+            _configuredDocumentTypes[definition.type.trim().toLowerCase()];
+        return configured?.name.isNotEmpty == true
+            ? definition.copyWith(displayName: configured!.name)
+            : definition;
+      }).toList();
 
   void _showSnackBar(BuildContext context, String message,
       {bool isError = false}) {
@@ -179,6 +205,9 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
     final effectiveDefinition = configuredType == null
         ? definition
         : definition.copyWith(
+            displayName: configuredType.name.isEmpty
+                ? definition.displayName
+                : configuredType.name,
             allowedExtensions: configuredType.extensions.isEmpty
                 ? definition.allowedExtensions
                 : configuredType.extensions,
@@ -739,7 +768,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
         }
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
-        final definitions = _getDefinitionsForRequiredTypes(_requiredDocumentTypes);
+        final definitions = _configuredDefinitions();
         final requiredDefinitions = definitions.where((d) => d.isRequired).toList();
         final optionalDefinitions = definitions.where((d) => !d.isRequired).toList();
 

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/features/documents/data/services/documents_service.dart';
 import 'package:sitepulse_engineer/shared/models/engineer_document_model.dart';
@@ -35,75 +34,37 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   OnboardingStatusModel? _status;
   List<EngineerDocument> _uploadedDocs = [];
+  Map<String, DocumentTypeDefinition> _documentTypes = const {};
 
   // Controllers
   final _dobController = TextEditingController();
   final _panController = TextEditingController();
   final _aadhaarController = TextEditingController();
-  final _ndtExpiryController = TextEditingController();
   final _accHolderController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _accNumController = TextEditingController();
   final _ifscController = TextEditingController();
 
   DateTime? _selectedDob;
-  DateTime? _selectedNdtExpiry;
 
   // Initial values to track dirty/unsaved state
   String _initialDob = '';
   String _initialPan = '';
   String _initialAadhaar = '';
-  String _initialNdtExpiry = '';
   String _initialAccHolder = '';
   String _initialBankName = '';
   String _initialAccNum = '';
   String _initialIfsc = '';
 
-  bool get _requiresNdtExpiry =>
-      _status?.requiredDocuments.contains("ndt") ?? false;
-
-  String? get _ndtExpiryKey {
-    final engineerId = (SessionStore.current?.engineer.id ?? "").trim();
-    if (engineerId.isEmpty) return null;
-    return "sitepulse_ndt_expiry_$engineerId";
-  }
-
-  Future<void> _loadNdtExpiryDate() async {
-    final key = _ndtExpiryKey;
-    if (key == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(key);
-    if (raw == null || raw.trim().isEmpty) return;
-    final parsed = DateTime.tryParse(raw);
-    if (parsed != null && mounted) {
-      setState(() {
-        _selectedNdtExpiry = DateTime(parsed.year, parsed.month, parsed.day);
-        _ndtExpiryController.text =
-            DateFormat('yyyy-MM-dd').format(_selectedNdtExpiry!);
-        _initialNdtExpiry = _ndtExpiryController.text.trim();
-      });
-    }
-  }
-
-  Future<void> _saveNdtExpiryDate(DateTime date) async {
-    final key = _ndtExpiryKey;
-    if (key == null) return;
-    final normalized = DateTime(date.year, date.month, date.day);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, normalized.toIso8601String());
-    if (mounted) {
-      setState(() {
-        _selectedNdtExpiry = normalized;
-        _ndtExpiryController.text = DateFormat('yyyy-MM-dd').format(normalized);
-      });
-    }
-  }
+  String _documentDisplayName(String documentType) =>
+      _documentTypes[documentType.trim().toLowerCase()]?.name.isNotEmpty == true
+          ? _documentTypes[documentType.trim().toLowerCase()]!.name
+          : OnboardingStatusModel.docDisplayName(documentType);
 
   @override
   void initState() {
     super.initState();
     _initFieldsFromSession();
-    _loadNdtExpiryDate();
     _loadStatus();
   }
 
@@ -112,7 +73,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     _dobController.dispose();
     _panController.dispose();
     _aadhaarController.dispose();
-    _ndtExpiryController.dispose();
     _accHolderController.dispose();
     _bankNameController.dispose();
     _accNumController.dispose();
@@ -147,7 +107,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     _initialDob = _dobController.text.trim();
     _initialPan = _panController.text.trim();
     _initialAadhaar = _aadhaarController.text.trim();
-    _initialNdtExpiry = _ndtExpiryController.text.trim();
     _initialAccHolder = _accHolderController.text.trim();
     _initialBankName = _bankNameController.text.trim();
     _initialAccNum = _accNumController.text.trim();
@@ -158,7 +117,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     return _dobController.text.trim() != _initialDob ||
         _panController.text.trim() != _initialPan ||
         _aadhaarController.text.trim() != _initialAadhaar ||
-        _ndtExpiryController.text.trim() != _initialNdtExpiry ||
         _accHolderController.text.trim() != _initialAccHolder ||
         _bankNameController.text.trim() != _initialBankName ||
         _accNumController.text.trim() != _initialAccNum ||
@@ -167,9 +125,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   bool get _isStep1Complete {
     if (_status != null && _status!.missingFields.isNotEmpty) {
-      return false;
-    }
-    if (_requiresNdtExpiry && _ndtExpiryController.text.trim().isEmpty) {
       return false;
     }
     return _dobController.text.trim().isNotEmpty &&
@@ -198,25 +153,30 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       if (session != null && session.token.isNotEmpty) {
         final statusFuture =
             _onboardingService.getOnboardingStatus(token: session.token);
-        final docsFuture =
-            _documentsService.listDocuments(token: session.token);
+        final docsFuture = _documentsService.listDocuments(token: session.token);
+        final documentTypesFuture = _documentsService
+            .documentTypes(token: session.token)
+            .catchError((_) => <DocumentTypeDefinition>[]);
 
-        final results = await Future.wait([statusFuture, docsFuture]);
+        final results = await Future.wait(
+            [statusFuture, docsFuture, documentTypesFuture]);
         final status = results[0] as OnboardingStatusModel;
         final docs = results[1] as List<EngineerDocument>;
+        final documentTypes = results[2] as List<DocumentTypeDefinition>;
 
         if (mounted) {
           setState(() {
             _status = status;
             _uploadedDocs = docs;
+            _documentTypes = {
+              for (final type in documentTypes)
+                type.code.trim().toLowerCase(): type,
+            };
             _isLoading = false;
 
             // Auto-advance to Step 2 if Step 1 details are already complete
-            final needsNdtDate =
-                _requiresNdtExpiry && _ndtExpiryController.text.trim().isEmpty;
             if (!_hasAutoAdvancedToStep2 &&
                 status.missingFields.isEmpty &&
-                !needsNdtDate &&
                 status.missingDocuments.isNotEmpty) {
               _currentStep = 1;
               _hasAutoAdvancedToStep2 = true;
@@ -253,66 +213,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
   }
 
-  Future<DateTime?> _selectNdtExpiry() async {
-    final today = DateTime.now();
-    final initial = _selectedNdtExpiry ??
-        DateTime(today.year + 1, today.month, today.day);
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial.isBefore(today) ? today : initial,
-      firstDate: DateTime(today.year - 1, 1, 1),
-      lastDate: DateTime(today.year + 20, 12, 31),
-      helpText: "Select NDT Certificate Expiry Date",
-    );
-
-    if (picked != null) {
-      final normalized = DateTime(picked.year, picked.month, picked.day);
-      await _saveNdtExpiryDate(normalized);
-      return normalized;
-    }
-    return null;
-  }
-
-  String? _ndtReminderText(DateTime? expiry) {
-    if (expiry == null) return null;
-    final today = DateTime.now();
-    final startToday = DateTime(today.year, today.month, today.day);
-    final diffDays = expiry.difference(startToday).inDays;
-    final label = DateFormat('dd-MM-yyyy').format(expiry);
-    if (diffDays < 0) {
-      return "NDT Expired on $label";
-    }
-    if (diffDays <= 30) {
-      return "NDT Expires in $diffDays day${diffDays == 1 ? '' : 's'} ($label)";
-    }
-    return "NDT Expiry Date: $label";
-  }
-
-  Color _ndtReminderColor(BuildContext context, DateTime? expiry) {
-    if (expiry == null) return Theme.of(context).colorScheme.onSurfaceVariant;
-    final today = DateTime.now();
-    final startToday = DateTime(today.year, today.month, today.day);
-    final diffDays = expiry.difference(startToday).inDays;
-    if (diffDays < 0) return Colors.red.shade700;
-    if (diffDays <= 30) return Colors.amber.shade900;
-    return Colors.teal.shade700;
-  }
-
   Future<void> _saveProfileDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
     try {
-      if (_selectedNdtExpiry != null) {
-        await _saveNdtExpiryDate(_selectedNdtExpiry!);
-      } else if (_ndtExpiryController.text.trim().isNotEmpty) {
-        final parsed = DateTime.tryParse(_ndtExpiryController.text.trim());
-        if (parsed != null) {
-          await _saveNdtExpiryDate(parsed);
-        }
-      }
-
       final payload = <String, dynamic>{};
       if (_selectedDob != null) {
         payload['birth_date'] = DateFormat('yyyy-MM-dd').format(_selectedDob!);
@@ -439,7 +344,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     final existingDoc = existingMatch.isNotEmpty ? existingMatch.first : null;
     if (existingDoc != null &&
         existingDoc.verificationStatus.trim().toUpperCase() == "APPROVED") {
-      final docDisplayName = OnboardingStatusModel.docDisplayName(docType);
+      final docDisplayName = _documentDisplayName(docType);
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -506,7 +411,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  "Upload ${OnboardingStatusModel.docDisplayName(docType)}",
+                  "Upload ${_documentDisplayName(docType)}",
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
@@ -607,7 +512,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     setState(() => _busyDocType = docType);
 
     try {
-      final docDisplayName = OnboardingStatusModel.docDisplayName(docType);
+      final docDisplayName = _documentDisplayName(docType);
       await _documentsService.uploadDocumentBytes(
         token: session.token,
         documentType: docType,
@@ -667,7 +572,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   Future<void> _confirmDeleteDocument(EngineerDocument doc) async {
-    final displayName = OnboardingStatusModel.docDisplayName(doc.documentType);
+    final displayName = _documentDisplayName(doc.documentType);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -711,7 +616,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "${OnboardingStatusModel.docDisplayName(doc.documentType)} submission removed.",
+              "${_documentDisplayName(doc.documentType)} submission removed.",
             ),
             backgroundColor: Colors.grey.shade800,
           ),
@@ -1132,34 +1037,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   return null;
                 },
               ),
-              if (_requiresNdtExpiry) ...[
-                const SizedBox(height: 16),
-                // Required only when NDT is configured for this department.
-                TextFormField(
-                  controller: _ndtExpiryController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: "NDT Certificate Expiry Date *",
-                    hintText: "YYYY-MM-DD",
-                    prefixIcon: const Icon(Icons.verified_outlined),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.event_available_outlined),
-                      onPressed: _selectNdtExpiry,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onTap: _selectNdtExpiry,
-                  validator: (v) {
-                    if (_requiresNdtExpiry &&
-                        (v == null || v.trim().isEmpty)) {
-                      return "NDT Certificate expiry date is required";
-                    }
-                    return null;
-                  },
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -1567,7 +1444,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final docTitle = OnboardingStatusModel.docDisplayName(docType);
+    final docTitle = _documentDisplayName(docType);
 
     final isBusyUploading = _busyDocType == docType;
     final isBusyDeleting = uploadedDoc != null && _deletingDocId == uploadedDoc.id;
@@ -1656,66 +1533,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 padding: const EdgeInsets.only(bottom: 3),
                 child: Text("${entry.key.replaceAll('_', ' ')}: ${entry.value is bool ? (entry.value ? 'Yes' : 'No') : entry.value}", style: theme.textTheme.bodySmall),
               )),
-            ],
-
-            // NDT Expiry Date Badge (for NDT Certificate)
-            if (docType.toLowerCase() == "ndt") ...[
-              const SizedBox(height: 10),
-              InkWell(
-                onTap: _selectNdtExpiry,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _selectedNdtExpiry != null
-                        ? _ndtReminderColor(context, _selectedNdtExpiry)
-                            .withValues(alpha: 0.08)
-                        : Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _selectedNdtExpiry != null
-                          ? _ndtReminderColor(context, _selectedNdtExpiry)
-                              .withValues(alpha: 0.35)
-                          : Colors.amber.shade300,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.event_available_outlined,
-                        size: 16,
-                        color: _selectedNdtExpiry != null
-                            ? _ndtReminderColor(context, _selectedNdtExpiry)
-                            : Colors.amber.shade900,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _ndtReminderText(_selectedNdtExpiry) ??
-                              "Tap to set NDT Certificate Expiry Date",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _selectedNdtExpiry != null
-                                ? _ndtReminderColor(
-                                    context, _selectedNdtExpiry)
-                                : Colors.amber.shade900,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _selectedNdtExpiry != null ? "Change" : "Set Date",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
 
             // Rejected Remarks Box
