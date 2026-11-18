@@ -59,13 +59,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   String _initialAccNum = '';
   String _initialIfsc = '';
 
-  bool get _isMechanicalStream {
-    final dept =
-        (_status?.department ?? SessionStore.current?.engineer.department ?? "")
-            .trim()
-            .toLowerCase();
-    return dept.contains("mech");
-  }
+  bool get _requiresNdtExpiry =>
+      _status?.requiredDocuments.contains("ndt") ?? false;
 
   String? get _ndtExpiryKey {
     final engineerId = (SessionStore.current?.engineer.id ?? "").trim();
@@ -174,7 +169,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     if (_status != null && _status!.missingFields.isNotEmpty) {
       return false;
     }
-    if (_isMechanicalStream && _ndtExpiryController.text.trim().isEmpty) {
+    if (_requiresNdtExpiry && _ndtExpiryController.text.trim().isEmpty) {
       return false;
     }
     return _dobController.text.trim().isNotEmpty &&
@@ -217,11 +212,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             _isLoading = false;
 
             // Auto-advance to Step 2 if Step 1 details are already complete
-            final mechNeedsNdtDate =
-                _isMechanicalStream && _ndtExpiryController.text.trim().isEmpty;
+            final needsNdtDate =
+                _requiresNdtExpiry && _ndtExpiryController.text.trim().isEmpty;
             if (!_hasAutoAdvancedToStep2 &&
                 status.missingFields.isEmpty &&
-                !mechNeedsNdtDate &&
+                !needsNdtDate &&
                 status.missingDocuments.isNotEmpty) {
               _currentStep = 1;
               _hasAutoAdvancedToStep2 = true;
@@ -467,11 +462,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       if (confirmed != true || !mounted) return;
     }
 
-    if (docType.toLowerCase() == "ndt") {
-      final pickedNdtDate = await _selectNdtExpiry();
-      if (pickedNdtDate == null) return;
-      if (!mounted) return;
-    }
+    final fields = await _documentsService.documentFields(token: session.token, documentType: docType);
+    if (!mounted) return;
+    final fieldValues = await _collectDocumentFieldValues(fields);
+    if (fieldValues == null) return;
 
     final isCv = docType.toLowerCase() == "cv";
     Uint8List? fileBytes;
@@ -623,6 +617,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         contentType: contentType,
         sizeBytes: fileBytes.length,
         fileExtension: ext,
+        fieldValues: fieldValues,
       );
 
       if (mounted) {
@@ -648,6 +643,27 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         setState(() => _busyDocType = null);
       }
     }
+  }
+
+  Future<Map<String, dynamic>?> _collectDocumentFieldValues(List<DocumentFieldDefinition> fields) async {
+    if (fields.isEmpty) return {};
+    final controllers = {for (final field in fields.where((field) => field.fieldType != "checkbox" && field.fieldType != "select")) field.key: TextEditingController()};
+    final values = <String, dynamic>{for (final field in fields.where((field) => field.fieldType == "checkbox")) field.key: false};
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text("Document details"),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: fields.map((field) {
+          final label = field.required ? "${field.label} *" : field.label;
+          if (field.fieldType == "select") return DropdownButtonFormField<String>(value: values[field.key] as String?, decoration: InputDecoration(labelText: label, helperText: field.helpText), items: field.options.map((option) => DropdownMenuItem(value: option, child: Text(option))).toList(), onChanged: (value) => setDialogState(() => values[field.key] = value));
+          if (field.fieldType == "checkbox") return CheckboxListTile(contentPadding: EdgeInsets.zero, title: Text(label), subtitle: field.helpText == null ? null : Text(field.helpText!), value: values[field.key] == true, onChanged: (value) => setDialogState(() => values[field.key] = value == true));
+          return TextField(controller: controllers[field.key], keyboardType: field.fieldType == "number" ? TextInputType.number : TextInputType.text, readOnly: field.fieldType == "date", onTap: field.fieldType == "date" ? () async { final picked = await showDatePicker(context: context, firstDate: DateTime(1900), lastDate: DateTime(2100), initialDate: DateTime.now()); if (picked != null) setDialogState(() => controllers[field.key]!.text = DateFormat("yyyy-MM-dd").format(picked)); } : null, maxLines: field.fieldType == "textarea" ? 3 : 1, decoration: InputDecoration(labelText: label, helperText: field.helpText));
+        }).toList())),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Cancel")), FilledButton(onPressed: () { for (final field in fields) { if (field.fieldType != "checkbox" && field.fieldType != "select") values[field.key] = controllers[field.key]!.text.trim(); if (field.required && (values[field.key] == null || values[field.key] == "")) { ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text("${field.label} is required"))); return; } } Navigator.pop(dialogContext, values); }, child: const Text("Continue"))],
+      )),
+    );
+    for (final controller in controllers.values) { controller.dispose(); }
+    return result;
   }
 
   Future<void> _confirmDeleteDocument(EngineerDocument doc) async {
@@ -1116,9 +1132,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   return null;
                 },
               ),
-              if (_isMechanicalStream) ...[
+              if (_requiresNdtExpiry) ...[
                 const SizedBox(height: 16),
-                // NDT Certificate Expiry Date (Required for Mechanical Stream)
+                // Required only when NDT is configured for this department.
                 TextFormField(
                   controller: _ndtExpiryController,
                   readOnly: true,
@@ -1136,9 +1152,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   ),
                   onTap: _selectNdtExpiry,
                   validator: (v) {
-                    if (_isMechanicalStream &&
+                    if (_requiresNdtExpiry &&
                         (v == null || v.trim().isEmpty)) {
-                      return "NDT Certificate expiry date is required for Mechanical stream";
+                      return "NDT Certificate expiry date is required";
                     }
                     return null;
                   },
@@ -1633,6 +1649,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 ),
               ],
             ),
+
+            if (isUploaded && uploadedDoc!.fieldValues.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...uploadedDoc.fieldValues.entries.map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text("${entry.key.replaceAll('_', ' ')}: ${entry.value is bool ? (entry.value ? 'Yes' : 'No') : entry.value}", style: theme.textTheme.bodySmall),
+              )),
+            ],
 
             // NDT Expiry Date Badge (for NDT Certificate)
             if (docType.toLowerCase() == "ndt") ...[

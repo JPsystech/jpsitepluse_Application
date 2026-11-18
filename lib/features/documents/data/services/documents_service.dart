@@ -17,6 +17,26 @@ class DocumentsService {
 
   static const int maxBytes = 15 * 1024 * 1024;
 
+  Future<DocumentTypeDefinition?> documentType({
+    required String token,
+    required String documentType,
+  }) async {
+    final client = await api.dio;
+    final response = await client.get("/api/v1/engineer/document-types");
+    final rows = response.data is List ? response.data as List : const [];
+    final match = rows.whereType<Map>().cast<Map>().firstWhere(
+      (row) => row["code"]?.toString().toLowerCase() == documentType.toLowerCase(),
+      orElse: () => const {},
+    );
+    if (match.isEmpty) return null;
+    return DocumentTypeDefinition.fromJson(Map<String, dynamic>.from(match));
+  }
+
+  Future<List<DocumentFieldDefinition>> documentFields({
+    required String token,
+    required String documentType,
+  }) async => (await this.documentType(token: token, documentType: documentType))?.fields ?? const [];
+
   Future<List<EngineerDocument>> listDocuments({required String token}) async {
     final cacheKey = "cached_documents_v1";
 
@@ -63,6 +83,7 @@ class DocumentsService {
     required int sizeBytes,
     required String originalFileName,
     required String? fileExtension,
+    Map<String, dynamic> fieldValues = const {},
   }) async {
     final client = await api.dio;
     final res = await client.post(
@@ -74,6 +95,7 @@ class DocumentsService {
         "size_bytes": sizeBytes,
         if (fileExtension != null) "file_extension": fileExtension,
         "original_filename": originalFileName,
+        "field_values": fieldValues,
       },
     );
     final json = res.data;
@@ -92,6 +114,7 @@ class DocumentsService {
     required String contentType,
     required int sizeBytes,
     required String originalFileName,
+    Map<String, dynamic> fieldValues = const {},
   }) async {
     final client = await api.dio;
     final res = await client.post(
@@ -104,6 +127,7 @@ class DocumentsService {
         "content_type": contentType,
         "size_bytes": sizeBytes,
         "original_filename": originalFileName,
+        "field_values": fieldValues,
       },
     );
     final json = res.data;
@@ -122,6 +146,7 @@ class DocumentsService {
     required String contentType,
     required int sizeBytes,
     required String? fileExtension,
+    Map<String, dynamic> fieldValues = const {},
   }) async {
     final presigned = await presign(
       token: token,
@@ -131,6 +156,7 @@ class DocumentsService {
       sizeBytes: sizeBytes,
       originalFileName: originalFileName,
       fileExtension: fileExtension,
+      fieldValues: fieldValues,
     );
 
     if (presigned.uploadUrl.trim().isEmpty) {
@@ -199,6 +225,7 @@ class DocumentsService {
       contentType: contentType,
       sizeBytes: sizeBytes,
       originalFileName: originalFileName,
+      fieldValues: fieldValues,
     );
   }
 
@@ -219,5 +246,51 @@ class DocumentsService {
     if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception("Failed to delete document (status ${res.statusCode})");
     }
+  }
+}
+
+class DocumentFieldDefinition {
+  final String key;
+  final String label;
+  final String fieldType;
+  final bool required;
+  final List<String> options;
+  final String? helpText;
+  final bool isExpiry;
+
+  const DocumentFieldDefinition({
+    required this.key,
+    required this.label,
+    required this.fieldType,
+    required this.required,
+    required this.options,
+    this.helpText,
+    this.isExpiry = false,
+  });
+
+  factory DocumentFieldDefinition.fromJson(Map<String, dynamic> json) => DocumentFieldDefinition(
+    key: json["key"]?.toString() ?? "",
+    label: json["label"]?.toString() ?? "Field",
+    fieldType: json["field_type"]?.toString() ?? "text",
+    required: json["required"] == true,
+    options: json["options"] is List ? (json["options"] as List).map((value) => value.toString()).toList() : const [],
+    helpText: json["help_text"]?.toString(),
+    isExpiry: json["is_expiry"] == true,
+  );
+}
+
+class DocumentTypeDefinition {
+  const DocumentTypeDefinition({required this.fields, required this.extensions, required this.sources});
+  final List<DocumentFieldDefinition> fields;
+  final List<String> extensions;
+  final List<String> sources;
+
+  factory DocumentTypeDefinition.fromJson(Map<String, dynamic> json) {
+    final rules = json["upload_rules"] is Map ? Map<String, dynamic>.from(json["upload_rules"] as Map) : const <String, dynamic>{};
+    return DocumentTypeDefinition(
+      fields: json["field_definitions"] is List ? (json["field_definitions"] as List).whereType<Map>().map((row) => DocumentFieldDefinition.fromJson(Map<String, dynamic>.from(row))).toList() : const [],
+      extensions: rules["extensions"] is List ? (rules["extensions"] as List).map((value) => value.toString().toLowerCase()).toList() : const [],
+      sources: rules["sources"] is List ? (rules["sources"] as List).map((value) => value.toString().toLowerCase()).toList() : const [],
+    );
   }
 }

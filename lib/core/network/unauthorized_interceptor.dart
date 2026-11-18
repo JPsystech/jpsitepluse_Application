@@ -22,6 +22,7 @@ class UnauthorizedInterceptor extends Interceptor {
     '/api/v1/engineer/change-password',
     '/api/v1/engineer/reset-mpin',
     '/api/v1/engineer/login',
+    '/api/v1/engineer/accept-terms',
   };
 
   static bool _isExcluded(RequestOptions options) {
@@ -72,7 +73,7 @@ class UnauthorizedInterceptor extends Interceptor {
             await prefs.remove('sitepulse_engineer_vendor_code');
           } catch (_) {}
 
-          SessionStore.expireSession(reason);
+          await SessionStore.expireSession(reason);
         }
       }
     }

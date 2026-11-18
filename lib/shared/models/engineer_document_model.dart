@@ -42,6 +42,7 @@ class EngineerDocument {
   final String? adminRemarks;
   final bool? isRequired;
   final String? requiredLabel;
+  final Map<String, dynamic> fieldValues;
   final DateTime uploadedAt;
   final DateTime updatedAt;
 
@@ -58,6 +59,7 @@ class EngineerDocument {
     required this.adminRemarks,
     required this.isRequired,
     required this.requiredLabel,
+    this.fieldValues = const {},
     required this.uploadedAt,
     required this.updatedAt,
   });
@@ -79,6 +81,9 @@ class EngineerDocument {
       adminRemarks: json["admin_remarks"] as String?,
       isRequired: json["is_required"] as bool? ?? json["required"] as bool?,
       requiredLabel: json["required_label"] as String?,
+      fieldValues: json["field_values"] is Map
+          ? Map<String, dynamic>.from(json["field_values"] as Map)
+          : const {},
       uploadedAt: DateTime.tryParse((json["uploaded_at"] as String?) ?? "") ??
           DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.tryParse((json["updated_at"] as String?) ?? "") ??

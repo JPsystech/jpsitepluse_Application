@@ -1,6 +1,1 @@
-import Flutter
-import UIKit
-
-class SceneDelegate: FlutterSceneDelegate {
-
-}
+// SceneDelegate is omitted; FlutterAppDelegate manages the single-window lifecycle on iOS.

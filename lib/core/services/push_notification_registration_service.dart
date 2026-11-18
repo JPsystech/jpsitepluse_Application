@@ -55,17 +55,36 @@ class PushNotificationRegistrationService {
     try {
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(alert: true, badge: true, sound: true);
-
-      final token = await messaging.getToken();
-      if (token != null && token.trim().isNotEmpty) {
-        await _sendTokenToBackend(token);
-      }
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
       if (!_refreshListenerAttached) {
         _refreshListenerAttached = true;
         FirebaseMessaging.instance.onTokenRefresh.listen((freshToken) async {
           await _sendTokenToBackend(freshToken);
         });
+      }
+
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        String? apnsToken = await messaging.getAPNSToken();
+        for (int i = 0; i < 6 && apnsToken == null; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          apnsToken = await messaging.getAPNSToken();
+        }
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            debugPrint('APNs token not available yet on iOS; waiting for onTokenRefresh.');
+          }
+          return;
+        }
+      }
+
+      final token = await messaging.getToken();
+      if (token != null && token.trim().isNotEmpty) {
+        await _sendTokenToBackend(token);
       }
     } catch (e) {
       if (kDebugMode) {

@@ -14,6 +14,7 @@ import "package:sitepulse_engineer/shared/widgets/image_viewer.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
 import "package:sitepulse_engineer/core/error/error_handler.dart";
+import "package:sitepulse_engineer/core/services/required_documents_store.dart";
 
 import "../../../../core/theme/app_colors_extension.dart";
 
@@ -58,8 +59,29 @@ class _DocumentUploadView extends StatefulWidget {
 
 class _DocumentUploadViewState extends State<_DocumentUploadView> {
   _DocFilter _selectedFilter = _DocFilter.all;
+  Set<String>? _requiredDocumentTypes;
 
   String get _token => (SessionStore.current?.token ?? "").trim();
+
+  @override
+  void initState() {
+    super.initState();
+    _requiredDocumentTypes = RequiredDocumentsStore.requiredTypes.value;
+    RequiredDocumentsStore.requiredTypes.addListener(_onRequiredDocumentsChanged);
+    RequiredDocumentsStore.refresh(token: _token);
+  }
+
+  @override
+  void dispose() {
+    RequiredDocumentsStore.requiredTypes.removeListener(_onRequiredDocumentsChanged);
+    super.dispose();
+  }
+
+  void _onRequiredDocumentsChanged() {
+    if (mounted) {
+      setState(() => _requiredDocumentTypes = RequiredDocumentsStore.requiredTypes.value);
+    }
+  }
 
   void _showSnackBar(BuildContext context, String message,
       {bool isError = false}) {
@@ -73,40 +95,22 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
 
   Future<void> _addCustomDocument(
       BuildContext context, DocumentsState state) async {
-    final ctrl = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text("Add More Document"),
-          content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: "Document Name",
-            ),
-            onSubmitted: (_) =>
-                Navigator.of(dialogContext).pop(ctrl.text.trim()),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text("Cancel"),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(ctrl.text.trim()),
-              child: const Text("Continue"),
-            ),
-          ],
-        );
-      },
+    final values = await _showDocumentDetailsSheet(
+      context,
+      const [
+        DocumentFieldDefinition(
+          key: "document_name",
+          label: "Document Name",
+          fieldType: "text",
+          required: true,
+          options: [],
+          helpText: "Enter the name of the document you want to upload.",
+        ),
+      ],
     );
+    if (values == null) return;
 
-    if (name == null) return;
-
-    final trimmed = name.trim();
+    final trimmed = values["document_name"]?.toString().trim() ?? "";
     final customError = _validateCustomDocumentName(trimmed);
     if (customError != null) {
       if (!context.mounted) return;
@@ -166,18 +170,37 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
       }
     }
 
-    DateTime? ndtExpiryDate;
-    if (definition.type == "ndt") {
-      ndtExpiryDate = await _pickNdtExpiryDate(context, state.ndtExpiryDate);
-      if (ndtExpiryDate == null) return;
-    }
+    final configuredType = await DocumentsService().documentType(
+      token: _token,
+      documentType: definition.type,
+    );
+    if (!context.mounted) return;
+    final fieldDefinitions = configuredType?.fields ?? const <DocumentFieldDefinition>[];
+    final effectiveDefinition = configuredType == null
+        ? definition
+        : definition.copyWith(
+            allowedExtensions: configuredType.extensions.isEmpty
+                ? definition.allowedExtensions
+                : configuredType.extensions,
+            uploadSources: configuredType.sources.isEmpty
+                ? (definition.allowsCameraOrGallery
+                    ? const ["files", "camera", "gallery"]
+                    : const ["files"])
+                : configuredType.sources,
+          );
+    final fieldValues =
+        await _showDocumentDetailsSheet(context, fieldDefinitions);
+    if (fieldValues == null) return;
+    final ndtExpiryDate = definition.type == "ndt"
+        ? _ndtExpiryDateFrom(fieldDefinitions, fieldValues)
+        : null;
 
     if (!context.mounted) return;
-    final selected = await _pickFile(context, definition);
+    final selected = await _pickFile(context, effectiveDefinition);
     if (selected == null) return;
 
     final validationError = _validateSelectedFile(
-        definition: definition,
+        definition: effectiveDefinition,
         selected: selected,
         customDocumentName: customDocumentName);
     if (validationError != null) {
@@ -205,13 +228,211 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
           sizeBytes: selected.sizeBytes,
           fileExtension: selected.fileExtension,
           ndtExpiryDate: ndtExpiryDate,
+          fieldValues: fieldValues,
           busyKey: busyKey,
         ));
   }
 
+  Future<Map<String, dynamic>?> _collectDocumentFieldValues(
+    BuildContext context,
+    List<DocumentFieldDefinition> fields,
+  ) async {
+    if (fields.isEmpty) return {};
+    final controllers = {
+      for (final field in fields.where(
+        (field) => field.fieldType != "checkbox" && field.fieldType != "select",
+      ))
+        field.key: TextEditingController(),
+    };
+    final values = <String, dynamic>{
+      for (final field in fields.where((field) => field.fieldType == "checkbox"))
+        field.key: false,
+    };
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.82,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 12,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  "Document details",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Complete the required information before choosing your document.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                ...fields.map((field) {
+                  final label = field.required ? "${field.label} *" : field.label;
+                  if (field.fieldType == "select") {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: DropdownButtonFormField<String>(
+                        value: values[field.key] as String?,
+                        decoration: InputDecoration(
+                          labelText: label,
+                          helperText: field.helpText,
+                        ),
+                        items: field.options
+                            .map((option) => DropdownMenuItem(
+                                  value: option,
+                                  child: Text(option),
+                                ))
+                            .toList(),
+                        onChanged: (value) =>
+                            setSheetState(() => values[field.key] = value),
+                      ),
+                    );
+                  }
+                  if (field.fieldType == "checkbox") {
+                    return CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(label),
+                      subtitle: field.helpText == null ? null : Text(field.helpText!),
+                      value: values[field.key] == true,
+                      onChanged: (value) => setSheetState(
+                        () => values[field.key] = value == true,
+                      ),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: TextField(
+                      controller: controllers[field.key],
+                      keyboardType: field.fieldType == "number"
+                          ? TextInputType.number
+                          : TextInputType.text,
+                      readOnly: field.fieldType == "date",
+                      onTap: field.fieldType == "date"
+                          ? () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.now(),
+                                firstDate: DateTime(1900),
+                                lastDate: DateTime(2100),
+                              );
+                              if (date != null) {
+                                setSheetState(() {
+                                  controllers[field.key]!.text =
+                                      "${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+                                });
+                              }
+                            }
+                          : null,
+                      maxLines: field.fieldType == "textarea" ? 3 : 1,
+                      decoration: InputDecoration(
+                        labelText: label,
+                        helperText: field.helpText,
+                        suffixIcon: field.fieldType == "date"
+                            ? const Icon(Icons.calendar_today_outlined)
+                            : null,
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.of(sheetContext, rootNavigator: true).pop(),
+                      child: const Text("Cancel"),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: () {
+                        for (final field in fields) {
+                          if (field.fieldType != "checkbox" &&
+                              field.fieldType != "select") {
+                            values[field.key] =
+                                controllers[field.key]!.text.trim();
+                          }
+                          final value = values[field.key];
+                          final missing = value == null ||
+                              value == "" ||
+                              (field.fieldType == "checkbox" && value != true);
+                          if (field.required && missing) {
+                            _showSnackBar(
+                              sheetContext,
+                              "${field.label} is required",
+                              isError: true,
+                            );
+                            return;
+                          }
+                        }
+                        Navigator.of(sheetContext, rootNavigator: true)
+                            .pop(values);
+                      },
+                      child: const Text("Continue"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>?> _showDocumentDetailsSheet(
+    BuildContext context,
+    List<DocumentFieldDefinition> fields,
+  ) {
+    if (fields.isEmpty) return Future.value({});
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _DocumentDetailsSheet(fields: fields),
+    );
+  }
+
   Future<_SelectedUploadFile?> _pickFile(
       BuildContext context, _DocumentDefinition definition) async {
-    if (definition.allowsCameraOrGallery) {
+    if (definition.uploadSources.any((source) => source != "files")) {
       final source = await showModalBottomSheet<_DocumentPickSource>(
         context: context,
         showDragHandle: true,
@@ -219,19 +440,19 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
+              if (definition.uploadSources.contains("camera")) ListTile(
                 leading: const Icon(Icons.camera_alt_outlined),
                 title: const Text("Camera"),
                 onTap: () =>
                     Navigator.of(context).pop(_DocumentPickSource.camera),
               ),
-              ListTile(
+              if (definition.uploadSources.contains("gallery")) ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
                 title: const Text("Gallery"),
                 onTap: () =>
                     Navigator.of(context).pop(_DocumentPickSource.gallery),
               ),
-              ListTile(
+              if (definition.uploadSources.contains("files")) ListTile(
                 leading: const Icon(Icons.attach_file_rounded),
                 title: const Text("Files"),
                 onTap: () =>
@@ -362,6 +583,17 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
     return DateTime(picked.year, picked.month, picked.day);
   }
 
+  DateTime? _ndtExpiryDateFrom(
+    List<DocumentFieldDefinition> fields,
+    Map<String, dynamic> values,
+  ) {
+    final expiryField = fields.where((field) =>
+        field.fieldType == "date" &&
+        (field.isExpiry || field.key.trim().toLowerCase() == "expiry_date"));
+    if (expiryField.isEmpty) return null;
+    return DateTime.tryParse(values[expiryField.first.key]?.toString() ?? "");
+  }
+
   String? _validateCustomDocumentName(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return "Document name is required";
@@ -469,6 +701,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final department = SessionStore.current?.engineer.department;
     return BlocConsumer<DocumentsBloc, DocumentsState>(
       listenWhen: (previous, current) =>
           current.snackbarMessage != previous.snackbarMessage ||
@@ -506,8 +739,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
         }
         customDocuments.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
-        final department = SessionStore.current?.engineer.department;
-        final definitions = _getDefinitionsForDepartment(department);
+        final definitions = _getDefinitionsForRequiredTypes(_requiredDocumentTypes);
         final requiredDefinitions = definitions.where((d) => d.isRequired).toList();
         final optionalDefinitions = definitions.where((d) => !d.isRequired).toList();
 
@@ -579,9 +811,15 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
           body: SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {
+                // Required-document rules are managed by Admin and may have
+                // changed since this screen was opened. Refresh them together
+                // with the engineer's uploaded-document list.
+                final requirementsRefresh =
+                    RequiredDocumentsStore.refresh(token: _token);
                 context.read<DocumentsBloc>().add(
                     LoadDocumentsRequested(
                         sessionToken: _token, showLoader: true));
+                await requirementsRefresh;
                 await Future.delayed(const Duration(milliseconds: 600));
               },
               child: CustomScrollView(
@@ -696,6 +934,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                                     helperColor: definition.type == "ndt"
                                         ? _ndtReminderColor(context, state.ndtExpiryDate)
                                         : null,
+                                    fieldValues: doc?.fieldValues ?? const {},
                                     isUploading: state.busyKeys.contains(busyKey),
                                     isViewing: doc != null &&
                                         state.busyKeys.contains("view::${doc.id}"),
@@ -748,6 +987,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                                     helperColor: definition.type == "ndt"
                                         ? _ndtReminderColor(context, state.ndtExpiryDate)
                                         : null,
+                                    fieldValues: doc?.fieldValues ?? const {},
                                     isUploading: state.busyKeys.contains(busyKey),
                                     isViewing: doc != null &&
                                         state.busyKeys.contains("view::${doc.id}"),
@@ -817,6 +1057,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                                       remarks: doc.adminRemarks,
                                       helperText: null,
                                       helperColor: null,
+                                      fieldValues: doc.fieldValues,
                                       isUploading: state.busyKeys.contains(busyKey),
                                       isViewing: state.busyKeys.contains("view::${doc.id}"),
                                       isDownloading: state.busyKeys.contains("download::${doc.id}"),
@@ -1376,6 +1617,275 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
   }
 }
 
+class _DocumentDetailsSheet extends StatefulWidget {
+  const _DocumentDetailsSheet({required this.fields});
+
+  final List<DocumentFieldDefinition> fields;
+
+  @override
+  State<_DocumentDetailsSheet> createState() => _DocumentDetailsSheetState();
+}
+
+class _DocumentDetailsSheetState extends State<_DocumentDetailsSheet> {
+  final Map<String, TextEditingController> _controllers = {};
+  final Map<String, dynamic> _values = {};
+  final Map<String, String> _validationErrors = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final field in widget.fields) {
+      if (field.fieldType == "checkbox") {
+        _values[field.key] = false;
+      } else if (field.fieldType != "select") {
+        _controllers[field.key] = TextEditingController();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _pickDate(DocumentFieldDefinition field) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2100),
+    );
+    if (date == null || !mounted) return;
+    setState(() {
+      _controllers[field.key]!.text =
+          "${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      _validationErrors.remove(field.key);
+    });
+  }
+
+  void _continue() {
+    final errors = <String, String>{};
+    for (final field in widget.fields) {
+      if (field.fieldType != "checkbox" && field.fieldType != "select") {
+        _values[field.key] = _controllers[field.key]!.text.trim();
+      }
+      final value = _values[field.key];
+      final missing = value == null ||
+          value == "" ||
+          (field.fieldType == "checkbox" && value != true);
+      if (field.required && missing) {
+        errors[field.key] = field.fieldType == "select"
+            ? "Please select ${field.label}"
+            : field.fieldType == "checkbox"
+                ? "Please confirm ${field.label}"
+                : "Please enter ${field.label}";
+      }
+    }
+    if (errors.isNotEmpty) {
+      setState(() {
+        _validationErrors
+          ..clear()
+          ..addAll(errors);
+      });
+      return;
+    }
+    Navigator.of(context).pop(_values);
+  }
+
+  InputDecoration _inputDecoration({
+    required BuildContext context,
+    required String label,
+    required String? helperText,
+    required String? errorText,
+    Widget? suffixIcon,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final hasError = errorText != null && errorText.isNotEmpty;
+    final borderRadius = BorderRadius.circular(16);
+    return InputDecoration(
+      labelText: label,
+      helperText: helperText,
+      errorText: errorText,
+      errorMaxLines: 2,
+      prefixIcon: Icon(
+        Icons.edit_outlined,
+        color: hasError ? cs.error : cs.primary,
+      ),
+      suffixIcon: suffixIcon ??
+          (hasError ? Icon(Icons.error_rounded, color: cs.error) : null),
+      filled: true,
+      fillColor: hasError
+          ? cs.errorContainer.withValues(alpha: 0.1)
+          : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+      border: OutlineInputBorder(
+        borderRadius: borderRadius,
+        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: borderRadius,
+        borderSide: BorderSide(
+          color: hasError ? cs.error : cs.outline.withValues(alpha: 0.2),
+          width: hasError ? 1.5 : 1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: borderRadius,
+        borderSide: BorderSide(color: hasError ? cs.error : cs.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: borderRadius,
+        borderSide: BorderSide(color: cs.error, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: borderRadius,
+        borderSide: BorderSide(color: cs.error, width: 2),
+      ),
+      errorStyle: TextStyle(
+        color: cs.error,
+        fontWeight: FontWeight.w500,
+        fontSize: 12,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          8,
+          24,
+          MediaQuery.viewInsetsOf(context).bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                "Document details",
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Complete the required information before choosing your document.",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              ...widget.fields.map((field) {
+                final label = field.required ? "${field.label} *" : field.label;
+                if (field.fieldType == "select") {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: DropdownButtonFormField<String>(
+                      value: _values[field.key] as String?,
+                      decoration: _inputDecoration(
+                        context: context,
+                        label: label,
+                        helperText: field.helpText,
+                        errorText: _validationErrors[field.key],
+                      ),
+                      items: field.options
+                          .map((option) => DropdownMenuItem(
+                                value: option,
+                                child: Text(option),
+                              ))
+                          .toList(),
+                      onChanged: (value) => setState(() {
+                        _values[field.key] = value;
+                        _validationErrors.remove(field.key);
+                      }),
+                    ),
+                  );
+                }
+                if (field.fieldType == "checkbox") {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(label),
+                        subtitle:
+                            field.helpText == null ? null : Text(field.helpText!),
+                        value: _values[field.key] == true,
+                        onChanged: (value) => setState(() {
+                          _values[field.key] = value == true;
+                          _validationErrors.remove(field.key);
+                        }),
+                      ),
+                      if (_validationErrors[field.key] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12, bottom: 8),
+                          child: Text(
+                            _validationErrors[field.key]!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: _controllers[field.key],
+                    keyboardType: field.fieldType == "number"
+                        ? TextInputType.number
+                        : TextInputType.text,
+                    readOnly: field.fieldType == "date",
+                    onChanged: (_) =>
+                        setState(() => _validationErrors.remove(field.key)),
+                    onTap: field.fieldType == "date"
+                        ? () => _pickDate(field)
+                        : null,
+                    maxLines: field.fieldType == "textarea" ? 3 : 1,
+                    decoration: _inputDecoration(
+                      context: context,
+                      label: label,
+                      helperText: field.helpText,
+                      errorText: _validationErrors[field.key],
+                      suffixIcon: field.fieldType == "date"
+                          ? const Icon(Icons.calendar_today_outlined)
+                          : null,
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text("Cancel"),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: _continue,
+                    child: const Text("Continue"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DocumentCard extends StatefulWidget {
   const _DocumentCard({
     required this.title,
@@ -1386,6 +1896,7 @@ class _DocumentCard extends StatefulWidget {
     required this.remarks,
     required this.helperText,
     required this.helperColor,
+    required this.fieldValues,
     required this.isUploading,
     required this.isViewing,
     this.isDownloading = false,
@@ -1403,6 +1914,7 @@ class _DocumentCard extends StatefulWidget {
   final String? remarks;
   final String? helperText;
   final Color? helperColor;
+  final Map<String, dynamic> fieldValues;
   final bool isUploading;
   final bool isViewing;
   final bool isDownloading;
@@ -1423,6 +1935,9 @@ class _DocumentCardState extends State<_DocumentCard> {
     final cs = Theme.of(context).colorScheme;
     final displayRemarks = (widget.remarks ?? "").trim();
     final displayHelper = (widget.helperText ?? "").trim();
+    final displayFieldValues = widget.fieldValues.entries
+        .where((entry) => entry.value != null && entry.value.toString().trim().isNotEmpty)
+        .toList();
     
     final isApproved = widget.statusLabel.toLowerCase() == "approved";
     final isRejected = widget.statusLabel.toLowerCase() == "rejected";
@@ -1492,6 +2007,30 @@ class _DocumentCardState extends State<_DocumentCard> {
           ),
           
           if (_isExpanded) ...[
+            if (displayFieldValues.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: displayFieldValues
+                      .map((entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              "${_fieldLabel(entry.key)}: ${_fieldValue(entry.value)}",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
             if (displayHelper.isNotEmpty || displayRemarks.isNotEmpty)
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -1647,6 +2186,21 @@ class _DocumentCardState extends State<_DocumentCard> {
       ),
     );
   }
+
+  String _fieldLabel(String key) => key
+      .split("_")
+      .where((part) => part.isNotEmpty)
+      .map((part) => "${part[0].toUpperCase()}${part.substring(1)}")
+      .join(" ");
+
+  String _fieldValue(dynamic value) {
+    final text = value.toString();
+    final date = DateTime.tryParse(text);
+    if (date != null && RegExp(r"^\d{4}-\d{2}-\d{2}").hasMatch(text)) {
+      return "${date.day.toString().padLeft(2, "0")}-${date.month.toString().padLeft(2, "0")}-${date.year}";
+    }
+    return value is bool ? (value ? "Yes" : "No") : text;
+  }
 }
 
 class _InfoCard extends StatelessWidget {
@@ -1677,7 +2231,7 @@ class _InfoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "CV supports PDF, DOC, and DOCX. Other documents support PDF or image files. Max size is 15 MB.",
+                    "Accepted file formats and upload options are set by your administrator for each document. Maximum file size is 15 MB.",
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: cs.onSurface,
                           fontWeight: FontWeight.w600,
@@ -1686,7 +2240,7 @@ class _InfoCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "NDT upload requires an expiry date. Selfie & signature support camera, gallery, or files.",
+                    "Some documents may require additional details configured by your administrator before you choose a file.",
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                           height: 1.5,
@@ -1795,6 +2349,7 @@ class _DocumentDefinition {
     this.allowPdf = true,
     this.allowsCameraOrGallery = false,
     this.allowedExtensions = const <String>[],
+    this.uploadSources = const <String>["files"],
   });
 
   final String type;
@@ -1803,6 +2358,7 @@ class _DocumentDefinition {
   final bool allowPdf;
   final bool allowsCameraOrGallery;
   final List<String> allowedExtensions;
+  final List<String> uploadSources;
 
   _DocumentDefinition copyWith({
     String? type,
@@ -1811,6 +2367,7 @@ class _DocumentDefinition {
     bool? allowPdf,
     bool? allowsCameraOrGallery,
     List<String>? allowedExtensions,
+    List<String>? uploadSources,
   }) {
     return _DocumentDefinition(
       type: type ?? this.type,
@@ -1820,33 +2377,9 @@ class _DocumentDefinition {
       allowsCameraOrGallery:
           allowsCameraOrGallery ?? this.allowsCameraOrGallery,
       allowedExtensions: allowedExtensions ?? this.allowedExtensions,
+      uploadSources: uploadSources ?? this.uploadSources,
     );
   }
-}
-
-const Set<String> _kMechanicalRequiredTypes = {
-  "cv",
-  "degree",
-  "ndt",
-  "pan",
-  "aadhaar",
-  "bank_passbook",
-};
-
-const Set<String> _kElectricalCivilRequiredTypes = {
-  "cv",
-  "degree",
-  "pan",
-  "aadhaar",
-  "bank_passbook",
-};
-
-Set<String> _getRequiredTypesForDepartment(String? department) {
-  final norm = (department ?? "").trim().toLowerCase();
-  if (norm.contains("mech")) {
-    return _kMechanicalRequiredTypes;
-  }
-  return _kElectricalCivilRequiredTypes;
 }
 
 const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[
@@ -1905,11 +2438,20 @@ const List<_DocumentDefinition> _allStandardDefinitions = <_DocumentDefinition>[
   ),
 ];
 
-List<_DocumentDefinition> _getDefinitionsForDepartment(String? department) {
-  final requiredTypes = _getRequiredTypesForDepartment(department);
-  return _allStandardDefinitions.map((def) {
-    return def.copyWith(isRequired: requiredTypes.contains(def.type));
-  }).toList();
+List<_DocumentDefinition> _getDefinitionsForRequiredTypes(
+    Set<String>? requiredTypes) {
+  if (requiredTypes == null) return const <_DocumentDefinition>[];
+  final standardDefinitions = {
+    for (final definition in _allStandardDefinitions) definition.type: definition,
+  };
+  return requiredTypes
+      .map((type) => standardDefinitions[type]?.copyWith(isRequired: true) ??
+          _DocumentDefinition(
+            type: type,
+            displayName: type.replaceAll("_", " "),
+            isRequired: true,
+          ))
+      .toList();
 }
 
 const _DocumentDefinition _customDefinition = _DocumentDefinition(
