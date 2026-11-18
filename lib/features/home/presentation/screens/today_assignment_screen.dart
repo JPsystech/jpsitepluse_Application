@@ -779,7 +779,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  "Upload compliance documents and bank details to unlock punch-in.",
+                  "Complete your profile, compliance documents, and bank details to keep your records ready for review and payroll.",
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.amber.shade900,
@@ -869,73 +869,6 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
               ],
             ),
           ),
-          if (!isProfileComplete)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade300),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: Colors.amber.shade900, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Profile Incomplete",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "Please upload your compliance documents & details when convenient.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      backgroundColor: Colors.amber.shade200,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                    ),
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const CompleteProfileScreen()),
-                      );
-                      if (mounted) {
-                        context
-                            .read<HomeBloc>()
-                            .add(LoadAssignmentsRequested());
-                      }
-                    },
-                    child: Text(
-                      "Complete",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Colors.amber.shade900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           // Divider
           Divider(
               height: 1,
@@ -1651,17 +1584,16 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   children: [
                     _buildGreeting(),
+                    if (!resp.isProfileComplete) ...[
+                      const SizedBox(height: 12),
+                      _buildIncompleteProfileCard(context),
+                    ],
                     _buildOfflineBanner(),
                     const SizedBox(height: 24),
                     _buildCombinedStatsCard(
                         resp.attendanceOverview, resp.weeklySummary, assignments.length),
                     const SizedBox(height: 24),
                     if (!hasAssignment) ...[
-                      if (!resp.isProfileComplete)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _buildIncompleteProfileCard(context),
-                        ),
                       _buildEmptyState(),
                     ] else
                       _buildAssignmentsListCard(assignments,
@@ -1976,17 +1908,36 @@ class _PunchSummaryCardState extends State<_PunchSummaryCard> {
     super.initState();
     _initDuration();
     if (widget.isActive && widget.punchOutTimeStr == null) {
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) {
         if (mounted) {
           setState(() {
-            _elapsed += const Duration(seconds: 1);
+            _elapsed += const Duration(minutes: 1);
           });
         }
       });
     }
   }
 
+  @override
+  void didUpdateWidget(covariant _PunchSummaryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.punchInTimeStr != oldWidget.punchInTimeStr || widget.isActive != oldWidget.isActive) {
+      _initDuration();
+    }
+  }
+
   void _initDuration() {
+    if (widget.punchInTimeStr != null) {
+      final punchInDt = DateTime.tryParse(widget.punchInTimeStr!);
+      if (punchInDt != null) {
+        final now = DateTime.now();
+        if (now.isAfter(punchInDt)) {
+          _elapsed = now.difference(punchInDt);
+          return;
+        }
+      }
+    }
+
     if (widget.activeHoursStr != null) {
       _elapsed = _parseDurationString(widget.activeHoursStr!);
     }
@@ -1994,36 +1945,43 @@ class _PunchSummaryCardState extends State<_PunchSummaryCard> {
 
   Duration _parseDurationString(String str) {
     try {
+      final trimmed = str.trim();
+      if (trimmed.contains(':')) {
+        final parts = trimmed.split(':');
+        if (parts.length == 3) {
+          final h = int.tryParse(parts[0]) ?? 0;
+          final m = int.tryParse(parts[1]) ?? 0;
+          return Duration(hours: h, minutes: m);
+        } else if (parts.length == 2) {
+          final h = int.tryParse(parts[0]) ?? 0;
+          final m = int.tryParse(parts[1]) ?? 0;
+          return Duration(hours: h, minutes: m);
+        }
+      }
+
       int hours = 0;
       int minutes = 0;
-      int seconds = 0;
-      final parts = str.toLowerCase().split(RegExp(r'\s+'));
+      final parts = trimmed.toLowerCase().split(RegExp(r'\s+'));
       for (final p in parts) {
         if (p.contains('h')) {
           hours = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         } else if (p.contains('m')) {
           minutes = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        } else if (p.contains('s')) {
-          seconds = int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         }
       }
-      return Duration(hours: hours, minutes: minutes, seconds: seconds);
+      return Duration(hours: hours, minutes: minutes);
     } catch (_) {
       return Duration.zero;
     }
   }
 
   String _formatDuration(Duration d) {
+    if (d.inMinutes <= 0 && d.inSeconds <= 0) {
+      return '0';
+    }
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) {
-      return '${h}h ${m}m ${s}s';
-    } else if (m > 0) {
-      return '${m}m ${s}s';
-    } else {
-      return '${s}s';
-    }
+    return '${h}h ${m}m';
   }
 
   @override

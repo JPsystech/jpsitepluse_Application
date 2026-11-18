@@ -11,7 +11,7 @@ import "package:sitepulse_engineer/features/attendance/presentation/screens/atte
 import "package:sitepulse_engineer/features/payouts/presentation/screens/my_payouts_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/profile_bloc.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
-import "package:sitepulse_engineer/features/onboarding/data/models/onboarding_status_model.dart";
+import "package:sitepulse_engineer/core/services/required_documents_store.dart";
 import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
 import "package:sitepulse_engineer/features/shell/presentation/screens/app_shell.dart";
 import "change_password_screen.dart";
@@ -253,6 +253,19 @@ class _ProfileViewState extends State<_ProfileView> {
     SessionStore.syncProfile().then((_) {
       if (mounted) setState(() {});
     });
+    RequiredDocumentsStore.requiredTypes.addListener(_onRequiredDocumentsChanged);
+    RequiredDocumentsStore.refresh(
+        token: (SessionStore.current?.token ?? "").trim());
+  }
+
+  @override
+  void dispose() {
+    RequiredDocumentsStore.requiredTypes.removeListener(_onRequiredDocumentsChanged);
+    super.dispose();
+  }
+
+  void _onRequiredDocumentsChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _onRefresh() async {
@@ -374,7 +387,7 @@ class _ProfileViewState extends State<_ProfileView> {
                             ),
                       ),
                       const SizedBox(height: 12),
-                      _buildActionsCard(context, session.token, department),
+                      _buildActionsCard(context, session.token),
                       const SizedBox(height: 32),
 
                       _buildLogoutButton(context),
@@ -789,9 +802,10 @@ class _ProfileViewState extends State<_ProfileView> {
     );
   }
 
-  Widget _buildActionsCard(BuildContext context, String sessionToken, String department) {
+  Widget _buildActionsCard(BuildContext context, String sessionToken) {
     final cs = Theme.of(context).colorScheme;
-    final requiredTypes = OnboardingStatusModel.getRequiredTypesForDepartment(department);
+    final requiredTypes =
+        RequiredDocumentsStore.requiredTypes.value ?? const <String>{};
     final int streamTotalRequired = requiredTypes.length;
 
     return Card(

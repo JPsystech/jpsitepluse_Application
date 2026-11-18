@@ -16,6 +16,7 @@ import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/storage/duty_session_store.dart';
 import 'package:sitepulse_engineer/core/storage/encrypted_file_store.dart';
+import 'package:sitepulse_engineer/core/services/location_tracking_policy.dart';
 import 'package:sitepulse_engineer/core/services/mobile_policy_service.dart';
 
 const _trackingActiveKey = 'sitepulse_duty_tracking_active';
@@ -40,6 +41,14 @@ Future<void> _queueMutation = Future<void>.value();
 int? _lastBatteryPercent;
 bool _lastBatteryIsCharging = false;
 DateTime? _lastBatteryReadAt;
+Position? _lastAcceptedTrackingPosition;
+DateTime? _lastAcceptedTrackingAt;
+
+bool _hasTrackingAuth() {
+  final sessionToken = SessionStore.current?.token.trim();
+  final dutyToken = DutySessionStore.token?.trim();
+  return (sessionToken?.isNotEmpty ?? false) || (dutyToken?.isNotEmpty ?? false);
+}
 
 Future<({int? percent, bool isCharging})> _readBatteryStatus() async {
   final now = DateTime.now();
@@ -239,7 +248,7 @@ Future<void> _recordTrackingHealthEvent(
 }
 
 Future<void> _flushTrackingHealthEvents() async {
-  if (_trackingEventUploadInProgress || SessionStore.current == null) return;
+  if (_trackingEventUploadInProgress || !_hasTrackingAuth()) return;
   _trackingEventUploadInProgress = true;
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -315,8 +324,9 @@ Future<void> _retainLocationsForAttendance(String attendanceLogId) async {
 }
 
 Future<void> _flushPendingLocations() async {
-  if (_locationUploadInProgress || SessionStore.current == null) return;
+  if (_locationUploadInProgress || !_hasTrackingAuth()) return;
   _locationUploadInProgress = true;
+  var retryAfterAttendanceRecovery = false;
 
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -369,6 +379,12 @@ Future<void> _flushPendingLocations() async {
           await _recoverActiveAttendanceAfterConflict();
       if (recoveredAttendanceLogId == null) {
         await _stopTrackingAfterAttendanceConflict();
+      } else {
+        // Remove incompatible points from a completed shift before retrying.
+        // Otherwise the same stale point remains first in the queue and every
+        // future upload receives the same attendance conflict.
+        await _retainLocationsForAttendance(recoveredAttendanceLogId);
+        retryAfterAttendanceRecovery = true;
       }
     }
     if (kDebugMode) {
@@ -380,6 +396,9 @@ Future<void> _flushPendingLocations() async {
     }
   } finally {
     _locationUploadInProgress = false;
+    if (retryAfterAttendanceRecovery) {
+      unawaited(_flushPendingLocations());
+    }
   }
 }
 
@@ -440,40 +459,77 @@ bool onIosBackground(ServiceInstance service) {
   return true;
 }
 
-Future<void> _sendLocationPayload(Position position) async {
+Future<void> _sendLocationPayload(
+  Position position, {
+  bool force = false,
+  String source = 'LIVE_BG',
+}) async {
   try {
-    if (position.accuracy > 200) {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_trackingActiveKey) ?? false)) return;
+
+    final policy = MobilePolicyService.current;
+    if (position.accuracy > policy.trackingMaxAccuracyM) {
       await _recordTrackingHealthEvent(
         'LOCATION_ACCURACY_TOO_LOW',
-        details: 'Location accuracy was above 200 metres.',
+        details: 'Location accuracy was above ${policy.trackingMaxAccuracyM} metres.',
       );
       return;
     }
-    if (kDebugMode || !position.isMocked) {
-      final prefs = await SharedPreferences.getInstance();
-      if (!(prefs.getBool(_trackingActiveKey) ?? false)) return;
-      final attendanceLogId = prefs.getString(_attendanceLogIdKey);
-      final battery = await _readBatteryStatus();
 
-      final payload = <String, dynamic>{
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy_m': position.accuracy,
-        'speed_mps': position.speed,
-        'heading': position.heading,
-        'battery_percent': battery.percent,
-        'is_charging': battery.isCharging,
-        'is_mocked': position.isMocked,
-        'attendance_log_id': attendanceLogId,
-        'source': 'LIVE_BG',
-        'captured_at': position.timestamp.toUtc().toIso8601String(),
-      };
+    final capturedAt = position.timestamp.toUtc();
+    final previousPosition = _lastAcceptedTrackingPosition;
+    final previousCapturedAt = _lastAcceptedTrackingAt;
+    final elapsedSeconds = force || previousCapturedAt == null
+        ? policy.trackingUpdateIntervalSeconds
+        : capturedAt.difference(previousCapturedAt).inSeconds.abs();
+    final distanceMeters = force || previousPosition == null
+        ? policy.trackingMinMovementM.toDouble()
+        : Geolocator.distanceBetween(
+            previousPosition.latitude,
+            previousPosition.longitude,
+            position.latitude,
+            position.longitude,
+          );
 
-      // Persist before attempting the network request so a connection loss,
-      // process restart, or app backgrounding cannot discard this point.
-      await _enqueueLocation(payload);
-      await _flushPendingLocations();
+    if (!LocationTrackingPolicy.shouldAccept(
+      isDutyActive: true,
+      isMocked: position.isMocked,
+      accuracyMeters: position.accuracy,
+      elapsedSeconds: elapsedSeconds,
+      distanceMeters: distanceMeters,
+    )) {
+      return;
     }
+    if (!force && previousPosition != null && LocationTrackingPolicy.isDuplicate(
+      elapsedSeconds: elapsedSeconds,
+      distanceMeters: distanceMeters,
+    )) {
+      return;
+    }
+
+    final attendanceLogId = prefs.getString(_attendanceLogIdKey);
+    final battery = await _readBatteryStatus();
+    final payload = <String, dynamic>{
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'accuracy_m': position.accuracy,
+      'speed_mps': position.speed,
+      'heading': position.heading,
+      'battery_percent': battery.percent,
+      'is_charging': battery.isCharging,
+      'is_mocked': position.isMocked,
+      'attendance_log_id': attendanceLogId,
+      'source': source,
+      'captured_at': capturedAt.toIso8601String(),
+    };
+
+    // Persist before attempting the network request so a connection loss,
+    // process restart, or app backgrounding cannot discard this point.
+    await _enqueueLocation(payload);
+    _lastAcceptedTrackingPosition = position;
+    _lastAcceptedTrackingAt = capturedAt;
+    await _flushPendingLocations();
   } catch (e) {
     await _recordLocationReadinessIssue();
     await _recordTrackingHealthEvent(
@@ -633,7 +689,7 @@ void onStart(ServiceInstance service) async {
           timeLimit: Duration(seconds: 20),
         ),
       );
-      await _sendLocationPayload(initialPosition);
+      await _sendLocationPayload(initialPosition, force: true);
     } catch (error) {
       await _recordLocationReadinessIssue();
       await _recordTrackingHealthEvent(
@@ -659,7 +715,11 @@ void onStart(ServiceInstance service) async {
             timeLimit: Duration(seconds: 20),
           ),
         );
-        await _sendLocationPayload(heartbeatPosition);
+        await _sendLocationPayload(
+          heartbeatPosition,
+          force: true,
+          source: 'LIVE_STATIONARY',
+        );
       } catch (error) {
         await _recordLocationReadinessIssue();
         await _recordTrackingHealthEvent(
@@ -710,6 +770,8 @@ class PersistentBackgroundTrackingService {
     await DutySessionStore.save(sessionToken);
     if (attendanceLogId != null && attendanceLogId.trim().isNotEmpty) {
       final normalizedAttendanceLogId = attendanceLogId.trim();
+      _lastAcceptedTrackingPosition = null;
+      _lastAcceptedTrackingAt = null;
       await prefs.setString(_attendanceLogIdKey, normalizedAttendanceLogId);
       // A previous completed shift cannot accept more points. Keep only the
       // durable points belonging to the attendance session being started.
@@ -788,7 +850,7 @@ class PersistentBackgroundTrackingService {
           timeLimit: Duration(seconds: 20),
         ),
       );
-      await _sendLocationPayload(position);
+      await _sendLocationPayload(position, force: true);
     } catch (error) {
       await _recordLocationReadinessIssue();
       await _recordTrackingHealthEvent(
@@ -802,6 +864,8 @@ class PersistentBackgroundTrackingService {
   }
 
   static Future<void> stopTracking() async {
+    _lastAcceptedTrackingPosition = null;
+    _lastAcceptedTrackingAt = null;
     final prefs = await SharedPreferences.getInstance();
     await DutySessionStore.clear();
     final attendanceLogId = prefs.getString(_attendanceLogIdKey);

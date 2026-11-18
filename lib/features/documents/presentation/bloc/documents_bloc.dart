@@ -157,6 +157,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
         contentType: event.contentType,
         sizeBytes: event.sizeBytes,
         fileExtension: event.fileExtension,
+        fieldValues: event.fieldValues,
       );
 
       // Auto-cache the file for offline viewing
@@ -222,6 +223,7 @@ class DocumentsBloc extends Bloc<DocumentsEvent, DocumentsState> {
             "size_bytes": event.sizeBytes,
             "file_extension": event.fileExtension,
             "ndt_expiry_date": event.ndtExpiryDate?.toIso8601String(),
+            "field_values": event.fieldValues,
             "local_file_path": file.path,
           });
 
