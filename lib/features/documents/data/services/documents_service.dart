@@ -17,19 +17,29 @@ class DocumentsService {
 
   static const int maxBytes = 15 * 1024 * 1024;
 
-  Future<DocumentTypeDefinition?> documentType({
+  Future<List<DocumentTypeDefinition>> documentTypes({
     required String token,
-    required String documentType,
   }) async {
     final client = await api.dio;
     final response = await client.get("/api/v1/engineer/document-types");
     final rows = response.data is List ? response.data as List : const [];
-    final match = rows.whereType<Map>().cast<Map>().firstWhere(
-      (row) => row["code"]?.toString().toLowerCase() == documentType.toLowerCase(),
-      orElse: () => const {},
-    );
-    if (match.isEmpty) return null;
-    return DocumentTypeDefinition.fromJson(Map<String, dynamic>.from(match));
+    return rows
+        .whereType<Map>()
+        .map((row) => DocumentTypeDefinition.fromJson(
+            Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<DocumentTypeDefinition?> documentType({
+    required String token,
+    required String documentType,
+  }) async {
+    final normalizedType = documentType.trim().toLowerCase();
+    final types = await documentTypes(token: token);
+    for (final type in types) {
+      if (type.code.toLowerCase() == normalizedType) return type;
+    }
+    return null;
   }
 
   Future<List<DocumentFieldDefinition>> documentFields({
@@ -280,7 +290,16 @@ class DocumentFieldDefinition {
 }
 
 class DocumentTypeDefinition {
-  const DocumentTypeDefinition({required this.fields, required this.extensions, required this.sources});
+  const DocumentTypeDefinition({
+    required this.code,
+    required this.name,
+    required this.fields,
+    required this.extensions,
+    required this.sources,
+  });
+
+  final String code;
+  final String name;
   final List<DocumentFieldDefinition> fields;
   final List<String> extensions;
   final List<String> sources;
@@ -288,6 +307,8 @@ class DocumentTypeDefinition {
   factory DocumentTypeDefinition.fromJson(Map<String, dynamic> json) {
     final rules = json["upload_rules"] is Map ? Map<String, dynamic>.from(json["upload_rules"] as Map) : const <String, dynamic>{};
     return DocumentTypeDefinition(
+      code: json["code"]?.toString().trim() ?? "",
+      name: json["name"]?.toString().trim() ?? "",
       fields: json["field_definitions"] is List ? (json["field_definitions"] as List).whereType<Map>().map((row) => DocumentFieldDefinition.fromJson(Map<String, dynamic>.from(row))).toList() : const [],
       extensions: rules["extensions"] is List ? (rules["extensions"] as List).map((value) => value.toString().toLowerCase()).toList() : const [],
       sources: rules["sources"] is List ? (rules["sources"] as List).map((value) => value.toString().toLowerCase()).toList() : const [],

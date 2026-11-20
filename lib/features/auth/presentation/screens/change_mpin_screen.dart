@@ -7,7 +7,20 @@ import "package:sitepulse_engineer/core/storage/mpin_store.dart";
 import "package:sitepulse_engineer/features/auth/data/services/auth_service.dart";
 
 class ChangeMpinScreen extends StatefulWidget {
-  const ChangeMpinScreen({super.key});
+  const ChangeMpinScreen({super.key, this.isSheet = false});
+
+  final bool isSheet;
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.62),
+      builder: (_) => const ChangeMpinScreen(isSheet: true),
+    );
+  }
 
   @override
   State<ChangeMpinScreen> createState() => _ChangeMpinScreenState();
@@ -148,13 +161,11 @@ class _ChangeMpinScreenState extends State<ChangeMpinScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Change MPIN"),
-      ),
+      appBar: widget.isSheet ? null : AppBar(title: const Text("Change MPIN")),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.fromLTRB(24, widget.isSheet ? 8 : 24, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -183,7 +194,7 @@ class _ChangeMpinScreenState extends State<ChangeMpinScreen> {
                     color: cs.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 28),
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
                 else

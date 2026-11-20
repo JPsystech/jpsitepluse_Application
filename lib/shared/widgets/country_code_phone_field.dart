@@ -10,6 +10,7 @@ class CountryCodePhoneField extends StatelessWidget {
   final String? hintText;
   final String? Function(String?)? validator;
   final bool enabled;
+  final bool alwaysFloatLabel;
   final FocusNode? focusNode;
   final void Function(String)? onChanged;
 
@@ -22,6 +23,7 @@ class CountryCodePhoneField extends StatelessWidget {
     this.hintText,
     this.validator,
     this.enabled = true,
+    this.alwaysFloatLabel = false,
     this.focusNode,
     this.onChanged,
   });
@@ -60,6 +62,9 @@ class CountryCodePhoneField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: labelText,
         hintText: null,
+        floatingLabelBehavior: alwaysFloatLabel
+            ? FloatingLabelBehavior.always
+            : FloatingLabelBehavior.auto,
         border: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
         ),

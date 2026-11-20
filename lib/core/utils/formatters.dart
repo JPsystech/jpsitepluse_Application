@@ -32,6 +32,11 @@ class AppFormatters {
     return t;
   }
 
+  static String formatDateTime(DateTime? dt) {
+    if (dt == null) return "-";
+    return IstTime.formatDateTime(dt);
+  }
+
   static String formatHours(double v) {
     if (v <= 0) return "0";
     final s = v.toStringAsFixed(2);

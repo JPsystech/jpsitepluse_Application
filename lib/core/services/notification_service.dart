@@ -22,6 +22,9 @@ import 'package:sitepulse_engineer/features/notifications/data/services/notifica
 class NotificationService {
   NotificationService._internal();
   static final NotificationService instance = NotificationService._internal();
+  // Lets feature screens immediately refresh data affected by a foreground
+  // leave-decision notification, without waiting for the user to reopen them.
+  static final ValueNotifier<int> leaveDecisionVersion = ValueNotifier(0);
 
   FirebaseMessaging? get _fcm {
     try {
@@ -150,6 +153,9 @@ class NotificationService {
       NotificationCenterService().markAsDelivered(notifId);
     }
 
+    if (message.data['type']?.toString().trim().toUpperCase() == 'LEAVE') {
+      leaveDecisionVersion.value++;
+    }
     await _showLocalNotification(message);
     try {
       final ctx = NavigationService.currentContext;

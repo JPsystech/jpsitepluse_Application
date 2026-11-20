@@ -259,6 +259,8 @@ class EngineerTimesheetListResponse {
   final int totalPresentDays;
   final double totalHours;
   final List<int> weeklyOffDays;
+  final List<String> lopDates;
+  final List<EngineerLopDay> lopDays;
 
   EngineerTimesheetListResponse({
     required this.startDate,
@@ -267,6 +269,8 @@ class EngineerTimesheetListResponse {
     required this.totalPresentDays,
     required this.totalHours,
     this.weeklyOffDays = const [6],
+    this.lopDates = const [],
+    this.lopDays = const [],
   });
 
   factory EngineerTimesheetListResponse.fromJson(Map<String, dynamic> json) {
@@ -302,6 +306,30 @@ class EngineerTimesheetListResponse {
       totalPresentDays: (json["total_present_days"] as num?)?.toInt() ?? 0,
       totalHours: (json["total_hours"] as num?)?.toDouble() ?? 0,
       weeklyOffDays: parsedWeeklyOff,
+      lopDates: (json["lop_dates"] as List?)
+              ?.whereType<String>()
+              .where((date) => date.trim().isNotEmpty)
+              .toList() ??
+          const [],
+      lopDays: (json["lop_days"] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(EngineerLopDay.fromJson)
+              .toList() ??
+          const [],
+    );
+  }
+}
+
+class EngineerLopDay {
+  final String leaveDate;
+  final String reason;
+
+  const EngineerLopDay({required this.leaveDate, required this.reason});
+
+  factory EngineerLopDay.fromJson(Map<String, dynamic> json) {
+    return EngineerLopDay(
+      leaveDate: (json['leave_date'] as String?) ?? '',
+      reason: (json['reason'] as String?)?.trim() ?? '',
     );
   }
 }
