@@ -241,24 +241,10 @@ class _SubmitProjectLeadScreenContentState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Client Info Section
-                    Text(
-                      "Client / Organization Information",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-
                     TextFormField(
                       controller: _clientNameController,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Client / Company Name *",
-                        prefixIcon: Icon(Icons.business_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
@@ -271,12 +257,8 @@ class _SubmitProjectLeadScreenContentState
 
                     TextFormField(
                       controller: _contactPersonController,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Contact Person Name",
-                        prefixIcon: Icon(Icons.person_outline_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -290,6 +272,7 @@ class _SubmitProjectLeadScreenContentState
                         });
                       },
                       labelText: "Contact Mobile *",
+                      alwaysFloatLabel: true,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter mobile number";
@@ -309,14 +292,8 @@ class _SubmitProjectLeadScreenContentState
                     TextFormField(
                       controller: _contactEmailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Contact Email *",
-                        prefixIcon: Icon(Icons.email_outlined),
-                        hintText: "client@company.com",
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
@@ -333,24 +310,10 @@ class _SubmitProjectLeadScreenContentState
                     ),
                     const SizedBox(height: 24),
 
-                    // Site Information Section
-                    Text(
-                      "Site & Location Details",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-
                     TextFormField(
                       controller: _siteNameController,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Site / Project Name",
-                        prefixIcon: Icon(Icons.apartment_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -358,12 +321,8 @@ class _SubmitProjectLeadScreenContentState
                     TextFormField(
                       controller: _siteAddressController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Site Address",
-                        prefixIcon: Icon(Icons.location_on_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -373,12 +332,8 @@ class _SubmitProjectLeadScreenContentState
                         Expanded(
                           child: TextFormField(
                             controller: _cityController,
-                            decoration: const InputDecoration(
+                            decoration: _fieldDecoration(
                               labelText: "City",
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
-                              ),
                             ),
                           ),
                         ),
@@ -386,12 +341,8 @@ class _SubmitProjectLeadScreenContentState
                         Expanded(
                           child: TextFormField(
                             controller: _stateController,
-                            decoration: const InputDecoration(
+                            decoration: _fieldDecoration(
                               labelText: "State",
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
-                              ),
                             ),
                           ),
                         ),
@@ -403,27 +354,12 @@ class _SubmitProjectLeadScreenContentState
                     _buildGpsCard(),
                     const SizedBox(height: 24),
 
-                    // Estimated Value & Remarks
-                    Text(
-                      "Deal & Business Details",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-
                     TextFormField(
                       controller: _estimatedValueController,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Estimated Project Value (₹)",
-                        prefixIcon: Icon(Icons.currency_rupee_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
-                        hintText: "e.g. 500000",
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -431,13 +367,8 @@ class _SubmitProjectLeadScreenContentState
                     TextFormField(
                       controller: _remarksController,
                       maxLines: 3,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Remarks & Project Scope",
-                        hintText:
-                            "Describe project requirements, scope of work, timeline...",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -540,6 +471,14 @@ class _SubmitProjectLeadScreenContentState
           ),
         );
       },
+    );
+  }
+
+  InputDecoration _fieldDecoration({required String labelText}) {
+    return InputDecoration(
+      labelText: labelText,
+      filled: true,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
     );
   }
 

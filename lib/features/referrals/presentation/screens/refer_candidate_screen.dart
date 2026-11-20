@@ -260,7 +260,7 @@ class _ReferCandidateScreenContentState
         return Scaffold(
           backgroundColor: cs.surface,
           appBar: AppBar(
-            title: const Text("Refer a Candidate"),
+            title: _buildAppBarTitle(),
             centerTitle: true,
           ),
           body: SafeArea(
@@ -271,9 +271,8 @@ class _ReferCandidateScreenContentState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Job selector card
                     _buildJobSelectionSection(jobOpenings),
-                    const SizedBox(height: 20),
+                    if (widget.preselectedJob == null) const SizedBox(height: 20),
 
                     // Candidate Details
                     Text(
@@ -287,12 +286,8 @@ class _ReferCandidateScreenContentState
 
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Candidate Full Name *",
-                        prefixIcon: Icon(Icons.person_outline_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
@@ -312,6 +307,7 @@ class _ReferCandidateScreenContentState
                         });
                       },
                       labelText: "Candidate Mobile *",
+                      alwaysFloatLabel: true,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter mobile number";
@@ -343,13 +339,8 @@ class _ReferCandidateScreenContentState
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
+                      decoration: _fieldDecoration(
                         labelText: "Candidate Email Address *",
-                        prefixIcon: Icon(Icons.email_outlined),
-                        hintText: "candidate@example.com",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
@@ -376,13 +367,8 @@ class _ReferCandidateScreenContentState
                           flex: 3,
                           child: TextFormField(
                             controller: _companyController,
-                            decoration: const InputDecoration(
+                            decoration: _fieldDecoration(
                               labelText: "Current Company",
-                              prefixIcon: Icon(Icons.business_outlined),
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
-                              ),
                             ),
                           ),
                         ),
@@ -393,13 +379,8 @@ class _ReferCandidateScreenContentState
                             controller: _expController,
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
-                            decoration: const InputDecoration(
+                            decoration: _fieldDecoration(
                               labelText: "Exp (Yrs)",
-                              prefixIcon: Icon(Icons.timeline_rounded),
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(12)),
-                              ),
                             ),
                             validator: (v) {
                               if (v != null && v.trim().isNotEmpty) {
@@ -415,36 +396,14 @@ class _ReferCandidateScreenContentState
                     ),
                     const SizedBox(height: 20),
 
-                    // Resume Upload section
-                    Text(
-                      "Resume / CV Document",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
                     _buildResumeUploadCard(),
                     const SizedBox(height: 20),
 
-                    // Notes
-                    Text(
-                      "Recommendation Notes",
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
                     TextFormField(
                       controller: _notesController,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText:
-                            "Why are they a good fit? Add skills, achievements, or relationship...",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
+                      decoration: _fieldDecoration(
+                        labelText: "Recommendation Notes",
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -550,54 +509,51 @@ class _ReferCandidateScreenContentState
     );
   }
 
-  Widget _buildJobSelectionSection(List<JobOpeningModel> jobOpenings) {
-    final cs = Theme.of(context).colorScheme;
+  Widget _buildAppBarTitle() {
+    final job = widget.preselectedJob;
+    if (job == null) {
+      return const Text("Refer a Friend");
+    }
 
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Text(
+          "Refer a Friend",
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        Text(
+          job.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required String labelText,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      filled: true,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+    );
+  }
+
+  Widget _buildJobSelectionSection(List<JobOpeningModel> jobOpenings) {
     if (widget.preselectedJob != null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: cs.primaryContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: cs.primary, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Applying For Position",
-                    style: TextStyle(fontSize: 11, color: cs.primary),
-                  ),
-                  Text(
-                    widget.preselectedJob!.title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     final openJobOpenings = jobOpenings.where((j) => j.isOpen).toList();
 
     return DropdownButtonFormField<String>(
       value: _selectedJobId,
-      decoration: const InputDecoration(
+      decoration: _fieldDecoration(
         labelText: "Select Job Opening *",
-        prefixIcon: Icon(Icons.work_outline_rounded),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
-        ),
       ),
       items: openJobOpenings.map((job) {
         return DropdownMenuItem<String>(

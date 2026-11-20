@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:image_picker/image_picker.dart";
 import "package:sitepulse_engineer/core/config/api_config.dart";
+import "package:sitepulse_engineer/core/utils/formatters.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 import "package:sitepulse_engineer/core/storage/session_store.dart";
@@ -9,6 +10,7 @@ import "package:sitepulse_engineer/features/help/presentation/screens/help_suppo
 import "package:sitepulse_engineer/features/settings/presentation/screens/settings_screen.dart";
 import "package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart";
 import "package:sitepulse_engineer/features/payouts/presentation/screens/my_payouts_screen.dart";
+import "package:sitepulse_engineer/features/payouts/presentation/screens/tds_certificates_screen.dart";
 import "package:sitepulse_engineer/features/leave/presentation/screens/leave_screen.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/profile_bloc.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
@@ -328,20 +330,10 @@ class _ProfileViewState extends State<_ProfileView> {
                         initial: initial,
                         department: department,
                         designation: designation,
+                        weeklyOff: eng.weeklyOffDaysDisplay,
                         profilePhotoUrl: eng.profilePhotoUrl,
                       ),
-                      const SizedBox(height: 24),
-
-                      Text(
-                        "Employment Details",
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildEmploymentCard(context, eng),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
                       Text(
                         "Personal Information",
@@ -351,33 +343,25 @@ class _ProfileViewState extends State<_ProfileView> {
                             ),
                       ),
                       const SizedBox(height: 12),
-                      _buildInfoCard(context, mobile, email, emp, eng.birthDate),
-                      const SizedBox(height: 24),
+                      _buildInfoCard(context, mobile, email, eng.birthDate),
+                      const SizedBox(height: 16),
 
                       if (_hasBankInfo(eng)) ...[
-                        Text(
-                          "Bank Account Details",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                        _ProfileDisclosure(
+                          title: "Bank & Payroll",
+                          subtitle: "Tap to view bank account details",
+                          child: _buildBankCard(context, eng),
                         ),
-                        const SizedBox(height: 12),
-                        _buildBankCard(context, eng),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                       ],
 
                       if (_hasStatutoryInfo(eng)) ...[
-                        Text(
-                          "Statutory Identification",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                        _ProfileDisclosure(
+                          title: "PAN, Aadhaar & UAN",
+                          subtitle: "Tap to view identification details",
+                          child: _buildStatutoryCard(context, eng),
                         ),
-                        const SizedBox(height: 12),
-                        _buildStatutoryCard(context, eng),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                       ],
 
                       Text(
@@ -388,8 +372,8 @@ class _ProfileViewState extends State<_ProfileView> {
                             ),
                       ),
                       const SizedBox(height: 12),
-                      _buildActionsCard(context, session.token),
-                      const SizedBox(height: 32),
+                      _buildQuickActionsCard(context),
+                      const SizedBox(height: 20),
 
                       _buildLogoutButton(context),
                       const SizedBox(height: 40),
@@ -416,6 +400,11 @@ class _ProfileViewState extends State<_ProfileView> {
         (eng.aadhaarCardNumber != null && eng.aadhaarCardNumber!.trim().isNotEmpty);
   }
 
+  String _maskValue(String value, {required int visibleTail}) {
+    if (value.length <= visibleTail) return value;
+    return "${"•" * (value.length - visibleTail)}${value.substring(value.length - visibleTail)}";
+  }
+
   Widget _buildProfileHeader(
     BuildContext context, {
     required String name,
@@ -423,6 +412,7 @@ class _ProfileViewState extends State<_ProfileView> {
     required String initial,
     required String department,
     required String designation,
+    required String weeklyOff,
     String? profilePhotoUrl,
   }) {
     final cs = Theme.of(context).colorScheme;
@@ -435,7 +425,7 @@ class _ProfileViewState extends State<_ProfileView> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -464,8 +454,8 @@ class _ProfileViewState extends State<_ProfileView> {
                 alignment: Alignment.bottomRight,
                 children: [
                   Container(
-                    width: 96,
-                    height: 96,
+                    width: 72,
+                    height: 72,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: 0.2),
@@ -491,8 +481,8 @@ class _ProfileViewState extends State<_ProfileView> {
                               headers: (SessionStore.current?.token.trim().isNotEmpty ?? false)
                                   ? {"Authorization": "Bearer ${SessionStore.current!.token.trim()}"}
                                   : null,
-                              width: 96,
-                              height: 96,
+                              width: 72,
+                              height: 72,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
                                 child: Text(
@@ -519,8 +509,8 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                   if (_isUploadingPhoto)
                     Container(
-                      width: 96,
-                      height: 96,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.black.withValues(alpha: 0.45),
@@ -562,7 +552,7 @@ class _ProfileViewState extends State<_ProfileView> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Text(
               name.isEmpty ? "Field Engineer" : name,
               textAlign: TextAlign.center,
@@ -583,37 +573,47 @@ class _ProfileViewState extends State<_ProfileView> {
                     ),
               ),
             ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                    ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.center,
+              children: [
+                _profileHeaderChip(context, "Emp: $empCode", Icons.badge_outlined),
+                if (weeklyOff.trim().isNotEmpty)
+                  _profileHeaderChip(
+                    context,
+                    "Weekly off: ${weeklyOff.trim()}",
+                    Icons.calendar_today_outlined,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Active • Emp: $empCode",
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ],
-              ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _profileHeaderChip(BuildContext context, String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -660,7 +660,7 @@ class _ProfileViewState extends State<_ProfileView> {
   }
 
   Widget _buildInfoCard(
-      BuildContext context, String mobile, String email, String emp, String? dob) {
+      BuildContext context, String mobile, String email, String? dob) {
     final cs = Theme.of(context).colorScheme;
     return Card(
       elevation: 0,
@@ -678,13 +678,14 @@ class _ProfileViewState extends State<_ProfileView> {
             Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
           if (email.isNotEmpty)
             _buildInfoRow(context, Icons.email_rounded, "Email Address", email),
-          if (emp.isNotEmpty) ...[
-            Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
-            _buildInfoRow(context, Icons.badge_rounded, "Employee Code", emp),
-          ],
           if (dob != null && dob.trim().isNotEmpty) ...[
             Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
-            _buildInfoRow(context, Icons.cake_outlined, "Date of Birth", dob.trim()),
+            _buildInfoRow(
+              context,
+              Icons.cake_outlined,
+              "Date of Birth",
+              AppFormatters.formatDateString(dob.trim()),
+            ),
           ],
         ],
       ),
@@ -713,7 +714,7 @@ class _ProfileViewState extends State<_ProfileView> {
           if (accNo.isNotEmpty) ...[
             if (bankName.isNotEmpty)
               Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
-            _buildInfoRow(context, Icons.credit_card_rounded, "Account Number", accNo),
+            _buildInfoRow(context, Icons.credit_card_rounded, "Account Number", _maskValue(accNo, visibleTail: 4)),
           ],
           if (ifsc.isNotEmpty) ...[
             Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
@@ -745,11 +746,11 @@ class _ProfileViewState extends State<_ProfileView> {
       child: Column(
         children: [
           if (pan.isNotEmpty)
-            _buildInfoRow(context, Icons.featured_play_list_outlined, "PAN Number", pan),
+            _buildInfoRow(context, Icons.featured_play_list_outlined, "PAN Number", _maskValue(pan, visibleTail: 4)),
           if (aadhaar.isNotEmpty) ...[
             if (pan.isNotEmpty)
               Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
-            _buildInfoRow(context, Icons.fingerprint_rounded, "Aadhaar Number", aadhaar),
+            _buildInfoRow(context, Icons.fingerprint_rounded, "Aadhaar Number", _maskValue(aadhaar, visibleTail: 4)),
           ],
           if (uan.isNotEmpty) ...[
             if (pan.isNotEmpty || aadhaar.isNotEmpty)
@@ -764,18 +765,18 @@ class _ProfileViewState extends State<_ProfileView> {
   Widget _buildInfoRow(BuildContext context, IconData icon, String label, String value) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: cs.primaryContainer.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: cs.primary, size: 20),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,6 +801,27 @@ class _ProfileViewState extends State<_ProfileView> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuickActionsCard(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 2.7,
+      children: [
+        _ProfileQuickAction(icon: Icons.folder_open_rounded, label: "Documents", onTap: () => Navigator.of(context).pushNamed(AppRoutes.documents)),
+        _ProfileQuickAction(icon: Icons.account_balance_wallet_rounded, label: "Payouts", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyPayoutsScreen()))),
+        _ProfileQuickAction(icon: Icons.analytics_rounded, label: "Attendance", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AttendanceScreen(sessionToken: (SessionStore.current?.token ?? "").trim())))),
+        _ProfileQuickAction(icon: Icons.event_available_rounded, label: "Leave", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaveScreen()))),
+        _ProfileQuickAction(icon: Icons.stars_rounded, label: "Referrals", onTap: () => Navigator.of(context).pushNamed(AppRoutes.referrals)),
+        _ProfileQuickAction(icon: Icons.receipt_long_rounded, label: "Tax documents", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TdsCertificatesScreen()))),
+        _ProfileQuickAction(icon: Icons.settings_rounded, label: "App Settings", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+        _ProfileQuickAction(icon: Icons.support_agent_rounded, label: "Help & Support", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportScreen()))),
+      ],
     );
   }
 
@@ -843,6 +865,14 @@ class _ProfileViewState extends State<_ProfileView> {
             title: "My Payouts",
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const MyPayoutsScreen()),
+            ),
+          ),
+          Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
+          _ProfileMenuTile(
+            icon: Icons.receipt_long_rounded,
+            title: "Tax Documents",
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TdsCertificatesScreen()),
             ),
           ),
           Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
@@ -970,19 +1000,80 @@ class _ProfileViewState extends State<_ProfileView> {
 
   Widget _buildLogoutButton(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return FilledButton.icon(
+    return OutlinedButton.icon(
       onPressed: () => context.read<ProfileBloc>().add(ProfileLogoutRequested()),
-      style: FilledButton.styleFrom(
-        backgroundColor: cs.errorContainer,
+      style: OutlinedButton.styleFrom(
         foregroundColor: cs.error,
-        minimumSize: const Size(double.infinity, 56),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        elevation: 0,
+        side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
+        minimumSize: const Size(double.infinity, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       icon: const Icon(Icons.logout_rounded),
       label: const Text(
         "Logout",
         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+    );
+  }
+}
+
+class _ProfileQuickAction extends StatelessWidget {
+  const _ProfileQuickAction({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
+            Icon(icon, size: 20, color: cs.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDisclosure extends StatelessWidget {
+  const _ProfileDisclosure({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        children: [child],
       ),
     );
   }
@@ -1009,7 +1100,7 @@ class _ProfileMenuTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
               Container(
@@ -1020,7 +1111,7 @@ class _ProfileMenuTile extends StatelessWidget {
                 ),
                 child: Icon(icon, color: cs.primary, size: 20),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,

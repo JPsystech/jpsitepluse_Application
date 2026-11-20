@@ -1,15 +1,28 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
-import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/features/profile/presentation/bloc/change_password_bloc.dart";
-import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 
 class ChangePasswordScreen extends StatelessWidget {
   const ChangePasswordScreen({super.key, required this.sessionToken});
 
   final String sessionToken;
+
+  static Future<void> show(BuildContext context, {required String sessionToken}) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.52,
+      ),
+      builder: (_) => BlocProvider(
+        create: (_) => ChangePasswordBloc(),
+        child: _ChangePasswordView(sessionToken: sessionToken, isSheet: true),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,14 +35,16 @@ class ChangePasswordScreen extends StatelessWidget {
 
 class _ChangePasswordView extends StatefulWidget {
   final String sessionToken;
+  final bool isSheet;
 
-  const _ChangePasswordView({required this.sessionToken});
+  const _ChangePasswordView({required this.sessionToken, this.isSheet = false});
 
   @override
   State<_ChangePasswordView> createState() => _ChangePasswordViewState();
 }
 
 class _ChangePasswordViewState extends State<_ChangePasswordView> {
+  final _formKey = GlobalKey<FormState>();
   final currentCtrl = TextEditingController();
   final newCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
@@ -53,59 +68,41 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text("Change Password")),
+        appBar: widget.isSheet ? null : AppBar(title: const Text("Change Password")),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: EdgeInsets.fromLTRB(
+              18,
+              widget.isSheet ? 8 : 18,
+              18,
+              18 + MediaQuery.viewInsetsOf(context).bottom,
+            ),
             child: ListView(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: Theme.of(context).extension<AppColorsExtension>()!.softShadow,
-                    border: Border.all(
-                        color: Theme.of(context).colorScheme.onSurface.withAlpha(8)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
+                if (widget.isSheet) ...[
+                  Text("Change Password", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text("Choose a strong new password for your account.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 20),
+                ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
                         builder: (context, state) {
                       final isSubmitting = state is ChangePasswordSubmitting;
                       final error =
                           state is ChangePasswordError ? state.message : null;
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("Update your password",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.2)),
-                          const SizedBox(height: 14),
-                          AppTextField(
-                            label: "Current password",
-                            controller: currentCtrl,
-                            obscureText: true,
-                            showLabel: false,
-                            textInputAction: TextInputAction.next,
-                          ),
+                      return Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                          _passwordField(label: "Current password", controller: currentCtrl, action: TextInputAction.next),
                           const SizedBox(height: 12),
-                          AppTextField(
-                            label: "New password",
-                            controller: newCtrl,
-                            obscureText: true,
-                            showLabel: false,
-                            textInputAction: TextInputAction.next,
-                          ),
+                          _passwordField(label: "New password", controller: newCtrl, action: TextInputAction.next, minLength: true),
                           const SizedBox(height: 12),
-                          AppTextField(
-                            label: "Confirm new password",
-                            controller: confirmCtrl,
-                            obscureText: true,
-                            showLabel: false,
-                            textInputAction: TextInputAction.done,
-                          ),
+                          _passwordField(label: "Confirm new password", controller: confirmCtrl, action: TextInputAction.done, confirm: true),
                           if (error != null) ...[
                             const SizedBox(height: 12),
                             Text(error,
@@ -114,31 +111,66 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
                                     fontWeight: FontWeight.w700)),
                           ],
                           const SizedBox(height: 16),
-                          PrimaryButton(
-                              label: "Save",
-                              onPressed: isSubmitting
-                                  ? null
-                                  : () => context
-                                      .read<ChangePasswordBloc>()
-                                      .add(ChangePasswordSubmitted(
-                                        sessionToken: widget.sessionToken,
-                                        currentPassword:
-                                            currentCtrl.text.trim(),
-                                        newPassword: newCtrl.text.trim(),
-                                        confirmPassword:
-                                            confirmCtrl.text.trim(),
-                                      )),
-                              isLoading: isSubmitting,
-                              icon: Icons.lock_reset),
-                        ],
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
+                                child: const Text("Cancel"),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                                onPressed: isSubmitting ? null : () {
+                                  if (!(_formKey.currentState?.validate() ?? false)) return;
+                                  context.read<ChangePasswordBloc>().add(ChangePasswordSubmitted(
+                                    sessionToken: widget.sessionToken,
+                                    currentPassword: currentCtrl.text.trim(),
+                                    newPassword: newCtrl.text.trim(),
+                                    confirmPassword: confirmCtrl.text.trim(),
+                                  ));
+                                },
+                                child: isSubmitting
+                                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Text("Submit"),
+                              ),
+                            ],
+                          ),
+                          ],
+                        ),
                       );
                     }),
                   ),
-                ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _passwordField({required String label, required TextEditingController controller, required TextInputAction action, bool minLength = false, bool confirm = false}) {
+    return TextFormField(
+      controller: controller,
+      obscureText: true,
+      textInputAction: action,
+      validator: (value) {
+        final text = (value ?? "").trim();
+        if (text.isEmpty) return "Please enter $label";
+        if (minLength && text.length < 8) return "Password must be at least 8 characters";
+        if (confirm && text != newCtrl.text) return "Passwords do not match";
+        return null;
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        filled: true,
+        fillColor: Theme.of(context).colorScheme.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
   }

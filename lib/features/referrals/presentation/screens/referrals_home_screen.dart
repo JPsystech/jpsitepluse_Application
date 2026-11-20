@@ -200,7 +200,6 @@ class _ReferralsHomeViewState extends State<_ReferralsHomeView>
             controller: _searchController,
             onChanged: _onSearchChanged,
             decoration: InputDecoration(
-              hintText: "Search job title, role, location...",
               prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
@@ -329,44 +328,6 @@ class _ReferralsHomeViewState extends State<_ReferralsHomeView>
             ...state.rewards.map(
               (reward) => RewardCard(reward: reward),
             ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .surfaceContainerHighest
-                  .withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.6),
-              ),
-            ),
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.gavel_rounded,
-                    color: Theme.of(context).colorScheme.primary, size: 20),
-              ),
-              title: const Text(
-                "Program Terms & Policies",
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                "Review rules for candidate bonus & lead commissions",
-                style: TextStyle(fontSize: 11),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-              onTap: () => ReferralTermsSheet.show(context,
-                  type: ReferralTermsType.both),
-            ),
-          ),
           const SizedBox(height: 80),
         ],
       ),

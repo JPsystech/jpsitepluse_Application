@@ -71,7 +71,7 @@ class _AttendanceViewState extends State<_AttendanceView> {
         backgroundColor: cs.surface,
         scrolledUnderElevation: 1,
         title: Text(
-          'Attendance Overview',
+          'Your Attendance',
           style: textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -108,7 +108,25 @@ class _AttendanceViewState extends State<_AttendanceView> {
               daysToConsider = 0;
             }
             
-            final absentDays = (daysToConsider - data.totalPresentDays).clamp(0, 31);
+            final weeklyOffDays = data.weeklyOffDays.toSet();
+            final scheduledDates = <String>{};
+            for (var day = 1; day <= daysToConsider; day++) {
+              final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+              if (!weeklyOffDays.contains(date.weekday - 1)) {
+                scheduledDates.add(DateFormat('yyyy-MM-dd').format(date));
+              }
+            }
+            final presentDates = data.items
+                .where((item) => (item.mark ?? '').toString().toUpperCase() == 'P')
+                .map((item) => item.workDate)
+                .toSet();
+            final lopDays = data.lopDays.length;
+            final absentDays = (scheduledDates
+                    .where((date) =>
+                        !presentDates.contains(date) &&
+                        !data.lopDates.contains(date))
+                    .length)
+                .clamp(0, 31);
 
             return RefreshIndicator(
               onRefresh: () async {
@@ -124,9 +142,6 @@ class _AttendanceViewState extends State<_AttendanceView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 24),
-                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -152,12 +167,13 @@ class _AttendanceViewState extends State<_AttendanceView> {
                       items: data.items,
                       viewMonth: _selectedMonth,
                       weeklyOffDays: data.weeklyOffDays,
+                      lopDays: data.lopDays,
                     ),
                     
                     const SizedBox(height: 32),
                     
                     _buildSectionTitle(context, "Monthly Summary"),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
@@ -169,7 +185,7 @@ class _AttendanceViewState extends State<_AttendanceView> {
                             color: Theme.of(context).extension<AppColorsExtension>()?.success ?? const Color(0xFF10B981),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _SummaryCard(
                             title: "Absent",
@@ -179,7 +195,17 @@ class _AttendanceViewState extends State<_AttendanceView> {
                             color: Theme.of(context).colorScheme.error,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _SummaryCard(
+                            title: "LOP",
+                            value: "$lopDays",
+                            subtitle: "Days",
+                            icon: Icons.event_busy_rounded,
+                            color: const Color(0xFFB4232D),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _SummaryCard(
                             title: "Hours",
@@ -200,41 +226,6 @@ class _AttendanceViewState extends State<_AttendanceView> {
           },
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    final now = DateTime.now();
-    final dateFormatter = DateFormat('EEEE, MMMM d');
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          dateFormatter.format(now),
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          "Your Attendance",
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: Theme.of(context).colorScheme.onSurface,
-                letterSpacing: -0.5,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "Track your monthly progress and timeline below.",
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-      ],
     );
   }
 
@@ -336,46 +327,43 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isSmallScreen = screenWidth < 380;
-    
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
       color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
           color: cs.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: isSmallScreen ? 20 : 24),
-            SizedBox(height: isSmallScreen ? 12 : 16),
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 6),
             FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
+              alignment: Alignment.center,
               child: Text(
                 value,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: cs.onSurface,
                       letterSpacing: -0.5,
-                      fontSize: isSmallScreen ? 20 : null,
+                      fontSize: 20,
                     ),
               ),
             ),
-            SizedBox(height: isSmallScreen ? 2 : 4),
+            const SizedBox(height: 2),
             Text(
               title,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: cs.onSurfaceVariant,
-                    fontSize: isSmallScreen ? 10 : null,
+                    fontSize: 10,
                   ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -383,7 +371,7 @@ class _SummaryCard extends StatelessWidget {
               subtitle,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                    fontSize: isSmallScreen ? 9 : null,
+                    fontSize: 9,
                   ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -398,11 +386,13 @@ class _AttendanceCalendarGrid extends StatelessWidget {
   final List<dynamic> items;
   final DateTime viewMonth;
   final List<int>? weeklyOffDays;
+  final List<EngineerLopDay> lopDays;
 
   const _AttendanceCalendarGrid({
     required this.items,
     required this.viewMonth,
     this.weeklyOffDays,
+    required this.lopDays,
   });
 
   @override
@@ -429,6 +419,7 @@ class _AttendanceCalendarGrid extends StatelessWidget {
 
     final engineer = SessionStore.current?.engineer;
     final effectiveWeeklyOffs = weeklyOffDays ?? engineer?.weeklyOffDays ?? const [6];
+    final lopByDate = {for (final day in lopDays) day.leaveDate: day};
 
     // Exact Admin Panel Color Palette (matches MonthlyAttendanceView.module.css)
     final Color adminPresentBg = isDark ? const Color(0xFF14532D).withValues(alpha: 0.35) : const Color(0xFFDCFCE7);
@@ -447,6 +438,11 @@ class _AttendanceCalendarGrid extends StatelessWidget {
     final Color adminAbsentText = isDark ? const Color(0xFFF87171) : const Color(0xFFB4232D);
     final Color adminAbsentBorder = isDark ? const Color(0xFFB4232D).withValues(alpha: 0.6) : const Color(0xFFFCA5A5);
 
+    // Matches the vendor monthly attendance view: #FEE2E2 / #B4232D.
+    final Color adminLopBg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEE2E2);
+    final Color adminLopText = isDark ? const Color(0xFFF87171) : const Color(0xFFB4232D);
+    final Color adminLopBorder = isDark ? const Color(0xFFB4232D).withValues(alpha: 0.6) : const Color(0xFFFCA5A5);
+
     final Color adminFutureBg = isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F4F7);
     final Color adminFutureText = isDark ? Colors.white38 : const Color(0xFF98A2B3);
 
@@ -461,6 +457,8 @@ class _AttendanceCalendarGrid extends StatelessWidget {
           presentText: adminPresentText,
           attentionBg: adminAttentionBg,
           attentionText: adminAttentionText,
+          lopBg: adminLopBg,
+          lopText: adminLopText,
           weekOffBg: adminWeekOffBg,
           weekOffText: adminWeekOffText,
           absentBg: adminAbsentBg,
@@ -507,6 +505,8 @@ class _AttendanceCalendarGrid extends StatelessWidget {
             final currentCellDate = DateTime(viewMonth.year, viewMonth.month, day);
             final dateStr = DateFormat('yyyy-MM-dd').format(currentCellDate);
             final dayItems = itemsByDate[dateStr] ?? [];
+            final lopDay = lopByDate[dateStr];
+            final bool isLop = lopDay != null && dayItems.isEmpty;
 
             bool isFuture = currentCellDate.isAfter(today);
             final pyWeekday = currentCellDate.weekday - 1; // 0=Mon ... 6=Sun
@@ -566,14 +566,26 @@ class _AttendanceCalendarGrid extends StatelessWidget {
 
             final bool isAbsentMark = dayItems.any((item) => (item.mark ?? '').toString().toUpperCase() == 'A');
             final bool isMissing = !isFuture && !isWeeklyOff && dayItems.isEmpty;
-            final bool isAbsent = !isOrange && !isPresent && (isAbsentMark || isMissing);
+            final bool isAbsent = !isLop && !isOrange && !isPresent && (isAbsentMark || isMissing);
 
             Color bgColor = adminFutureBg;
             Color textColor = adminFutureText;
             Color borderColor = Colors.transparent;
             Widget? extraInfo;
 
-            if (isOrange) {
+            if (isLop) {
+              bgColor = adminLopBg;
+              textColor = adminLopText;
+              borderColor = adminLopBorder;
+              extraInfo = Text(
+                'L',
+                style: TextStyle(
+                  color: adminLopText,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10,
+                ),
+              );
+            } else if (isOrange) {
               bgColor = adminAttentionBg;
               textColor = adminAttentionText;
               borderColor = adminAttentionBorder;
@@ -640,16 +652,21 @@ class _AttendanceCalendarGrid extends StatelessWidget {
 
             return InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: dayItems.isEmpty ? null : () {
+              onTap: dayItems.isEmpty && !isLop ? null : () {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
                   useSafeArea: true,
                   showDragHandle: true,
-                  builder: (ctx) => _DailyDetailsBottomSheet(
-                    date: currentCellDate,
-                    items: dayItems,
-                  ),
+                  builder: (ctx) => isLop
+                      ? _LopDetailsBottomSheet(
+                          date: currentCellDate,
+                          reason: lopDay.reason,
+                        )
+                      : _DailyDetailsBottomSheet(
+                          date: currentCellDate,
+                          items: dayItems,
+                        ),
                 );
               },
               child: Container(
@@ -721,6 +738,8 @@ class _AttendanceCalendarGrid extends StatelessWidget {
     required Color presentText,
     required Color attentionBg,
     required Color attentionText,
+    required Color lopBg,
+    required Color lopText,
     required Color weekOffBg,
     required Color weekOffText,
     required Color absentBg,
@@ -742,6 +761,7 @@ class _AttendanceCalendarGrid extends StatelessWidget {
         children: [
           _buildLegendItem('P', 'Present', presentBg, presentText),
           _buildLegendItem('P', 'Attention', attentionBg, attentionText),
+          _buildLegendItem('L', 'LOP', lopBg, lopText),
           _buildLegendItem('WO', 'Week Off', weekOffBg, weekOffText),
           _buildLegendItem('A', 'Absent', absentBg, absentText),
           if (futureBg != null && futureText != null)
@@ -782,6 +802,64 @@ class _AttendanceCalendarGrid extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LopDetailsBottomSheet extends StatelessWidget {
+  final DateTime date;
+  final String reason;
+
+  const _LopDetailsBottomSheet({required this.date, required this.reason});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark
+        ? const Color(0xFF7F1D1D).withValues(alpha: 0.35)
+        : const Color(0xFFFEE2E2);
+    final foreground = isDark ? const Color(0xFFF87171) : const Color(0xFFB4232D);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            DateFormat('EEEE, MMM d, yyyy').format(date),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.event_busy_rounded, color: foreground),
+                const SizedBox(width: 10),
+                Text(
+                  'Approved leave (LOP)',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Reason', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          Text(reason.isEmpty ? 'No reason provided.' : reason, style: Theme.of(context).textTheme.bodyLarge),
+        ],
+      ),
     );
   }
 }

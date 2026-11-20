@@ -351,17 +351,16 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                          child: SectionHeader(title: "Activity Timeline")),
-                      if (state.month.trim().isNotEmpty)
-                        StatusChip(
-                            label: _monthLabel(state.month),
-                            color: cs.primaryContainer),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                  if (state.month.trim().isNotEmpty) ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: StatusChip(
+                        label: _monthLabel(state.month),
+                        color: cs.primaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (isLoading) const LinearProgressIndicator(),
                   if (state.status == TimelineStatus.error &&
                       state.data == null) ...[

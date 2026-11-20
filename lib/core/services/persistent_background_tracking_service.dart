@@ -207,6 +207,57 @@ Future<void> _recordBatteryOptimizationStatus({String? attendanceLogId}) async {
   }
 }
 
+String _locationProviderErrorDetails(Object error, String context) {
+  // Platform error text is useful for production diagnosis, but keep it
+  // bounded so a native provider cannot overflow the API's diagnostics field.
+  final message = error.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  final suffix = message.length > 260 ? '${message.substring(0, 260)}…' : message;
+  return suffix.isEmpty
+      ? 'The location provider failed while $context.'
+      : 'The location provider failed while $context: $suffix';
+}
+
+/// Classifies a failed location request into an actionable diagnostic. This is
+/// deliberately separate from the generic stream event: support can tell a
+/// user-controlled restriction from a temporary platform/provider failure.
+Future<void> _recordLocationAcquisitionFailure(
+  Object error, {
+  required String context,
+  String? attendanceLogId,
+}) async {
+  await _recordLocationReadinessIssue(attendanceLogId: attendanceLogId);
+
+  if (error is TimeoutException) {
+    await _recordTrackingHealthEvent(
+      'LOCATION_FIX_TIMEOUT',
+      attendanceLogId: attendanceLogId,
+      details: 'No location fix was available within 20 seconds while $context. Check GPS reception and battery restrictions.',
+    );
+    return;
+  }
+  if (error is LocationServiceDisabledException) {
+    await _recordTrackingHealthEvent(
+      'GPS_DISABLED',
+      attendanceLogId: attendanceLogId,
+      details: 'Device Location was disabled while $context.',
+    );
+    return;
+  }
+  if (error is PermissionDeniedException) {
+    await _recordTrackingHealthEvent(
+      'LOCATION_PERMISSION_DENIED',
+      attendanceLogId: attendanceLogId,
+      details: 'Location permission was denied while $context.',
+    );
+    return;
+  }
+  await _recordTrackingHealthEvent(
+    'LOCATION_PROVIDER_ERROR',
+    attendanceLogId: attendanceLogId,
+    details: _locationProviderErrorDetails(error, context),
+  );
+}
+
 Future<void> _recordTrackingHealthEvent(
   String eventType, {
   String? attendanceLogId,
@@ -276,6 +327,9 @@ Future<void> _flushTrackingHealthEvents() async {
 }
 
 Future<void> _recordLocationReadinessIssue({String? attendanceLogId}) async {
+  // This is also called once a minute during an active shift, so a later
+  // battery restriction is surfaced instead of only being checked at punch-in.
+  await _recordBatteryOptimizationStatus(attendanceLogId: attendanceLogId);
   if (!await Geolocator.isLocationServiceEnabled()) {
     await _recordTrackingHealthEvent('GPS_DISABLED', attendanceLogId: attendanceLogId);
     return;
@@ -472,7 +526,8 @@ Future<void> _sendLocationPayload(
     if (position.accuracy > policy.trackingMaxAccuracyM) {
       await _recordTrackingHealthEvent(
         'LOCATION_ACCURACY_TOO_LOW',
-        details: 'Location accuracy was above ${policy.trackingMaxAccuracyM} metres.',
+        details:
+            'Location accuracy was ${position.accuracy.round()} metres; the allowed maximum is ${policy.trackingMaxAccuracyM} metres.',
       );
       return;
     }
@@ -661,10 +716,9 @@ void onStart(ServiceInstance service) async {
   ).listen(
     (position) => unawaited(_sendLocationPayload(position)),
     onError: (Object error) {
-      unawaited(_recordLocationReadinessIssue());
-      unawaited(_recordTrackingHealthEvent(
-        'LOCATION_STREAM_ERROR',
-        details: 'The operating system location stream returned an error.',
+      unawaited(_recordLocationAcquisitionFailure(
+        error,
+        context: 'receiving background location updates',
       ));
       if (kDebugMode) {
         debugPrint('[BackgroundService] Stream error: $error');
@@ -691,7 +745,10 @@ void onStart(ServiceInstance service) async {
       );
       await _sendLocationPayload(initialPosition, force: true);
     } catch (error) {
-      await _recordLocationReadinessIssue();
+      await _recordLocationAcquisitionFailure(
+        error,
+        context: 'getting the initial location fix',
+      );
       await _recordTrackingHealthEvent(
         'LOCATION_STREAM_ERROR',
         details: 'Unable to get the initial location fix.',
@@ -721,7 +778,10 @@ void onStart(ServiceInstance service) async {
           source: 'LIVE_STATIONARY',
         );
       } catch (error) {
-        await _recordLocationReadinessIssue();
+        await _recordLocationAcquisitionFailure(
+          error,
+          context: 'getting the stationary tracking heartbeat',
+        );
         await _recordTrackingHealthEvent(
           'LOCATION_STREAM_ERROR',
           details: 'Unable to get the stationary tracking heartbeat.',
@@ -852,7 +912,10 @@ class PersistentBackgroundTrackingService {
       );
       await _sendLocationPayload(position, force: true);
     } catch (error) {
-      await _recordLocationReadinessIssue();
+      await _recordLocationAcquisitionFailure(
+        error,
+        context: 'getting the punch-in location for live tracking',
+      );
       await _recordTrackingHealthEvent(
         'LOCATION_STREAM_ERROR',
         details: 'Unable to get the punch-in location for live tracking.',

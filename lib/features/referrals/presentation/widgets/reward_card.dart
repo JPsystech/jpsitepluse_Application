@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sitepulse_engineer/core/utils/formatters.dart';
 import 'package:sitepulse_engineer/features/referrals/data/models/referral_reward_model.dart';
 
 class RewardCard extends StatelessWidget {
@@ -15,7 +16,7 @@ class RewardCard extends StatelessWidget {
     try {
       final parsed = DateTime.tryParse(rawDate);
       if (parsed != null) {
-        return DateFormat('dd MMM yyyy, hh:mm a').format(parsed.toLocal());
+        return AppFormatters.formatDateTime(parsed);
       }
     } catch (_) {}
     return rawDate;

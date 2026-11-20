@@ -6,6 +6,8 @@ import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_sync_service.dart";
 import "package:sitepulse_engineer/core/services/offline_timesheet_queue.dart";
 import "package:sitepulse_engineer/core/services/offline_timesheet_sync_service.dart";
+import "package:sitepulse_engineer/features/auth/presentation/screens/change_mpin_screen.dart";
+import "package:sitepulse_engineer/features/profile/presentation/screens/change_password_screen.dart";
 
 import "../../../../core/router/app_routes.dart";
 class SettingsScreen extends StatefulWidget {
@@ -68,11 +70,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context,
                 children: [
                   _SettingsActionTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: "Change Password",
+                    subtitle: "Update your account password",
+                    iconColor: const Color(0xFF2563EB),
+                    onTap: () => ChangePasswordScreen.show(
+                      context,
+                      sessionToken: SessionStore.current?.token ?? "",
+                    ),
+                  ),
+                  _buildDivider(context),
+                  _SettingsActionTile(
                     icon: Icons.lock_reset_rounded,
                     title: "Change MPIN",
                     subtitle: "Update your 4-digit security pin",
                     iconColor: const Color(0xFF8B5CF6),
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.changeMpin),
+                    onTap: () => ChangeMpinScreen.show(context),
                   ),
                   _buildDivider(context),
                   _SettingsActionTile(
