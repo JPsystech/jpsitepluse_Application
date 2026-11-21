@@ -15,7 +15,7 @@ class ChangePasswordScreen extends StatelessWidget {
       useSafeArea: true,
       showDragHandle: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.52,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.70,
       ),
       builder: (_) => BlocProvider(
         create: (_) => ChangePasswordBloc(),
@@ -48,6 +48,10 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
   final currentCtrl = TextEditingController();
   final newCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
+
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
 
   @override
   void dispose() {
@@ -98,11 +102,31 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                          _passwordField(label: "Current password", controller: currentCtrl, action: TextInputAction.next),
+                          _passwordField(
+                            label: "Current password",
+                            controller: currentCtrl,
+                            action: TextInputAction.next,
+                            obscureText: _obscureCurrent,
+                            onToggleVisibility: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                          ),
                           const SizedBox(height: 12),
-                          _passwordField(label: "New password", controller: newCtrl, action: TextInputAction.next, minLength: true),
+                          _passwordField(
+                            label: "New password",
+                            controller: newCtrl,
+                            action: TextInputAction.next,
+                            minLength: true,
+                            obscureText: _obscureNew,
+                            onToggleVisibility: () => setState(() => _obscureNew = !_obscureNew),
+                          ),
                           const SizedBox(height: 12),
-                          _passwordField(label: "Confirm new password", controller: confirmCtrl, action: TextInputAction.done, confirm: true),
+                          _passwordField(
+                            label: "Confirm new password",
+                            controller: confirmCtrl,
+                            action: TextInputAction.done,
+                            confirm: true,
+                            obscureText: _obscureConfirm,
+                            onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          ),
                           if (error != null) ...[
                             const SizedBox(height: 12),
                             Text(error,
@@ -152,10 +176,19 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
     );
   }
 
-  Widget _passwordField({required String label, required TextEditingController controller, required TextInputAction action, bool minLength = false, bool confirm = false}) {
+  Widget _passwordField({
+    required String label,
+    required TextEditingController controller,
+    required TextInputAction action,
+    required bool obscureText,
+    required VoidCallback onToggleVisibility,
+    bool minLength = false,
+    bool confirm = false,
+  }) {
+    final colors = Theme.of(context).colorScheme;
     return TextFormField(
       controller: controller,
-      obscureText: true,
+      obscureText: obscureText,
       textInputAction: action,
       validator: (value) {
         final text = (value ?? "").trim();
@@ -168,9 +201,19 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
         labelText: label,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         filled: true,
-        fillColor: Theme.of(context).colorScheme.surface,
+        fillColor: colors.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
+        suffixIcon: IconButton(
+          onPressed: onToggleVisibility,
+          icon: Icon(
+            obscureText
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+            color: colors.onSurfaceVariant,
+          ),
+          tooltip: obscureText ? "Show $label" : "Hide $label",
+        ),
       ),
     );
   }
