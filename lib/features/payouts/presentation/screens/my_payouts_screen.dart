@@ -99,6 +99,7 @@ class _MyPayoutsScreenState extends State<MyPayoutsScreen> {
       ];
 
   Future<void> _downloadPayslip(Map<String, dynamic> payout) async {
+    if (payout['status']?.toString().toUpperCase() != 'PAID') return;
     final runId = payout['payout_run_id']?.toString();
     if (runId == null || runId.isEmpty) return;
     try {
