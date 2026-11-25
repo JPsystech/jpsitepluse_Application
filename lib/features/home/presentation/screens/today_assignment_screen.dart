@@ -20,8 +20,10 @@ import 'package:sitepulse_engineer/core/theme/app_colors_extension.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:sitepulse_engineer/features/home/presentation/bloc/home_bloc.dart';
 import 'package:sitepulse_engineer/features/home/data/models/today_assignment_model.dart';
+import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
 import 'package:sitepulse_engineer/features/attendance/presentation/screens/attendance_screen.dart';
 import 'package:sitepulse_engineer/features/timesheet/presentation/screens/timesheet_screen.dart';
+import 'package:sitepulse_engineer/features/timesheet/data/services/timesheet_service.dart';
 import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_service.dart';
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
@@ -86,12 +88,14 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
   bool isPunchingOutForException = false;
   String? _lastPunchOutRemarks;
   late Future<Map<String, dynamic>> _payoutEstimate;
+  late Future<EngineerTimesheetListResponse> _monthlyAttendance;
 
   @override
   void initState() {
     super.initState();
     resolveApiBaseUrl();
     _payoutEstimate = _loadPayoutEstimate();
+    _monthlyAttendance = _loadMonthlyAttendance();
     ShiftActionService.punchOutRequests.addListener(_handlePunchOutAction);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -107,6 +111,15 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     final dio = await ApiClient.instance.dio;
     final response = await dio.get('/api/v1/engineer/payouts/estimate');
     return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<EngineerTimesheetListResponse> _loadMonthlyAttendance() {
+    final now = DateTime.now();
+    final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    return TimesheetService().timesheets(
+      token: widget.sessionToken,
+      month: month,
+    );
   }
 
   num _payoutAmount(Map<String, dynamic> payout, String key) =>
@@ -1232,9 +1245,113 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     );
   }
 
+  Widget _buildMonthlyAttendanceTab(ColorScheme cs) {
+    return FutureBuilder<EngineerTimesheetListResponse>(
+      future: _monthlyAttendance,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 112,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final data = snapshot.data;
+        if (snapshot.hasError || data == null) {
+          return _buildAttendanceShortcut(
+            cs,
+            message: 'Monthly attendance is unavailable right now.',
+          );
+        }
+
+        final now = DateTime.now();
+        final scheduledDates = <String>{};
+        final weeklyOffDays = data.weeklyOffDays.toSet();
+        for (var day = 1; day <= now.day; day++) {
+          final date = DateTime(now.year, now.month, day);
+          if (!weeklyOffDays.contains(date.weekday - 1)) {
+            scheduledDates.add(
+              '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+            );
+          }
+        }
+        final presentDates = data.items
+            .where((item) => (item.mark ?? '').toUpperCase() == 'P')
+            .map((item) => item.workDate)
+            .toSet();
+        final absentDays = scheduledDates
+            .where((date) => !presentDates.contains(date) && !data.lopDates.contains(date))
+            .length;
+
+        Widget stat(String label, String value, IconData icon, Color color) {
+          return Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Icon(icon, size: 17, color: color),
+                  const SizedBox(height: 4),
+                  Text(value, style: TextStyle(fontWeight: FontWeight.w900, color: color)),
+                  Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          key: const ValueKey(1),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                stat('Present', '${data.totalPresentDays}', Icons.check_circle_rounded, const Color(0xFF047857)),
+                const SizedBox(width: 8),
+                stat('Absent', '$absentDays', Icons.cancel_rounded, cs.error),
+                const SizedBox(width: 8),
+                stat('LOP', '${data.lopDays.length}', Icons.event_busy_rounded, const Color(0xFFB4232D)),
+                const SizedBox(width: 8),
+                stat('Hours', data.totalHours.toStringAsFixed(1), Icons.access_time_filled_rounded, cs.primary),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _buildAttendanceShortcut(cs),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAttendanceShortcut(ColorScheme cs, {String? message}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            message ?? 'View your calendar and complete attendance details.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.tonalIcon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AttendanceScreen(sessionToken: widget.sessionToken),
+            ),
+          ),
+          icon: const Icon(Icons.calendar_month_rounded, size: 18),
+          label: const Text('Attendance'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCombinedStatsCard(
-      AttendanceOverviewModel? overview, WeeklySummaryModel? summary, int projectCount) {
-    if (overview == null && summary == null) return const SizedBox.shrink();
+      AttendanceOverviewModel? overview, int projectCount) {
+    if (overview == null) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
 
@@ -1325,55 +1442,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                         ),
                       ],
                     )
-                  : Row(
-                      key: const ValueKey(1),
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Total Hours",
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                summary?.totalHours ?? '0m',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: cs.onSurface,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(width: 1, height: 40, color: cs.outlineVariant.withValues(alpha: 0.5)),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Days Active",
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "${summary?.daysActive ?? 0}",
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: cs.primary,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  : _buildMonthlyAttendanceTab(cs),
             ),
           ],
         ),
@@ -1591,7 +1660,7 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     _buildOfflineBanner(),
                     const SizedBox(height: 24),
                     _buildCombinedStatsCard(
-                        resp.attendanceOverview, resp.weeklySummary, assignments.length),
+                        resp.attendanceOverview, assignments.length),
                     const SizedBox(height: 24),
                     if (!hasAssignment) ...[
                       _buildEmptyState(),
