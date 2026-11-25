@@ -32,7 +32,9 @@ class _TdsCertificatesScreenState extends State<TdsCertificatesScreen> {
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() => _certificates = next);
+    setState(() {
+      _certificates = next;
+    });
     await next;
   }
 
