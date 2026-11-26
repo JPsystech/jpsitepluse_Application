@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:sitepulse_engineer/core/network/api_client.dart';
 import 'package:sitepulse_engineer/core/services/notification_service.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_date_picker.dart';
 
 class LeaveScreen extends StatefulWidget {
   const LeaveScreen({super.key});
@@ -73,29 +75,6 @@ class _LeaveScreenState extends State<LeaveScreen> with WidgetsBindingObserver {
     return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
   }
 
-  InputDecoration _leaveFieldDecoration(
-    BuildContext context, {
-    required String label,
-    IconData? icon,
-    String? errorText,
-  }) {
-    final colors = Theme.of(context).colorScheme;
-    final hasError = errorText != null && errorText.isNotEmpty;
-    return InputDecoration(
-      labelText: label,
-      errorText: errorText,
-      errorMaxLines: 3,
-      errorStyle: TextStyle(color: colors.error, fontWeight: FontWeight.w600),
-      prefixIcon: icon == null ? null : Icon(icon, color: hasError ? colors.error : colors.primary),
-      suffixIcon: hasError ? Icon(Icons.error_rounded, color: colors.error) : null,
-      filled: true,
-      fillColor: hasError ? colors.errorContainer.withValues(alpha: 0.1) : colors.surfaceContainerHighest.withValues(alpha: 0.3),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: hasError ? colors.error : colors.outline.withValues(alpha: 0.2))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: hasError ? colors.error : colors.primary, width: 1.5)),
-    );
-  }
-
   Future<void> _openApplyLeaveSheet() async {
     var reason = '';
     DateTime? fromDate;
@@ -124,19 +103,31 @@ class _LeaveScreenState extends State<LeaveScreen> with WidgetsBindingObserver {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [OutlinedButton(style: OutlinedButton.styleFrom(side: BorderSide(color: fromDateError != null ? Theme.of(sheetContext).colorScheme.error : Theme.of(sheetContext).colorScheme.outline)), onPressed: isSubmitting ? null : () async {
-                    final selected = await showDatePicker(context: sheetContext, initialDate: fromDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(DateTime.now().year + 2));
-                    if (selected != null) setSheetState(() { fromDate = selected; if (toDate != null && toDate!.isBefore(selected)) toDate = selected; fromDateError = null; });
-                  }, child: Text('From: ${_date(fromDate)}')), if (fromDateError != null) Padding(padding: const EdgeInsets.only(top: 4, left: 12), child: Text(fromDateError!, style: TextStyle(color: Theme.of(sheetContext).colorScheme.error, fontWeight: FontWeight.w600))) ])),
+                  Expanded(child: AppPickerField(
+                    label: 'From date',
+                    value: _date(fromDate),
+                    errorText: fromDateError,
+                    enabled: !isSubmitting,
+                    onTap: () async {
+                      final selected = await showAppDatePicker(context: sheetContext, initialDate: fromDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(DateTime.now().year + 2));
+                      if (selected != null) setSheetState(() { fromDate = selected; if (toDate != null && toDate!.isBefore(selected)) toDate = selected; fromDateError = null; });
+                    },
+                  )),
                   const SizedBox(width: 8),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [OutlinedButton(style: OutlinedButton.styleFrom(side: BorderSide(color: toDateError != null ? Theme.of(sheetContext).colorScheme.error : Theme.of(sheetContext).colorScheme.outline)), onPressed: isSubmitting ? null : () async {
-                    final selected = await showDatePicker(context: sheetContext, initialDate: toDate ?? fromDate ?? DateTime.now(), firstDate: fromDate ?? DateTime(2020), lastDate: DateTime(DateTime.now().year + 2));
-                    if (selected != null) setSheetState(() { toDate = selected; toDateError = null; });
-                  }, child: Text('To: ${_date(toDate)}')), if (toDateError != null) Padding(padding: const EdgeInsets.only(top: 4, left: 12), child: Text(toDateError!, style: TextStyle(color: Theme.of(sheetContext).colorScheme.error, fontWeight: FontWeight.w600))) ])),
+                  Expanded(child: AppPickerField(
+                    label: 'To date',
+                    value: _date(toDate),
+                    errorText: toDateError,
+                    enabled: !isSubmitting,
+                    onTap: () async {
+                      final selected = await showAppDatePicker(context: sheetContext, initialDate: toDate ?? fromDate ?? DateTime.now(), firstDate: fromDate ?? DateTime(2020), lastDate: DateTime(DateTime.now().year + 2));
+                      if (selected != null) setSheetState(() { toDate = selected; toDateError = null; });
+                    },
+                  )),
                 ],
               ),
               const SizedBox(height: 12),
-              TextField(minLines: 3, maxLines: 5, enabled: !isSubmitting, onChanged: (value) { reason = value; if (reasonError != null) setSheetState(() => reasonError = null); }, decoration: _leaveFieldDecoration(sheetContext, label: 'Reason', errorText: reasonError)),
+              AppTextArea(label: 'Reason', errorText: reasonError, enabled: !isSubmitting, onChanged: (value) { reason = value; if (reasonError != null) setSheetState(() => reasonError = null); }),
               const SizedBox(height: 20),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 TextButton(onPressed: isSubmitting ? null : () => Navigator.of(sheetContext).pop(), child: const Text('Cancel')),
@@ -229,7 +220,7 @@ class _LeaveScreenState extends State<LeaveScreen> with WidgetsBindingObserver {
     if (_cancellingRequestId != null || _earlyReturnRequestId != null) return;
     final fromDate = DateTime.parse(request['from_date'].toString());
     final toDate = DateTime.parse(request['to_date'].toString());
-    final date = await showDatePicker(
+    final date = await showAppDatePicker(
       context: context,
       initialDate: fromDate,
       firstDate: fromDate,

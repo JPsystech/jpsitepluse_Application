@@ -18,6 +18,7 @@ import "package:sitepulse_engineer/features/referrals/presentation/screens/refer
 import "package:sitepulse_engineer/features/referrals/presentation/screens/refer_candidate_screen.dart";
 import "package:sitepulse_engineer/features/referrals/presentation/screens/submit_project_lead_screen.dart";
 import "package:sitepulse_engineer/features/onboarding/presentation/screens/complete_profile_screen.dart";
+import "package:sitepulse_engineer/features/signed_attendance/presentation/screens/signed_attendance_sheets_screen.dart";
 
 class AppRoutes {
   static const String splash = "/splash";
@@ -36,6 +37,7 @@ class AppRoutes {
   static const String referrals = "/referrals";
   static const String referCandidate = "/referrals/candidate";
   static const String submitProjectLead = "/referrals/project-lead";
+  static const String signedAttendanceSheets = "/signed-attendance-sheets";
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -87,6 +89,8 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => const SubmitProjectLeadScreen(),
         );
+      case signedAttendanceSheets:
+        return MaterialPageRoute(builder: (_) => const SignedAttendanceSheetsScreen());
       case app:
         int initialTab = 0;
         if (settings.arguments is int) {

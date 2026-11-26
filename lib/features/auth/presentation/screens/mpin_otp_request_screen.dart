@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sitepulse_engineer/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:sitepulse_engineer/core/storage/credential_store.dart';
@@ -122,14 +123,10 @@ class _MpinOtpRequestScreenViewState extends State<_MpinOtpRequestScreenView> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                TextField(
+                AppTextField(
                   controller: _emailCtrl,
-                  decoration: InputDecoration(
-                    labelText: "Email Address",
-                    prefixIcon: const Icon(Icons.email),
-                    errorText: _error,
-                    border: const OutlineInputBorder(),
-                  ),
+                  label: "Email Address",
+                  errorText: _error,
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (_) {
                     if (_error != null) setState(() => _error = null);

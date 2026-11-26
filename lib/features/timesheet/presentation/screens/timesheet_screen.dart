@@ -14,6 +14,7 @@ import "package:sitepulse_engineer/core/config/api_config.dart";
 
 import "package:sitepulse_engineer/features/timesheet/presentation/bloc/timesheet_bloc.dart";
 import "package:sitepulse_engineer/core/error/error_handler.dart";
+import "package:sitepulse_engineer/shared/widgets/app_form_fields.dart";
 
 class TimesheetScreen extends StatelessWidget {
   const TimesheetScreen({
@@ -416,29 +417,13 @@ class _TimesheetViewState extends State<_TimesheetView> {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        TextField(
+        AppTextArea(
+          label: "Work description",
           controller: descriptionCtrl,
-          maxLines: 4,
-          textInputAction: TextInputAction.newline,
           onChanged: (_) => setState(() => descError = null),
-          decoration: InputDecoration(
-            errorText: descError,
-            filled: true,
-            fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: cs.primary, width: 2),
-            ),
-            contentPadding: const EdgeInsets.all(20),
-          ),
+          errorText: descError,
+          minLines: 4,
+          maxLines: 4,
         ),
         const SizedBox(height: 32),
         Text(

@@ -814,6 +814,7 @@ class _ProfileViewState extends State<_ProfileView> {
       childAspectRatio: 2.7,
       children: [
         _ProfileQuickAction(icon: Icons.folder_open_rounded, label: "Documents", onTap: () => Navigator.of(context).pushNamed(AppRoutes.documents)),
+        _ProfileQuickAction(icon: Icons.verified_outlined, label: "Signed Sheets", onTap: () => Navigator.of(context).pushNamed(AppRoutes.signedAttendanceSheets)),
         _ProfileQuickAction(icon: Icons.account_balance_wallet_rounded, label: "Payouts", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyPayoutsScreen()))),
         _ProfileQuickAction(icon: Icons.analytics_rounded, label: "Attendance", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AttendanceScreen(sessionToken: (SessionStore.current?.token ?? "").trim())))),
         _ProfileQuickAction(icon: Icons.event_available_rounded, label: "Leave", onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaveScreen()))),

@@ -8,6 +8,8 @@ import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/features/documents/data/services/documents_service.dart';
 import 'package:sitepulse_engineer/shared/models/engineer_document_model.dart';
 import 'package:sitepulse_engineer/shared/widgets/primary_button.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_date_picker.dart';
 import '../../data/models/onboarding_status_model.dart';
 import '../../data/services/onboarding_service.dart';
 
@@ -196,7 +198,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
     final initialDate = _selectedDob ?? DateTime(now.year - 25, 1, 1);
 
-    final picked = await showDatePicker(
+    final picked = await showAppDatePicker(
       context: context,
       initialDate:
           initialDate.isAfter(eighteenYearsAgo) ? eighteenYearsAgo : initialDate,
@@ -560,9 +562,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         title: const Text("Document details"),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: fields.map((field) {
           final label = field.required ? "${field.label} *" : field.label;
-          if (field.fieldType == "select") return DropdownButtonFormField<String>(value: values[field.key] as String?, decoration: InputDecoration(labelText: label, helperText: field.helpText), items: field.options.map((option) => DropdownMenuItem(value: option, child: Text(option))).toList(), onChanged: (value) => setDialogState(() => values[field.key] = value));
+          if (field.fieldType == "select") return AppDropdownField<String>(label: label, value: values[field.key] as String?, helperText: field.helpText, items: field.options.map((option) => DropdownMenuItem(value: option, child: Text(option))).toList(), onChanged: (value) => setDialogState(() => values[field.key] = value));
           if (field.fieldType == "checkbox") return CheckboxListTile(contentPadding: EdgeInsets.zero, title: Text(label), subtitle: field.helpText == null ? null : Text(field.helpText!), value: values[field.key] == true, onChanged: (value) => setDialogState(() => values[field.key] = value == true));
-          return TextField(controller: controllers[field.key], keyboardType: field.fieldType == "number" ? TextInputType.number : TextInputType.text, readOnly: field.fieldType == "date", onTap: field.fieldType == "date" ? () async { final picked = await showDatePicker(context: context, firstDate: DateTime(1900), lastDate: DateTime(2100), initialDate: DateTime.now()); if (picked != null) setDialogState(() => controllers[field.key]!.text = DateFormat("yyyy-MM-dd").format(picked)); } : null, maxLines: field.fieldType == "textarea" ? 3 : 1, decoration: InputDecoration(labelText: label, helperText: field.helpText));
+          return AppTextField(label: label, controller: controllers[field.key], keyboardType: field.fieldType == "number" ? TextInputType.number : TextInputType.text, readOnly: field.fieldType == "date", onTap: field.fieldType == "date" ? () async { final picked = await showAppDatePicker(context: context, firstDate: DateTime(1900), lastDate: DateTime(2100), initialDate: DateTime.now()); if (picked != null) setDialogState(() => controllers[field.key]!.text = DateFormat("yyyy-MM-dd").format(picked)); } : null, maxLines: field.fieldType == "textarea" ? 3 : 1, helperText: field.helpText);
         }).toList())),
         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Cancel")), FilledButton(onPressed: () { for (final field in fields) { if (field.fieldType != "checkbox" && field.fieldType != "select") values[field.key] = controllers[field.key]!.text.trim(); if (field.required && (values[field.key] == null || values[field.key] == "")) { ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text("${field.label} is required"))); return; } } Navigator.pop(dialogContext, values); }, child: const Text("Continue"))],
       )),
@@ -958,21 +960,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             icon: Icons.person_outline_rounded,
             children: [
               // Date of Birth
-              TextFormField(
+              AppTextFormField(
                 controller: _dobController,
                 readOnly: true,
-                decoration: InputDecoration(
-                  labelText: "Date of Birth *",
-                  hintText: "YYYY-MM-DD",
-                  prefixIcon: const Icon(Icons.cake_outlined),
-                  suffixIcon: IconButton(
+                label: "Date of Birth *",
+                hintText: "YYYY-MM-DD",
+                prefixIcon: const Icon(Icons.cake_outlined),
+                suffixIcon: IconButton(
                     icon: const Icon(Icons.calendar_month_outlined),
                     onPressed: _selectDob,
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
                 onTap: _selectDob,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
@@ -984,20 +981,15 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 16),
 
               // PAN Card
-              TextFormField(
+              AppTextFormField(
                 controller: _panController,
                 textCapitalization: TextCapitalization.characters,
                 inputFormatters: [
                   LengthLimitingTextInputFormatter(10),
                 ],
-                decoration: InputDecoration(
-                  labelText: "PAN Card Number *",
-                  hintText: "ABCDE1234F",
-                  prefixIcon: const Icon(Icons.credit_card_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                label: "PAN Card Number *",
+                hintText: "ABCDE1234F",
+                prefixIcon: const Icon(Icons.credit_card_outlined),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return "PAN number is required";
@@ -1012,21 +1004,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 16),
 
               // Aadhaar Card
-              TextFormField(
+              AppTextFormField(
                 controller: _aadhaarController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(12),
                 ],
-                decoration: InputDecoration(
-                  labelText: "Aadhaar Card Number *",
-                  hintText: "12 digits",
-                  prefixIcon: const Icon(Icons.fingerprint_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                label: "Aadhaar Card Number *",
+                hintText: "12 digits",
+                prefixIcon: const Icon(Icons.fingerprint_rounded),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return "Aadhaar number is required";
@@ -1048,17 +1035,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             icon: Icons.account_balance_outlined,
             children: [
               // Account Holder
-              TextFormField(
+              AppTextFormField(
                 controller: _accHolderController,
                 textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: "Account Holder Name *",
-                  hintText: "Name as per passbook",
-                  prefixIcon: const Icon(Icons.badge_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                label: "Account Holder Name *",
+                hintText: "Name as per passbook",
+                prefixIcon: const Icon(Icons.badge_outlined),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return "Account holder name is required";
@@ -1069,17 +1051,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 16),
 
               // Bank Name
-              TextFormField(
+              AppTextFormField(
                 controller: _bankNameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: "Bank Name *",
-                  hintText: "e.g. State Bank of India",
-                  prefixIcon: const Icon(Icons.account_balance_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                label: "Bank Name *",
+                hintText: "e.g. State Bank of India",
+                prefixIcon: const Icon(Icons.account_balance_rounded),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return "Bank name is required";
@@ -1090,21 +1067,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 16),
 
               // Account Number
-              TextFormField(
+              AppTextFormField(
                 controller: _accNumController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(30),
                 ],
-                decoration: InputDecoration(
-                  labelText: "Account Number *",
-                  hintText: "Enter bank account number",
-                  prefixIcon: const Icon(Icons.numbers_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                label: "Account Number *",
+                hintText: "Enter bank account number",
+                prefixIcon: const Icon(Icons.numbers_rounded),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return "Account number is required";
@@ -1118,20 +1090,15 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 16),
 
               // IFSC Code
-              TextFormField(
+              AppTextFormField(
                 controller: _ifscController,
                 textCapitalization: TextCapitalization.characters,
                 inputFormatters: [
                   LengthLimitingTextInputFormatter(11),
                 ],
-                decoration: InputDecoration(
-                  labelText: "Bank IFSC Code *",
-                  hintText: "e.g. SBIN0123456",
-                  prefixIcon: const Icon(Icons.domain_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                label: "Bank IFSC Code *",
+                hintText: "e.g. SBIN0123456",
+                prefixIcon: const Icon(Icons.domain_rounded),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return "IFSC code is required";
@@ -1169,7 +1136,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 child: PrimaryButton(
                   label: _isStep2Complete
                       ? "Save & Unlock Attendance 🎉"
-                      : "Save & Continue →",
+                      : "Save & Continue",
                   isLoading: _isSaving,
                   icon: _isStep2Complete
                       ? Icons.lock_open_rounded

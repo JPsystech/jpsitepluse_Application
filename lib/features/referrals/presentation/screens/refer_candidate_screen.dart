@@ -11,6 +11,8 @@ import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral
 import 'package:sitepulse_engineer/features/referrals/presentation/widgets/referral_terms_sheet.dart';
 import 'package:sitepulse_engineer/shared/models/country_code.dart';
 import 'package:sitepulse_engineer/shared/widgets/country_code_phone_field.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_file_upload_card.dart';
 
 class ReferCandidateScreen extends StatelessWidget {
   final JobOpeningModel? preselectedJob;
@@ -284,11 +286,9 @@ class _ReferCandidateScreenContentState
                     ),
                     const SizedBox(height: 12),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _nameController,
-                      decoration: _fieldDecoration(
-                        labelText: "Candidate Full Name *",
-                      ),
+                      label: "Candidate Full Name *",
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter candidate's name";
@@ -336,12 +336,10 @@ class _ReferCandidateScreenContentState
                     ),
                     const SizedBox(height: 14),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: _fieldDecoration(
-                        labelText: "Candidate Email Address *",
-                      ),
+                      label: "Candidate Email Address *",
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter candidate's email address";
@@ -365,23 +363,19 @@ class _ReferCandidateScreenContentState
                       children: [
                         Expanded(
                           flex: 3,
-                          child: TextFormField(
+                          child: AppTextFormField(
                             controller: _companyController,
-                            decoration: _fieldDecoration(
-                              labelText: "Current Company",
-                            ),
+                            label: "Current Company",
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           flex: 2,
-                          child: TextFormField(
+                          child: AppTextFormField(
                             controller: _expController,
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
-                            decoration: _fieldDecoration(
-                              labelText: "Exp (Yrs)",
-                            ),
+                            label: "Exp (Yrs)",
                             validator: (v) {
                               if (v != null && v.trim().isNotEmpty) {
                                 if (double.tryParse(v.trim()) == null) {
@@ -399,12 +393,10 @@ class _ReferCandidateScreenContentState
                     _buildResumeUploadCard(),
                     const SizedBox(height: 20),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _notesController,
                       maxLines: 3,
-                      decoration: _fieldDecoration(
-                        labelText: "Recommendation Notes",
-                      ),
+                      label: "Recommendation Notes",
                     ),
                     const SizedBox(height: 24),
 
@@ -533,16 +525,6 @@ class _ReferCandidateScreenContentState
     );
   }
 
-  InputDecoration _fieldDecoration({
-    required String labelText,
-  }) {
-    return InputDecoration(
-      labelText: labelText,
-      filled: true,
-      floatingLabelBehavior: FloatingLabelBehavior.always,
-    );
-  }
-
   Widget _buildJobSelectionSection(List<JobOpeningModel> jobOpenings) {
     if (widget.preselectedJob != null) {
       return const SizedBox.shrink();
@@ -550,11 +532,9 @@ class _ReferCandidateScreenContentState
 
     final openJobOpenings = jobOpenings.where((j) => j.isOpen).toList();
 
-    return DropdownButtonFormField<String>(
+    return AppDropdownField<String>(
       value: _selectedJobId,
-      decoration: _fieldDecoration(
-        labelText: "Select Job Opening *",
-      ),
+      label: "Select Job Opening *",
       items: openJobOpenings.map((job) {
         return DropdownMenuItem<String>(
           value: job.id,
@@ -574,106 +554,17 @@ class _ReferCandidateScreenContentState
   }
 
   Widget _buildResumeUploadCard() {
-    final cs = Theme.of(context).colorScheme;
-
-    if (_selectedResumeFile != null) {
-      final sizeKb = ((_resumeFileSize ?? 0) / 1024).round();
-      final sizeStr = sizeKb > 1024
-          ? "${(sizeKb / 1024).toStringAsFixed(1)} MB"
-          : "$sizeKb KB";
-
-      return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFF10B981)),
-        ),
-        color: const Color(0xFFECFDF5),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.description_rounded,
-                  color: Color(0xFF047857), size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _resumeFileName ?? 'Resume Document',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF065F46),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      sizeStr,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF047857),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded,
-                    color: Color(0xFFDC2626), size: 20),
-                onPressed: () {
-                  setState(() {
-                    _selectedResumeFile = null;
-                    _resumeFileName = null;
-                    _resumeFileSize = null;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return InkWell(
+    return AppFileUploadCard(
+      uploadLabel: 'Tap to Upload Candidate Resume',
+      supportText: 'Supports PDF, DOC, DOCX up to 15 MB',
+      fileName: _resumeFileName,
+      fileSizeBytes: _resumeFileSize,
       onTap: _pickResume,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.8),
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.cloud_upload_outlined,
-                size: 32, color: cs.primary),
-            const SizedBox(height: 8),
-            Text(
-              "Tap to Upload Candidate Resume",
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              "Supports PDF, DOC, DOCX up to 15 MB",
-              style: TextStyle(
-                fontSize: 11,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+      onClear: () => setState(() {
+        _selectedResumeFile = null;
+        _resumeFileName = null;
+        _resumeFileSize = null;
+      }),
     );
   }
 }

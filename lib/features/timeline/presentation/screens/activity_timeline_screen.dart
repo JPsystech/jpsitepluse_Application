@@ -11,6 +11,7 @@ import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/shared/widgets/section_header.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
 import "package:sitepulse_engineer/shared/widgets/photo_gallery_row.dart";
+import "package:sitepulse_engineer/shared/widgets/app_form_fields.dart";
 import "package:sitepulse_engineer/features/timeline/presentation/bloc/timeline_bloc.dart";
 
 class ActivityTimelineScreen extends StatelessWidget {
@@ -88,13 +89,9 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.2)),
                     const SizedBox(height: 20),
-                    const Text("Month",
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
+                    AppDropdownField<String>(
                       value: draftMonth,
-                      decoration: inputDecoration,
+                      label: "Month",
                       icon: const Icon(Icons.keyboard_arrow_down_rounded),
                       dropdownColor: Colors.white,
                       items: _monthOptions()
@@ -105,13 +102,9 @@ class _ActivityTimelineViewState extends State<_ActivityTimelineView> {
                           setModalState(() => draftMonth = v ?? ""),
                     ),
                     const SizedBox(height: 16),
-                    const Text("Status",
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
+                    AppDropdownField<String>(
                       value: draftStatus,
-                      decoration: inputDecoration,
+                      label: "Status",
                       icon: const Icon(Icons.keyboard_arrow_down_rounded),
                       dropdownColor: Colors.white,
                       items: const [

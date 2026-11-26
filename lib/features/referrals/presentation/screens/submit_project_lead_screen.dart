@@ -8,6 +8,7 @@ import 'package:sitepulse_engineer/features/referrals/presentation/bloc/referral
 import 'package:sitepulse_engineer/features/referrals/presentation/widgets/referral_terms_sheet.dart';
 import 'package:sitepulse_engineer/shared/models/country_code.dart';
 import 'package:sitepulse_engineer/shared/widgets/country_code_phone_field.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
 
 class SubmitProjectLeadScreen extends StatelessWidget {
   final ReferralBloc? bloc;
@@ -241,11 +242,9 @@ class _SubmitProjectLeadScreenContentState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
+                    AppTextFormField(
                       controller: _clientNameController,
-                      decoration: _fieldDecoration(
-                        labelText: "Client / Company Name *",
-                      ),
+                      label: "Client / Company Name *",
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter client or company name";
@@ -255,11 +254,9 @@ class _SubmitProjectLeadScreenContentState
                     ),
                     const SizedBox(height: 14),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _contactPersonController,
-                      decoration: _fieldDecoration(
-                        labelText: "Contact Person Name",
-                      ),
+                      label: "Contact Person Name",
                     ),
                     const SizedBox(height: 14),
 
@@ -289,12 +286,10 @@ class _SubmitProjectLeadScreenContentState
                     ),
                     const SizedBox(height: 14),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _contactEmailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: _fieldDecoration(
-                        labelText: "Contact Email *",
-                      ),
+                      label: "Contact Email *",
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return "Please enter contact email";
@@ -310,40 +305,32 @@ class _SubmitProjectLeadScreenContentState
                     ),
                     const SizedBox(height: 24),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _siteNameController,
-                      decoration: _fieldDecoration(
-                        labelText: "Site / Project Name",
-                      ),
+                      label: "Site / Project Name",
                     ),
                     const SizedBox(height: 14),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _siteAddressController,
                       maxLines: 2,
-                      decoration: _fieldDecoration(
-                        labelText: "Site Address",
-                      ),
+                      label: "Site Address",
                     ),
                     const SizedBox(height: 14),
 
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
+                          child: AppTextFormField(
                             controller: _cityController,
-                            decoration: _fieldDecoration(
-                              labelText: "City",
-                            ),
+                            label: "City",
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextFormField(
+                          child: AppTextFormField(
                             controller: _stateController,
-                            decoration: _fieldDecoration(
-                              labelText: "State",
-                            ),
+                            label: "State",
                           ),
                         ),
                       ],
@@ -354,22 +341,18 @@ class _SubmitProjectLeadScreenContentState
                     _buildGpsCard(),
                     const SizedBox(height: 24),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _estimatedValueController,
+                      label: "Estimated Project Value (₹)",
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
-                      decoration: _fieldDecoration(
-                        labelText: "Estimated Project Value (₹)",
-                      ),
                     ),
                     const SizedBox(height: 14),
 
-                    TextFormField(
+                    AppTextFormField(
                       controller: _remarksController,
                       maxLines: 3,
-                      decoration: _fieldDecoration(
-                        labelText: "Remarks & Project Scope",
-                      ),
+                      label: "Remarks & Project Scope",
                     ),
                     const SizedBox(height: 24),
 

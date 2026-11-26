@@ -9,6 +9,8 @@ import 'package:sitepulse_engineer/core/utils/formatters.dart';
 import 'package:sitepulse_engineer/shared/models/today_assignment.dart';
 import 'package:sitepulse_engineer/shared/widgets/status_chip.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_date_picker.dart';
 import 'package:sitepulse_engineer/features/history/presentation/bloc/history_bloc.dart';
 import 'package:sitepulse_engineer/features/history/presentation/screens/history_detail_screen.dart';
 
@@ -254,7 +256,7 @@ class _HistoryViewState extends State<_HistoryView> {
 
   Future<void> _pickDate({required bool isStart}) async {
     final now = IstTime.now();
-    final picked = await showDatePicker(
+    final picked = await showAppDatePicker(
       context: context,
       initialDate: now,
       firstDate: DateTime(now.year - 5, 1, 1),
@@ -296,27 +298,6 @@ class _HistoryViewState extends State<_HistoryView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
-    // Modern Enterprise Input Decoration
-    final inputDecoration = InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.primary, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      labelStyle: TextStyle(color: cs.onSurfaceVariant),
-    );
 
     return BlocConsumer<HistoryBloc, HistoryState>(
       listener: (context, state) {
@@ -404,7 +385,6 @@ class _HistoryViewState extends State<_HistoryView> {
                             _buildFilterCard(
                                 context,
                                 cs,
-                                inputDecoration,
                                 isLoading,
                                 isOptionsLoading,
                                 clientOptions,
@@ -594,7 +574,6 @@ class _HistoryViewState extends State<_HistoryView> {
   Widget _buildFilterCard(
       BuildContext context,
       ColorScheme cs,
-      InputDecoration inputDecoration,
       bool isLoading,
       bool isOptionsLoading,
       List<String> clientOptions,
@@ -630,12 +609,10 @@ class _HistoryViewState extends State<_HistoryView> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdownField<String>(
                     value: month.trim().isEmpty ? null : month,
-                    decoration: inputDecoration.copyWith(labelText: "Month"),
-                    icon: Icon(Icons.arrow_drop_down_rounded,
-                        color: cs.onSurfaceVariant),
-                    isExpanded: true,
+                    label: "Month",
+                    icon: Icon(Icons.arrow_drop_down_rounded, color: cs.onSurfaceVariant),
                     items: _monthOptions()
                         .map((m) => DropdownMenuItem<String>(
                             value: m,
@@ -657,13 +634,10 @@ class _HistoryViewState extends State<_HistoryView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextFormField(
+                  child: AppTextFormField(
+                    label: "Start date",
                     readOnly: true,
-                    decoration: inputDecoration.copyWith(
-                      labelText: "Start date",
-                      suffixIcon: Icon(Icons.calendar_today_rounded,
-                          size: 16, color: cs.onSurfaceVariant),
-                    ),
+                    suffixIcon: Icon(Icons.calendar_today_rounded, size: 16, color: cs.onSurfaceVariant),
                     controller: startDateCtrl,
                     onTap: () => _pickDate(isStart: true),
                   ),
@@ -674,25 +648,21 @@ class _HistoryViewState extends State<_HistoryView> {
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: AppTextFormField(
+                    label: "End date",
                     readOnly: true,
-                    decoration: inputDecoration.copyWith(
-                      labelText: "End date",
-                      suffixIcon: Icon(Icons.calendar_today_rounded,
-                          size: 16, color: cs.onSurfaceVariant),
-                    ),
+                    suffixIcon: Icon(Icons.calendar_today_rounded, size: 16, color: cs.onSurfaceVariant),
                     controller: endDateCtrl,
                     onTap: () => _pickDate(isStart: false),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdownField<String>(
                     value: selectedClient,
-                    isExpanded: true,
+                    label: "Client",
                     icon: Icon(Icons.arrow_drop_down_rounded,
                         color: cs.onSurfaceVariant),
-                    decoration: inputDecoration.copyWith(labelText: "Client"),
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
@@ -726,12 +696,11 @@ class _HistoryViewState extends State<_HistoryView> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdownField<String>(
                     value: selectedProject,
-                    isExpanded: true,
+                    label: "Project",
                     icon: Icon(Icons.arrow_drop_down_rounded,
                         color: cs.onSurfaceVariant),
-                    decoration: inputDecoration.copyWith(labelText: "Project"),
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
@@ -760,12 +729,11 @@ class _HistoryViewState extends State<_HistoryView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdownField<String>(
                     value: selectedSite,
-                    isExpanded: true,
+                    label: "Site",
                     icon: Icon(Icons.arrow_drop_down_rounded,
                         color: cs.onSurfaceVariant),
-                    decoration: inputDecoration.copyWith(labelText: "Site"),
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,

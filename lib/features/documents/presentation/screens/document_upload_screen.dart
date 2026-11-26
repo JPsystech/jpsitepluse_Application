@@ -13,6 +13,8 @@ import "package:sitepulse_engineer/shared/models/engineer_document_model.dart";
 import "package:sitepulse_engineer/features/documents/data/services/documents_service.dart";
 import "package:sitepulse_engineer/shared/widgets/image_viewer.dart";
 import "package:sitepulse_engineer/shared/widgets/status_chip.dart";
+import "package:sitepulse_engineer/shared/widgets/app_form_fields.dart";
+import "package:sitepulse_engineer/shared/widgets/app_date_picker.dart";
 import "package:sitepulse_engineer/features/documents/presentation/bloc/documents_bloc.dart";
 import "package:sitepulse_engineer/core/error/error_handler.dart";
 import "package:sitepulse_engineer/core/services/required_documents_store.dart";
@@ -331,12 +333,10 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                   if (field.fieldType == "select") {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: DropdownButtonFormField<String>(
+                      child: AppDropdownField<String>(
                         value: values[field.key] as String?,
-                        decoration: InputDecoration(
-                          labelText: label,
-                          helperText: field.helpText,
-                        ),
+                        label: label,
+                        helperText: field.helpText,
                         items: field.options
                             .map((option) => DropdownMenuItem(
                                   value: option,
@@ -361,15 +361,17 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                   }
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: TextField(
+                    child: AppTextFormField(
                       controller: controllers[field.key],
+                      label: label,
+                      helperText: field.helpText,
                       keyboardType: field.fieldType == "number"
                           ? TextInputType.number
                           : TextInputType.text,
                       readOnly: field.fieldType == "date",
                       onTap: field.fieldType == "date"
                           ? () async {
-                              final date = await showDatePicker(
+                              final date = await showAppDatePicker(
                                 context: context,
                                 initialDate: DateTime.now(),
                                 firstDate: DateTime(1900),
@@ -384,13 +386,6 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
                             }
                           : null,
                       maxLines: field.fieldType == "textarea" ? 3 : 1,
-                      decoration: InputDecoration(
-                        labelText: label,
-                        helperText: field.helpText,
-                        suffixIcon: field.fieldType == "date"
-                            ? const Icon(Icons.calendar_today_outlined)
-                            : null,
-                      ),
                     ),
                   );
                 }),
@@ -601,7 +596,7 @@ class _DocumentUploadViewState extends State<_DocumentUploadView> {
     final today = DateTime.now();
     final initial =
         currentStateNdtDate ?? DateTime(today.year + 1, today.month, today.day);
-    final picked = await showDatePicker(
+    final picked = await showAppDatePicker(
       context: context,
       initialDate: initial.isBefore(today) ? today : initial,
       firstDate: DateTime(today.year - 1, 1, 1),
@@ -1743,7 +1738,7 @@ class _DocumentDetailsSheetState extends State<_DocumentDetailsSheet> {
   }
 
   Future<void> _pickDate(DocumentFieldDefinition field) async {
-    final date = await showDatePicker(
+    final date = await showAppDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
@@ -1878,14 +1873,11 @@ class _DocumentDetailsSheetState extends State<_DocumentDetailsSheet> {
                 if (field.fieldType == "select") {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: DropdownButtonFormField<String>(
+                    child: AppDropdownField<String>(
                       value: _values[field.key] as String?,
-                      decoration: _inputDecoration(
-                        context: context,
-                        label: label,
-                        helperText: field.helpText,
-                        errorText: _validationErrors[field.key],
-                      ),
+                      label: label,
+                      helperText: field.helpText,
+                      errorText: _validationErrors[field.key],
                       items: field.options
                           .map((option) => DropdownMenuItem(
                                 value: option,
@@ -1930,8 +1922,11 @@ class _DocumentDetailsSheetState extends State<_DocumentDetailsSheet> {
                 }
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
+                  child: AppTextField(
                     controller: _controllers[field.key],
+                    label: label,
+                    helperText: field.helpText,
+                    errorText: _validationErrors[field.key],
                     keyboardType: field.fieldType == "number"
                         ? TextInputType.number
                         : TextInputType.text,
@@ -1942,15 +1937,9 @@ class _DocumentDetailsSheetState extends State<_DocumentDetailsSheet> {
                         ? () => _pickDate(field)
                         : null,
                     maxLines: field.fieldType == "textarea" ? 3 : 1,
-                    decoration: _inputDecoration(
-                      context: context,
-                      label: label,
-                      helperText: field.helpText,
-                      errorText: _validationErrors[field.key],
-                      suffixIcon: field.fieldType == "date"
-                          ? const Icon(Icons.calendar_today_outlined)
-                          : null,
-                    ),
+                    suffixIcon: field.fieldType == "date"
+                        ? const Icon(Icons.calendar_today_outlined)
+                        : null,
                   ),
                 );
               }),

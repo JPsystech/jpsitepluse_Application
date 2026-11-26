@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 import "package:sitepulse_engineer/features/profile/presentation/bloc/change_password_bloc.dart";
+import "package:sitepulse_engineer/shared/widgets/app_form_fields.dart";
 
 class ChangePasswordScreen extends StatelessWidget {
   const ChangePasswordScreen({super.key, required this.sessionToken});
@@ -185,11 +186,11 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
     bool minLength = false,
     bool confirm = false,
   }) {
-    final colors = Theme.of(context).colorScheme;
-    return TextFormField(
+    return AppTextFormField(
       controller: controller,
       obscureText: obscureText,
       textInputAction: action,
+      label: label,
       validator: (value) {
         final text = (value ?? "").trim();
         if (text.isEmpty) return "Please enter $label";
@@ -197,23 +198,14 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
         if (confirm && text != newCtrl.text) return "Passwords do not match";
         return null;
       },
-      decoration: InputDecoration(
-        labelText: label,
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        filled: true,
-        fillColor: colors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
-        suffixIcon: IconButton(
+      suffixIcon: IconButton(
           onPressed: onToggleVisibility,
           icon: Icon(
             obscureText
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: colors.onSurfaceVariant,
           ),
           tooltip: obscureText ? "Show $label" : "Hide $label",
-        ),
       ),
     );
   }

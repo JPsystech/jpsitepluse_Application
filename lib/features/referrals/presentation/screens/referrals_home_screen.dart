@@ -14,6 +14,7 @@ import 'package:sitepulse_engineer/features/referrals/presentation/widgets/refer
 import 'package:sitepulse_engineer/features/referrals/presentation/widgets/reward_card.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
 import 'package:sitepulse_engineer/shared/widgets/shimmer_box.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
 
 class ReferralsHomeScreen extends StatelessWidget {
   final int initialTabIndex;
@@ -196,11 +197,11 @@ class _ReferralsHomeViewState extends State<_ReferralsHomeView>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // Search bar
-          TextField(
+          AppTextField(
             controller: _searchController,
+            label: 'Search openings',
             onChanged: _onSearchChanged,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search_rounded),
+            prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded),
@@ -210,15 +211,6 @@ class _ReferralsHomeViewState extends State<_ReferralsHomeView>
                       },
                     )
                   : null,
-              filled: true,
-              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
           ),
           const SizedBox(height: 16),
 

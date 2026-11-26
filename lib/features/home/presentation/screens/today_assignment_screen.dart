@@ -28,6 +28,7 @@ import 'package:sitepulse_engineer/features/timesheet/data/services/site_photo_s
 import 'package:sitepulse_engineer/core/error/error_handler.dart';
 import 'package:sitepulse_engineer/shared/widgets/error_state_view.dart';
 import 'package:sitepulse_engineer/shared/widgets/location_disclosure_dialog.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
 import 'package:sitepulse_engineer/core/router/app_routes.dart';
 import 'package:sitepulse_engineer/core/services/offline_timesheet_queue.dart';
 import 'package:sitepulse_engineer/core/services/shift_action_service.dart';
@@ -251,13 +252,10 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                     ),
               ),
               const SizedBox(height: 24),
-              TextField(
+              AppTextField(
                 controller: controller,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: "Reason for exception punch",
-                  filled: true,
-                ),
+                label: "Reason for exception punch",
               ),
               const SizedBox(height: 24),
               Row(
@@ -1857,14 +1855,7 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
                 ),
           ),
           const SizedBox(height: 24),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: "Remarks (required)",
-              filled: true,
-            ),
-          ),
+          AppTextField(label: 'Remarks (required)', controller: _controller, autofocus: true),
           const SizedBox(height: 16),
           if (_selectedFile == null)
             OutlinedButton.icon(

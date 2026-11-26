@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sitepulse_engineer/shared/models/country_code.dart';
+import 'package:sitepulse_engineer/shared/widgets/app_form_fields.dart';
 
 class CountryCodePhoneField extends StatelessWidget {
   final TextEditingController controller;
@@ -59,18 +60,16 @@ class CountryCodePhoneField extends StatelessWidget {
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(dynamicMaxLength),
       ],
-      decoration: InputDecoration(
-        labelText: labelText,
-        hintText: null,
+      decoration: AppFormFieldDecoration.build(
+        context,
+        label: labelText,
+        hintText: hintText,
         floatingLabelBehavior: alwaysFloatLabel
             ? FloatingLabelBehavior.always
             : FloatingLabelBehavior.auto,
-        border: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
-        ),
         prefixIcon: InkWell(
           onTap: enabled ? () => _showCountryPicker(context) : null,
-          borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+          borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(

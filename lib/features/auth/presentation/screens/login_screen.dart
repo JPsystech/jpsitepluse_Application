@@ -15,7 +15,7 @@ import "package:sitepulse_engineer/core/storage/session_store.dart";
 import "package:sitepulse_engineer/core/storage/offline_session_cache.dart";
 import "package:sitepulse_engineer/core/services/push_notification_registration_service.dart";
 import "package:sitepulse_engineer/core/router/app_routes.dart";
-import "package:sitepulse_engineer/shared/widgets/app_text_field.dart";
+import "package:sitepulse_engineer/shared/widgets/app_form_fields.dart";
 import "package:sitepulse_engineer/shared/widgets/primary_button.dart";
 import "package:sitepulse_engineer/shared/utils/dialog_utils.dart";
 import "package:pinput/pinput.dart";
@@ -908,16 +908,12 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                                       const SizedBox(height: 32),
                                       Divider(color: cs.outlineVariant),
                                       const SizedBox(height: 32),
-                                      TextField(
+                                      AppTextField(
                                         controller: serverUrlCtrl,
+                                        label: "Server URL",
+                                        hintText: "Enter API URL",
+                                        prefixIcon: const Icon(Icons.public),
                                         textInputAction: TextInputAction.done,
-                                        clipBehavior: Clip.none,
-                                        decoration: _buildInputDecoration(
-                                          context,
-                                          "Server URL",
-                                          "Enter API URL",
-                                          Icons.public,
-                                        ),
                                       ),
                                       const SizedBox(height: 16),
                                       BlocBuilder<AuthBloc, AuthState>(
@@ -978,11 +974,14 @@ class _LoginScreenViewState extends State<LoginScreenView> {
           ),
         ),
         const SizedBox(height: 40),
-        TextField(
+        AppTextField(
           controller: vendorCodeCtrl,
+          label: "Vendor Code",
+          hintText: "Enter vendor code",
+          prefixIcon: const Icon(Icons.domain_outlined),
+          errorText: vendorCodeError,
           textInputAction: TextInputAction.done,
           textCapitalization: TextCapitalization.characters,
-          clipBehavior: Clip.none,
           onChanged: (_) {
             if (vendorCodeError != null) {
               setState(() => vendorCodeError = null);
@@ -996,13 +995,6 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             }
           },
           onSubmitted: (_) => _nextStep(),
-          decoration: _buildInputDecoration(
-            context,
-            "Vendor Code",
-            "Enter vendor code",
-            Icons.domain_outlined,
-            errorText: vendorCodeError,
-          ),
         ),
         const SizedBox(height: 32),
         if (error != null) _buildError(cs, textTheme),
@@ -1215,10 +1207,13 @@ class _LoginScreenViewState extends State<LoginScreenView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        AppTextField(
           controller: empCodeCtrl,
+          label: "Employee Code",
+          hintText: "Enter your code",
+          prefixIcon: const Icon(Icons.badge_outlined),
+          errorText: empCodeError,
           textInputAction: TextInputAction.next,
-          clipBehavior: Clip.none,
           textCapitalization: TextCapitalization.characters,
           onChanged: (_) {
             if (empCodeError != null) {
@@ -1236,20 +1231,16 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z0-9\-_/]")),
             UpperCaseTextFormatter(),
           ],
-          decoration: _buildInputDecoration(
-            context,
-            "Employee Code",
-            "Enter your code",
-            Icons.badge_outlined,
-            errorText: empCodeError,
-          ),
         ),
         const SizedBox(height: 16),
-        TextField(
+        AppTextField(
           controller: passwordCtrl,
+          label: "Password",
+          hintText: "••••••••",
+          prefixIcon: const Icon(Icons.lock_outline),
+          errorText: passwordError,
           obscureText: obscurePassword,
           textInputAction: TextInputAction.done,
-          clipBehavior: Clip.none,
           onChanged: (_) {
             if (passwordError != null) {
               setState(() => passwordError = null);
@@ -1263,13 +1254,7 @@ class _LoginScreenViewState extends State<LoginScreenView> {
             }
           },
           onSubmitted: (_) => submit(),
-          decoration: _buildInputDecoration(
-            context,
-            "Password",
-            "••••••••",
-            Icons.lock_outline,
-            errorText: passwordError,
-            suffixIcon: IconButton(
+          suffixIcon: IconButton(
               onPressed: () {
                 final currentOffset = passwordCtrl.selection.extentOffset;
                 setState(() => obscurePassword = !obscurePassword);
@@ -1291,7 +1276,6 @@ class _LoginScreenViewState extends State<LoginScreenView> {
                 color: cs.onSurfaceVariant,
               ),
             ),
-          ),
         ),
         const SizedBox(height: 16),
         BlocBuilder<AuthBloc, AuthState>(
@@ -1631,7 +1615,7 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                 AppTextField(
                   label: "New Password",
                   controller: newPasswordCtrl,
-                  hint: "Enter new password",
+                  hintText: "Enter new password",
                   obscureText: true,
                   textInputAction: TextInputAction.next,
                   helperText:
@@ -1641,7 +1625,7 @@ class _ChangePasswordScreenViewState extends State<ChangePasswordScreenView> {
                 AppTextField(
                   label: "Confirm New Password",
                   controller: confirmPasswordCtrl,
-                  hint: "Repeat password",
+                  hintText: "Repeat password",
                   obscureText: true,
                   textInputAction: TextInputAction.done,
 
