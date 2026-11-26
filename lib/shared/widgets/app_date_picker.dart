@@ -7,6 +7,7 @@ Future<DateTime?> showAppDatePicker({
   required DateTime firstDate,
   required DateTime lastDate,
   String? helpText,
+  Widget Function(BuildContext,Widget ?) ? builder,
 }) {
   return showDatePicker(
     context: context,
@@ -14,5 +15,6 @@ Future<DateTime?> showAppDatePicker({
     firstDate: firstDate,
     lastDate: lastDate,
     helpText: helpText,
+    builder: builder
   );
 }

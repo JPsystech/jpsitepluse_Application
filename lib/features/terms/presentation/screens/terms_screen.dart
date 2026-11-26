@@ -34,7 +34,21 @@ class _TermsViewState extends State<_TermsView> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Terms & Conditions")),
+      appBar: AppBar(
+        title: const Text("Terms & Conditions"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: "Log out",
+            onPressed: () async {
+              await SessionStore.clear();
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
+              }
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(18),
