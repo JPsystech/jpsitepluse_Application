@@ -223,7 +223,10 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
     super.dispose();
   }
 
-  Future<String?> _promptExceptionReason(BuildContext context) async {
+  Future<String?> _promptExceptionReason(
+    BuildContext context, {
+    required bool isPunchOut,
+  }) async {
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -231,48 +234,67 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       showDragHandle: true,
       builder: (ctx) {
         final controller = TextEditingController();
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-              24, 8, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                "Out of Radius",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+        var showReasonError = false;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(
+                24, 8, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  "Out of Radius",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "You are attempting to punch ${isPunchOut ? "out" : "in"} from outside the designated project location. Please provide a reason.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 24),
+                AppTextField(
+                  controller: controller,
+                  autofocus: true,
+                  label:
+                      "Reason for exception punch-${isPunchOut ? "out" : "in"}",
+                  errorText: showReasonError
+                      ? "Please enter the reason for punching ${isPunchOut ? "out" : "in"} outside the allowed radius"
+                      : null,
+                  onChanged: (value) {
+                    if (showReasonError && value.trim().isNotEmpty) {
+                      setSheetState(() => showReasonError = false);
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text("Cancel"),
                     ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "You are attempting to punch from outside the designated project location. Please provide a reason.",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        if (controller.text.trim().isEmpty) {
+                          setSheetState(() => showReasonError = true);
+                          return;
+                        }
+                        Navigator.of(ctx).pop(controller.text.trim());
+                      },
+                      child: const Text("Submit reason"),
                     ),
-              ),
-              const SizedBox(height: 24),
-              AppTextField(
-                controller: controller,
-                autofocus: true,
-                label: "Reason for exception punch",
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text("Cancel"),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(controller.text),
-                    child: const Text("Submit"),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -1071,12 +1093,25 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
                           label: "Work Update",
                           onPressed: isPunching
                               ? null
-                              : () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => TimesheetScreen(
-                                        sessionToken: widget.sessionToken,
-                                        engineerEmpCode: widget.engineerEmpCode,
+                              : () => showModalBottomSheet<void>(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    useSafeArea: true,
+                                    showDragHandle: true,
+                                    clipBehavior: Clip.antiAlias,
+                                    constraints: BoxConstraints(
+                                      maxHeight:
+                                          MediaQuery.sizeOf(context).height *
+                                              0.94,
+                                    ),
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(24),
                                       ),
+                                    ),
+                                    builder: (sheetContext) => TimesheetScreen(
+                                      sessionToken: widget.sessionToken,
+                                      engineerEmpCode: widget.engineerEmpCode,
                                     ),
                                   ),
                           icon: Icons.edit_note_rounded,
@@ -1543,7 +1578,10 @@ class _TodayAssignmentScreenViewState extends State<TodayAssignmentScreenView> {
       listener: (context, state) {
         if (state is AttendanceError) {
           if (state.message == 'OUT_OF_RADIUS_REASON_REQUIRED') {
-            _promptExceptionReason(context).then((reason) {
+            _promptExceptionReason(
+              context,
+              isPunchOut: isPunchingOutForException,
+            ).then((reason) {
               if (reason != null &&
                   reason.trim().isNotEmpty &&
                   selectedProjectIdForException != null) {
@@ -1794,6 +1832,7 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
   final _controller = TextEditingController();
   File? _selectedFile;
   bool _isPickingFile = false;
+  bool _showRemarksError = false;
 
   @override
   void dispose() {
@@ -1855,7 +1894,19 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
                 ),
           ),
           const SizedBox(height: 24),
-          AppTextField(label: 'Remarks (required)', controller: _controller, autofocus: true),
+          AppTextField(
+            label: 'Remarks (required)',
+            controller: _controller,
+            autofocus: true,
+            errorText: _showRemarksError
+                ? 'Remarks are required to punch out.'
+                : null,
+            onChanged: (value) {
+              if (_showRemarksError && value.trim().isNotEmpty) {
+                setState(() => _showRemarksError = false);
+              }
+            },
+          ),
           const SizedBox(height: 16),
           if (_selectedFile == null)
             OutlinedButton.icon(
@@ -1919,8 +1970,7 @@ class _PunchOutBottomSheetState extends State<_PunchOutBottomSheet> {
           FilledButton(
             onPressed: () {
               if (_controller.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Remarks are required")));
+                setState(() => _showRemarksError = true);
                 return;
               }
               Navigator.of(context).pop((

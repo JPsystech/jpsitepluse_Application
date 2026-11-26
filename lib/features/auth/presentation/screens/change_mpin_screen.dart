@@ -17,7 +17,7 @@ class ChangeMpinScreen extends StatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.62),
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.94),
       builder: (_) => const ChangeMpinScreen(isSheet: true),
     );
   }
@@ -160,14 +160,12 @@ class _ChangeMpinScreenState extends State<ChangeMpinScreen> {
         break;
     }
 
-    return Scaffold(
-      appBar: widget.isSheet ? null : AppBar(title: const Text("Change MPIN")),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+    final content = SafeArea(
+      top: !widget.isSheet,
+      child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(24, widget.isSheet ? 8 : 24, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Icon(
@@ -291,8 +289,15 @@ class _ChangeMpinScreenState extends State<ChangeMpinScreen> {
               ],
             ),
           ),
-        ),
-      ),
+      );
+
+    if (widget.isSheet) {
+      return Material(color: cs.surface, child: content);
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Change MPIN")),
+      body: content,
     );
   }
 }

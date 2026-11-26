@@ -200,6 +200,11 @@ Future<void> _recordBatteryOptimizationStatus({String? attendanceLogId}) async {
             'Android battery optimization is enabled for this app and may delay background tracking.',
       );
     }
+  } on MissingPluginException {
+    // This channel is registered by MainActivity, which is not attached to
+    // the background-service isolate. Battery-optimization diagnostics are
+    // optional, so continue tracking when the host channel is unavailable.
+    // Intentionally ignored: the foreground app performs this diagnostic.
   } on PlatformException catch (error) {
     if (kDebugMode) {
       debugPrint('[BackgroundService] Battery optimization check failed: $error');

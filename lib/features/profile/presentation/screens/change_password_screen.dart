@@ -1,45 +1,26 @@
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
-
 import "package:sitepulse_engineer/features/profile/presentation/bloc/change_password_bloc.dart";
 import "package:sitepulse_engineer/shared/widgets/app_form_fields.dart";
 
 class ChangePasswordScreen extends StatelessWidget {
   const ChangePasswordScreen({super.key, required this.sessionToken});
-
   final String sessionToken;
 
-  static Future<void> show(BuildContext context, {required String sessionToken}) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.70,
-      ),
-      builder: (_) => BlocProvider(
-        create: (_) => ChangePasswordBloc(),
-        child: _ChangePasswordView(sessionToken: sessionToken, isSheet: true),
-      ),
-    );
-  }
+  static Future<void> show(BuildContext context, {required String sessionToken}) => showModalBottomSheet<void>(
+        context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .94),
+        builder: (_) => BlocProvider(create: (_) => ChangePasswordBloc(), child: _ChangePasswordView(sessionToken: sessionToken, isSheet: true)),
+      );
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ChangePasswordBloc(),
-      child: _ChangePasswordView(sessionToken: sessionToken),
-    );
-  }
+  Widget build(BuildContext context) => BlocProvider(create: (_) => ChangePasswordBloc(), child: _ChangePasswordView(sessionToken: sessionToken));
 }
 
 class _ChangePasswordView extends StatefulWidget {
+  const _ChangePasswordView({required this.sessionToken, this.isSheet = false});
   final String sessionToken;
   final bool isSheet;
-
-  const _ChangePasswordView({required this.sessionToken, this.isSheet = false});
-
   @override
   State<_ChangePasswordView> createState() => _ChangePasswordViewState();
 }
@@ -49,164 +30,73 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
   final currentCtrl = TextEditingController();
   final newCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
-
-  bool _obscureCurrent = true;
-  bool _obscureNew = true;
-  bool _obscureConfirm = true;
+  bool _obscureCurrent = true, _obscureNew = true, _obscureConfirm = true;
 
   @override
-  void dispose() {
-    currentCtrl.dispose();
-    newCtrl.dispose();
-    confirmCtrl.dispose();
-    super.dispose();
-  }
+  void dispose() { currentCtrl.dispose(); newCtrl.dispose(); confirmCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<ChangePasswordBloc, ChangePasswordState>(
-      listener: (context, state) {
-        if (state is ChangePasswordSuccess) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text("Password updated")));
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        appBar: widget.isSheet ? null : AppBar(title: const Text("Change Password")),
-        body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              18,
-              widget.isSheet ? 8 : 18,
-              18,
-              18 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: ListView(
-              children: [
+    final content = SafeArea(
+      top: !widget.isSheet,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(18, widget.isSheet ? 8 : 18, 18, 18 + MediaQuery.viewInsetsOf(context).bottom),
+        child: BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
+          builder: (context, state) {
+            final submitting = state is ChangePasswordSubmitting;
+            final error = state is ChangePasswordError ? state.message : null;
+            return Form(
+              key: _formKey,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (widget.isSheet) ...[
                   Text("Change Password", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text("Choose a strong new password for your account.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 20),
                 ],
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
-                        builder: (context, state) {
-                      final isSubmitting = state is ChangePasswordSubmitting;
-                      final error =
-                          state is ChangePasswordError ? state.message : null;
-
-                      return Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                          _passwordField(
-                            label: "Current password",
-                            controller: currentCtrl,
-                            action: TextInputAction.next,
-                            obscureText: _obscureCurrent,
-                            onToggleVisibility: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                          ),
-                          const SizedBox(height: 12),
-                          _passwordField(
-                            label: "New password",
-                            controller: newCtrl,
-                            action: TextInputAction.next,
-                            minLength: true,
-                            obscureText: _obscureNew,
-                            onToggleVisibility: () => setState(() => _obscureNew = !_obscureNew),
-                          ),
-                          const SizedBox(height: 12),
-                          _passwordField(
-                            label: "Confirm new password",
-                            controller: confirmCtrl,
-                            action: TextInputAction.done,
-                            confirm: true,
-                            obscureText: _obscureConfirm,
-                            onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                          ),
-                          if (error != null) ...[
-                            const SizedBox(height: 12),
-                            Text(error,
-                                style: const TextStyle(
-                                    color: Color(0xFF9F1239),
-                                    fontWeight: FontWeight.w700)),
-                          ],
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
-                                child: const Text("Cancel"),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                ),
-                                onPressed: isSubmitting ? null : () {
-                                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                                  context.read<ChangePasswordBloc>().add(ChangePasswordSubmitted(
-                                    sessionToken: widget.sessionToken,
-                                    currentPassword: currentCtrl.text.trim(),
-                                    newPassword: newCtrl.text.trim(),
-                                    confirmPassword: confirmCtrl.text.trim(),
-                                  ));
-                                },
-                                child: isSubmitting
-                                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Text("Submit"),
-                              ),
-                            ],
-                          ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ),
-              ],
-            ),
-          ),
+                _field("Current password", currentCtrl, TextInputAction.next, _obscureCurrent, () => setState(() => _obscureCurrent = !_obscureCurrent)),
+                const SizedBox(height: 12),
+                _field("New password", newCtrl, TextInputAction.next, _obscureNew, () => setState(() => _obscureNew = !_obscureNew), minLength: true),
+                const SizedBox(height: 12),
+                _field("Confirm new password", confirmCtrl, TextInputAction.done, _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm), confirm: true),
+                if (error != null) ...[const SizedBox(height: 12), Text(error, style: const TextStyle(color: Color(0xFF9F1239), fontWeight: FontWeight.w700))],
+                const SizedBox(height: 16),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  TextButton(onPressed: submitting ? null : () => Navigator.of(context).pop(), child: const Text("Cancel")),
+                  const SizedBox(width: 8),
+                  FilledButton(onPressed: submitting ? null : _submit, child: submitting ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text("Submit")),
+                ]),
+              ]),
+            );
+          },
         ),
       ),
     );
-  }
-
-  Widget _passwordField({
-    required String label,
-    required TextEditingController controller,
-    required TextInputAction action,
-    required bool obscureText,
-    required VoidCallback onToggleVisibility,
-    bool minLength = false,
-    bool confirm = false,
-  }) {
-    return AppTextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      textInputAction: action,
-      label: label,
-      validator: (value) {
-        final text = (value ?? "").trim();
-        if (text.isEmpty) return "Please enter $label";
-        if (minLength && text.length < 8) return "Password must be at least 8 characters";
-        if (confirm && text != newCtrl.text) return "Passwords do not match";
-        return null;
+    return BlocListener<ChangePasswordBloc, ChangePasswordState>(
+      listener: (context, state) {
+        if (state is ChangePasswordSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password updated")));
+          Navigator.of(context).pop();
+        }
       },
-      suffixIcon: IconButton(
-          onPressed: onToggleVisibility,
-          icon: Icon(
-            obscureText
-                ? Icons.visibility_off_outlined
-                : Icons.visibility_outlined,
-          ),
-          tooltip: obscureText ? "Show $label" : "Hide $label",
-      ),
+      child: widget.isSheet ? Material(color: Theme.of(context).colorScheme.surface, child: content) : Scaffold(appBar: AppBar(title: const Text("Change Password")), body: content),
     );
   }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    context.read<ChangePasswordBloc>().add(ChangePasswordSubmitted(sessionToken: widget.sessionToken, currentPassword: currentCtrl.text.trim(), newPassword: newCtrl.text.trim(), confirmPassword: confirmCtrl.text.trim()));
+  }
+
+  Widget _field(String label, TextEditingController controller, TextInputAction action, bool obscure, VoidCallback toggle, {bool minLength = false, bool confirm = false}) => AppTextFormField(
+        controller: controller, obscureText: obscure, textInputAction: action, label: label,
+        validator: (value) {
+          final text = (value ?? "").trim();
+          if (text.isEmpty) return "Please enter $label";
+          if (minLength && text.length < 8) return "Password must be at least 8 characters";
+          if (confirm && text != newCtrl.text) return "Passwords do not match";
+          return null;
+        },
+        suffixIcon: IconButton(onPressed: toggle, icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined)),
+      );
 }

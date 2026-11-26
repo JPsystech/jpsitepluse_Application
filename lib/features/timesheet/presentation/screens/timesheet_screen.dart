@@ -6,7 +6,6 @@ import "package:flutter_bloc/flutter_bloc.dart";
 import "package:geolocator/geolocator.dart";
 import "package:image_picker/image_picker.dart";
 
-import "package:sitepulse_engineer/core/utils/ist_time.dart";
 import "package:sitepulse_engineer/core/utils/formatters.dart";
 import "package:sitepulse_engineer/core/theme/app_colors_extension.dart";
 import "package:sitepulse_engineer/core/services/offline_punch_queue.dart";
@@ -179,7 +178,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
             : null;
       });
 
-      if (descError != null || photoError != null) return;
+      if (descError != null || photoError != null) {
+        return;
+      }
 
       final loc = await _resolveLocation();
 
@@ -208,34 +209,43 @@ class _TimesheetViewState extends State<_TimesheetView> {
 
   @override
   Widget build(BuildContext context) {
-    final today = IstTime.now();
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        automaticallyImplyLeading: Navigator.of(context).canPop(),
-        backgroundColor: cs.surface,
-        scrolledUnderElevation: 1,
-        toolbarHeight: 80,
-        title: Column(
+    return Material(
+      color: cs.surface,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Work Update",
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Today Work Update",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "Share completed work for today's assignment",
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              "Track all completed work activities",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-            ),
-          ],
-        ),
-        actions: const [],
-      ),
-      body: SafeArea(
-        child: BlocConsumer<TimesheetBloc, TimesheetState>(
+            const Divider(height: 1),
+            Flexible(
+              fit: FlexFit.loose,
+              child: BlocConsumer<TimesheetBloc, TimesheetState>(
           listener: (context, state) {
             if (state.status == TimesheetStatus.submitSuccess) {
               final isOffline = state.uploadedPhotoUrl == "offline_queued";
@@ -273,8 +283,9 @@ class _TimesheetViewState extends State<_TimesheetView> {
                         sessionToken: widget.sessionToken));
                 await Future.delayed(const Duration(milliseconds: 600));
               },
-              child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -310,51 +321,73 @@ class _TimesheetViewState extends State<_TimesheetView> {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Icon(Icons.calendar_today_rounded, size: 16, color: cs.primary),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    AppFormatters.formatDate(today),
-                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (isLoading)
-                              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          pn.isEmpty ? "-" : pn,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: cs.onSurface),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.location_on_rounded, size: 18, color: cs.onSurfaceVariant),
-                            const SizedBox(width: 6),
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: cs.primaryContainer,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.assignment_turned_in_outlined,
+                                size: 20,
+                                color: cs.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                sn.isEmpty ? "-" : sn,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, height: 1.4),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (isLoading)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: cs.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  Text(
+                                    pn.isEmpty ? "-" : pn,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: cs.onSurface,
+                                        ),
+                                  ),
+                                  Text(
+                                    sn.isEmpty ? "-" : sn,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: cs.onSurfaceVariant),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -362,13 +395,19 @@ class _TimesheetViewState extends State<_TimesheetView> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: state.isPunchedIn
-                        ? _buildWorkDetailsList(context, isSubmitting, isLoading, pn, sn)
-                        : Center(
+                  const SizedBox(height: 16),
+                  if (state.isPunchedIn)
+                    _buildWorkDetailsList(
+                      context,
+                      isSubmitting,
+                      isLoading,
+                      pn,
+                      sn,
+                    )
+                  else
+                    Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons.assignment_late_rounded,
@@ -391,16 +430,17 @@ class _TimesheetViewState extends State<_TimesheetView> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 64), // extra space for bottom padding
                               ],
                             ),
                           ),
-                  ),
                 ],
               ),
               )
             );
-          },
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -409,33 +449,33 @@ class _TimesheetViewState extends State<_TimesheetView> {
   Widget _buildWorkDetailsList(BuildContext context, bool isSubmitting, bool isLoading, String pn, String sn) {
     final cs = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 40),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           "Work Description",
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         AppTextArea(
           label: "Work description",
           controller: descriptionCtrl,
           onChanged: (_) => setState(() => descError = null),
           errorText: descError,
-          minLines: 4,
-          maxLines: 4,
+          minLines: 3,
+          maxLines: 3,
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
         Text(
           "Site Photo / PDF Report",
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
             border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
           ),
           child: Column(
@@ -443,17 +483,17 @@ class _TimesheetViewState extends State<_TimesheetView> {
             children: [
               if (photo == null && uploadedPhotoUrl == null)
                 Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(16),
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.add_photo_alternate_rounded, size: 48, color: cs.primary.withValues(alpha: 0.5)),
-                        const SizedBox(height: 16),
+                        Icon(Icons.add_photo_alternate_rounded, size: 36, color: cs.primary.withValues(alpha: 0.5)),
+                        const SizedBox(height: 10),
                         Text(
                           "No photo or PDF report selected",
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         Wrap(
                           alignment: WrapAlignment.center,
                           spacing: 12,
@@ -464,7 +504,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                               icon: const Icon(Icons.camera_alt_rounded),
                               label: const Text("Capture Photo"),
                               style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
@@ -473,7 +513,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                               icon: const Icon(Icons.picture_as_pdf_rounded),
                               label: const Text("Upload PDF"),
                               style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
@@ -485,7 +525,7 @@ class _TimesheetViewState extends State<_TimesheetView> {
                 )
               else
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                   child: Stack(
                     children: [
                       if (photo != null && photo!.path.toLowerCase().endsWith('.pdf'))
@@ -628,17 +668,37 @@ class _TimesheetViewState extends State<_TimesheetView> {
             ],
           ),
         ),
-        const SizedBox(height: 32),
-        SizedBox(
-          height: 56,
-          child: FilledButton.icon(
-            onPressed: isSubmitting ? null : submit,
-            icon: isSubmitting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
-            label: Text(isSubmitting ? "Submitting..." : "Submit Work Update", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.of(context).maybePop(),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text("Cancel"),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: SizedBox(
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: isSubmitting ? null : submit,
+                  icon: isSubmitting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
+                  label: Text(isSubmitting ? "Submitting..." : "Submit Work Update", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
