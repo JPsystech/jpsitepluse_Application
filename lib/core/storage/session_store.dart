@@ -29,21 +29,10 @@ class SessionStore {
   }
 
   static Future<void> load() async {
-    // 1. Try reading from SafeSecureStorage
+    // Authentication tokens may only be read from platform secure storage.
     String? raw = await SafeSecureStorage.read(key: _key);
-
-    // 2. Migration/fallback: check SharedPreferences if not in secure storage
-    if (raw == null || raw.trim().isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      raw = prefs.getString(_key);
-      if (raw != null && raw.trim().isNotEmpty) {
-        // Migration: Move legacy session to secure storage and delete from SharedPreferences if write succeeds
-        final migrated = await SafeSecureStorage.write(key: _key, value: raw);
-        if (migrated) {
-          await prefs.remove(_key);
-        }
-      }
-    }
+    final legacyPrefs = await SharedPreferences.getInstance();
+    await legacyPrefs.remove(_key);
 
     if (raw == null || raw.trim().isEmpty) {
       current = null;
@@ -85,13 +74,14 @@ class SessionStore {
 
     try {
       final encoded = jsonEncode(session.toJson());
-      // Save token & session to secure storage, falling back to SharedPreferences if Keychain fails
+      // Never persist bearer tokens outside platform secure storage.
       final wroteSecure = await SafeSecureStorage.write(key: _key, value: encoded);
-      final prefs = await SharedPreferences.getInstance();
       if (wroteSecure) {
+        final prefs = await SharedPreferences.getInstance();
         await prefs.remove(_key);
       } else {
-        await prefs.setString(_key, encoded);
+        await _clearStorage();
+        throw StateError("Secure storage is unavailable. Please sign in again.");
       }
     } catch (_) {}
 
