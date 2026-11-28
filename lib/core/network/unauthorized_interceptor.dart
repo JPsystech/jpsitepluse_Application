@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart' as import_shared_pre
 import 'package:sitepulse_engineer/core/storage/session_store.dart';
 import 'package:sitepulse_engineer/core/storage/mpin_store.dart' as import_mpin_store;
 import 'package:sitepulse_engineer/core/storage/credential_store.dart' as import_cred_store;
+import 'package:sitepulse_engineer/core/router/app_routes.dart';
+import 'package:sitepulse_engineer/core/router/navigation_service.dart';
 
 class UnauthorizedInterceptor extends Interceptor {
   static bool _isHandlingUnauthorized = false;
@@ -22,7 +24,6 @@ class UnauthorizedInterceptor extends Interceptor {
     '/api/v1/engineer/change-password',
     '/api/v1/engineer/reset-mpin',
     '/api/v1/engineer/login',
-    '/api/v1/engineer/accept-terms',
   };
 
   static bool _isExcluded(RequestOptions options) {
@@ -74,6 +75,7 @@ class UnauthorizedInterceptor extends Interceptor {
           } catch (_) {}
 
           await SessionStore.expireSession(reason);
+          NavigationService.navigateToAndClear(AppRoutes.login);
         }
       }
     }

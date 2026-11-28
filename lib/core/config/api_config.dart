@@ -40,7 +40,7 @@ const String _apiBaseUrlOverride =
 const String _pcIpOverride = String.fromEnvironment("PC_IP", defaultValue: "");
 
 const String emulatorApiBaseUrl = "http://10.0.2.2:8011";
-const String iosSimulatorApiBaseUrl = "http://192.168.1.4:8011";
+const String iosSimulatorApiBaseUrl = "http://192.168.1.27:8011";
 
 Future<String>? _resolvedApiBaseUrl;
 String? _syncBaseUrl;
